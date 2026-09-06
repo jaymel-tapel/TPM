@@ -1,0 +1,7 @@
+@import "tailwindcss";
+
+/* The design system: tokens, semantic mapping and base layer. */
+@import "@meridian/ui/styles.css";
+
+/* Tailwind must scan the design-system package for class names as well. */
+@source "../../../../packages/ui/src";

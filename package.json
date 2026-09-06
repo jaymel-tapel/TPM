@@ -1,0 +1,26 @@
+{
+  "name": "meridian",
+  "private": true,
+  "packageManager": "pnpm@10.19.0",
+  "scripts": {
+    "dev": "pnpm --filter @meridian/web dev",
+    "build": "pnpm --filter @meridian/web build",
+    "start": "pnpm --filter @meridian/web start",
+    "typecheck": "pnpm -r typecheck",
+    "db:generate": "pnpm --filter @meridian/web db:generate",
+    "db:migrate": "pnpm --filter @meridian/web db:migrate",
+    "db:seed": "pnpm --filter @meridian/web db:seed",
+    "db:reset": "pnpm --filter @meridian/web db:reset"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.2"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "@tailwindcss/oxide",
+      "sharp",
+      "unrs-resolver"
+    ]
+  }
+}

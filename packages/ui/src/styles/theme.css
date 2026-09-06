@@ -1,0 +1,293 @@
+/*
+ * Meridian design system — see DESIGN.md at the repo root.
+ * Imported by the app after Tailwind itself.
+ */
+@import "tw-animate-css";
+/* Base UI variants the shadcn "base-nova" primitives rely on (data-open,
+   data-closed, accordion keyframes). Imported by path: the package's exports
+   map exposes it, but Tailwind's CSS resolver does not read exports maps. */
+@import "../../node_modules/shadcn/dist/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+
+/*
+ * ─────────────────────────────────────────────────────────────────────────
+ * Geist design system — see DESIGN.md
+ *
+ * Ten steps per scale, one job per step. The client's brand replaces Geist's
+ * own accent hues; the structure and the role of each step are Geist's.
+ *
+ *   100 subtle bg · 200 subtle bg hover · 300 muted bg · 400 BORDER
+ *   500 border hover / disabled · 600 placeholder · 700 SOLID / secondary text
+ *   800 solid hover · 900 primary text · 1000 high-contrast text
+ *
+ * `static` so every step is emitted even when no utility happens to use it —
+ * the scales must be readable as a system, not just as whatever is in use.
+ * ─────────────────────────────────────────────────────────────────────────
+ */
+@theme static {
+  --color-background-100: #ffffff;
+  --color-background-200: #fafbfc;
+
+  --color-gray-100: #f4f5f7;
+  --color-gray-200: #ebecf0;
+  --color-gray-300: #e1e3e9;
+  --color-gray-400: #d2d5de;
+  --color-gray-500: #b4b8c4;
+  --color-gray-600: #8b90a0;
+  --color-gray-700: #6f7482;
+  --color-gray-800: #4e5361;
+  --color-gray-900: #363b49;
+  --color-gray-1000: #202335;
+
+  --color-blue-100: #f1f5fe;
+  --color-blue-200: #e4ecfd;
+  --color-blue-300: #d0defc;
+  --color-blue-400: #b6ccfb;
+  --color-blue-500: #93b2f9;
+  --color-blue-600: #7099f8;
+  --color-blue-700: #5b88f7; /* brand */
+  --color-blue-800: #4f79e8;
+  --color-blue-900: #3a63c9;
+  --color-blue-1000: #24407f;
+
+  --color-amber-100: #fff8e6;
+  --color-amber-200: #fff0c7;
+  --color-amber-300: #ffe49b;
+  --color-amber-400: #ffd86e;
+  --color-amber-500: #ffc72c; /* brand yellow */
+  --color-amber-600: #e5ae12;
+  --color-amber-700: #b88a00;
+  --color-amber-800: #8f6b00;
+  --color-amber-900: #6b5000;
+  --color-amber-1000: #402f00;
+
+  --color-red-100: #fef3f3;
+  --color-red-200: #fce4e4;
+  --color-red-300: #f8cdcd;
+  --color-red-400: #f2aeae;
+  --color-red-500: #e88a8a;
+  --color-red-600: #de7272;
+  --color-red-700: #d85c5c;
+  --color-red-800: #c44a4a;
+  --color-red-900: #a33a3a;
+  --color-red-1000: #6b2323;
+
+  --color-green-100: #edf7f2;
+  --color-green-200: #d8efe3;
+  --color-green-300: #b9e2ce;
+  --color-green-400: #8fd0b2;
+  --color-green-500: #63bc93;
+  --color-green-600: #4aaf81;
+  --color-green-700: #3ba272;
+  --color-green-800: #328c62;
+  --color-green-900: #29714f;
+  --color-green-1000: #1a4630;
+
+  /* Documented exception: Geist has no dark editorial surface, and the brief
+     requires navy for leadership summaries. Used on that hero and nowhere else. */
+  --color-navy: #2d3148;
+  --color-navy-800: #373c55;
+
+  /* ── Type ramp. Size, leading, weight and tracking travel together. ── */
+  --text-copy-13: 13px;
+  --text-copy-13--line-height: 18px;
+  --text-copy-13--letter-spacing: -0.24px;
+  --text-copy-14: 14px;
+  --text-copy-14--line-height: 20px;
+  --text-copy-14--letter-spacing: -0.16px;
+  --text-copy-16: 16px;
+  --text-copy-16--line-height: 24px;
+  --text-copy-16--letter-spacing: -0.32px;
+
+  --text-label-12: 12px;
+  --text-label-12--line-height: 16px;
+  --text-label-12--letter-spacing: -0.02px;
+  --text-label-12--font-weight: 500;
+  --text-label-14: 14px;
+  --text-label-14--line-height: 20px;
+  --text-label-14--letter-spacing: -0.16px;
+  --text-label-14--font-weight: 500;
+  --text-label-16: 16px;
+  --text-label-16--line-height: 24px;
+  --text-label-16--letter-spacing: -0.32px;
+  --text-label-16--font-weight: 500;
+  --text-label-18: 18px;
+  --text-label-18--line-height: 24px;
+  --text-label-18--letter-spacing: -0.4px;
+  --text-label-18--font-weight: 500;
+  --text-label-20: 20px;
+  --text-label-20--line-height: 26px;
+  --text-label-20--letter-spacing: -0.44px;
+  --text-label-20--font-weight: 500;
+
+  --text-heading-16: 16px;
+  --text-heading-16--line-height: 24px;
+  --text-heading-16--letter-spacing: -0.32px;
+  --text-heading-16--font-weight: 600;
+  --text-heading-20: 20px;
+  --text-heading-20--line-height: 26px;
+  --text-heading-20--letter-spacing: -0.4px;
+  --text-heading-20--font-weight: 600;
+  --text-heading-24: 24px;
+  --text-heading-24--line-height: 32px;
+  --text-heading-24--letter-spacing: -0.58px;
+  --text-heading-24--font-weight: 600;
+  --text-heading-32: 32px;
+  --text-heading-32--line-height: 40px;
+  --text-heading-32--letter-spacing: -1.28px;
+  --text-heading-32--font-weight: 600;
+  --text-heading-40: 40px;
+  --text-heading-40--line-height: 48px;
+  --text-heading-40--letter-spacing: -1.6px;
+  --text-heading-40--font-weight: 600;
+  --text-heading-48: 48px;
+  --text-heading-48--line-height: 56px;
+  --text-heading-48--letter-spacing: -2.16px;
+  --text-heading-48--font-weight: 600;
+  --text-heading-64: 64px;
+  --text-heading-64--line-height: 72px;
+  --text-heading-64--letter-spacing: -3.2px;
+  --text-heading-64--font-weight: 600;
+  --text-heading-72: 72px;
+  --text-heading-72--line-height: 80px;
+  --text-heading-72--letter-spacing: -4.32px;
+  --text-heading-72--font-weight: 600;
+
+  /* Avatar initials at 16px and 24px sit below the ramp's smallest step.
+     Named here rather than left as arbitrary values at the call site. */
+  --text-avatar-xs: 9px;
+  --text-avatar-xs--line-height: 1;
+  --text-avatar-xs--font-weight: 500;
+  --text-avatar-sm: 10px;
+  --text-avatar-sm--line-height: 1;
+  --text-avatar-sm--font-weight: 500;
+
+  --text-button-14: 14px;
+  --text-button-14--line-height: 20px;
+  --text-button-14--letter-spacing: -0.16px;
+  --text-button-14--font-weight: 500;
+
+  /* ── Radius: three steps. ── */
+  --radius-6: 6px;
+  --radius-8: 8px;
+  --radius-12: 12px;
+
+  /* ── Elevation: border first. Shadow only for what truly floats. ── */
+  --shadow-small: 0 1px 2px rgba(32, 35, 53, 0.04);
+  --shadow-medium: 0 4px 8px rgba(32, 35, 53, 0.06);
+  --shadow-large: 0 12px 24px rgba(32, 35, 53, 0.1);
+  --shadow-navy: 0 12px 32px -8px rgba(45, 49, 72, 0.32);
+}
+
+/*
+ * shadcn's semantic names, pointed at the scale above so every Base UI
+ * component inherits the system instead of being re-skinned one at a time.
+ */
+:root {
+  --radius: 8px;
+
+  --background: var(--color-background-200);
+  --foreground: var(--color-gray-1000);
+  --card: var(--color-background-100);
+  --card-foreground: var(--color-gray-1000);
+  --popover: var(--color-background-100);
+  --popover-foreground: var(--color-gray-1000);
+
+  --primary: var(--color-blue-700);
+  --primary-foreground: #ffffff;
+  --secondary: var(--color-gray-100);
+  --secondary-foreground: var(--color-gray-900);
+  --muted: var(--color-gray-100);
+  --muted-foreground: var(--color-gray-700);
+  --accent: var(--color-blue-100);
+  --accent-foreground: var(--color-blue-900);
+  --destructive: var(--color-red-700);
+
+  --border: var(--color-gray-400);
+  --input: var(--color-gray-400);
+  --ring: var(--color-blue-700);
+
+  --chart-1: var(--color-blue-700);
+  --chart-2: var(--color-blue-400);
+  --chart-3: var(--color-gray-500);
+  --chart-4: var(--color-amber-500);
+  --chart-5: var(--color-green-700);
+
+  --sidebar: var(--color-background-100);
+  --sidebar-foreground: var(--color-gray-1000);
+  --sidebar-primary: var(--color-blue-700);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: var(--color-blue-100);
+  --sidebar-accent-foreground: var(--color-blue-900);
+  --sidebar-border: var(--color-gray-400);
+  --sidebar-ring: var(--color-blue-700);
+}
+
+@theme inline {
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-heading: var(--font-geist-sans);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --radius-sm: var(--radius-6);
+  --radius-md: var(--radius-6);
+  --radius-lg: var(--radius-8);
+  --radius-xl: var(--radius-12);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/40;
+  }
+  body {
+    @apply bg-background text-foreground text-copy-14;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
