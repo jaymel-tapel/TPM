@@ -2,7 +2,7 @@ import "server-only";
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
 import { dayRange, now, pct, type Zone } from "@/lib/date";
-import { onTimeIn } from "./sql";
+import { isLeaf, onTimeIn } from "./sql";
 
 export type TeamSummary = {
   id: string;
@@ -51,7 +51,7 @@ export async function getDepartmentToday(
              count(*) filter (where k.due_date >= ${priorStart} and k.due_date < ${weekStart}) as prior_due,
              count(*) filter (where k.due_date >= ${priorStart} and k.due_date < ${weekStart}
                               and ${onTimeIn(zone)}) as prior_done
-      from tasks k group by k.team_id
+      from tasks k where ${isLeaf} group by k.team_id
     )
     select t.id, t.name, d.name as director_name,
            (select count(*) from users u where u.team_id = t.id) as headcount,

@@ -21,6 +21,10 @@ import {
   Eyebrow,
   HeroPanel,
   HighlightMetric,
+  AvailabilityList,
+  AvailabilityRow,
+  LeaveRequestList,
+  LeaveRequestRow,
   MemberList,
   MemberListSkeleton,
   MemberRow,
@@ -38,6 +42,7 @@ import {
   InboxList,
   DayPlan,
   DayStrip,
+  SubtaskList,
   AttachmentList,
   DocBacklinkList,
   DocRefList,
@@ -80,7 +85,10 @@ import {
   INBOX,
   DAY_PLAN,
   DAY_CHIPS,
+  SUBTASKS,
   DAY_PLAN_HOURS,
+  AVAILABILITY,
+  LEAVE_REQUESTS,
 } from "./fixtures";
 import { DocRefListDemo } from "./doc-refs-demo";
 
@@ -603,6 +611,26 @@ export default function DesignSystemPage() {
           </div>
         </Block>
 
+        <Block title="Subtasks" note="The pieces are the work; the whole is a container">
+          <p className="mb-6 max-w-prose text-caption text-gray-700">
+            The brief calls these individual contributions — Anna: Data, James:
+            Slides. They are real tasks with their own owners and deadlines, and
+            the moment a task has any, it stops counting itself: the pieces are
+            what the day counts. So the header carries the only number a
+            container has to report, and the parent quietly leaves every list of
+            work.
+          </p>
+          <div className="grid gap-6 lg:grid-cols-2">
+            <SubtaskList subtasks={SUBTASKS} />
+            <div>
+              <p className="mb-2 text-caption-strong uppercase tracking-[0.08em] text-gray-600">
+                Not broken down
+              </p>
+              <SubtaskList subtasks={[]} />
+            </div>
+          </div>
+        </Block>
+
         <Block title="Day plan" note="What is due, and when you mean to do it">
           <p className="mb-6 max-w-prose text-caption text-gray-700">
             A due time is a deadline; this is an intention, and the two are
@@ -705,6 +733,45 @@ export default function DesignSystemPage() {
               <MemberRow key={m.id} member={m} />
             ))}
           </MemberList>
+        </Block>
+
+        <Block title="Availability" note="Being off is a state, not a warning, so it is grey">
+          <AvailabilityList>
+            {AVAILABILITY.map((p) => (
+              <AvailabilityRow key={p.id} person={p} />
+            ))}
+          </AvailabilityList>
+        </Block>
+
+        <Block title="Leave requests" note="Every state, including the two nobody wants">
+          <div className="space-y-6">
+            <LeaveRequestList empty="Nothing is waiting on you.">
+              {LEAVE_REQUESTS.map((r) => (
+                <LeaveRequestRow key={r.id} request={r} />
+              ))}
+            </LeaveRequestList>
+
+            {/* The same rows with the decision slot filled — the difference
+                between a reader and somebody who has to answer. */}
+            <LeaveRequestList empty="Nothing is waiting on you.">
+              {LEAVE_REQUESTS.slice(0, 1).map((r) => (
+                <LeaveRequestRow
+                  key={r.id}
+                  request={r}
+                  actions={
+                    <>
+                      <Button variant="ghost" size="sm">
+                        Decline
+                      </Button>
+                      <Button size="sm">Approve</Button>
+                    </>
+                  }
+                />
+              ))}
+            </LeaveRequestList>
+
+            <LeaveRequestList empty="You have not filed for any leave." />
+          </div>
         </Block>
 
         <Block title="Change" note="Zero is not an improvement">

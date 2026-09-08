@@ -9,11 +9,13 @@ import {
   taskAssignees,
   taskDocuments,
   tasks,
+  leaveRequests,
   teams,
   users,
 } from "@/db/schema";
 import { toPlainText } from "@meridian/ui/editor";
 import { startOfAppDay } from "@/lib/date";
+import { dayKey } from "@/lib/leave";
 
 export const HOUR = 3_600_000;
 export const DAY = 24 * HOUR;
@@ -51,7 +53,7 @@ export const statusId = (boardId: string, column: Column) =>
 
 export async function resetDb() {
   await db.execute(
-    sql`truncate task_schedule, notifications, task_activity, task_documents, documents, task_tags, task_assignees, task_attachments, tasks, board_statuses, boards, tags, users, teams restart identity cascade`,
+    sql`truncate leave_requests, task_schedule, notifications, task_activity, task_documents, documents, task_tags, task_assignees, task_attachments, tasks, board_statuses, boards, tags, users, teams restart identity cascade`,
   );
 }
 
@@ -105,6 +107,8 @@ export async function addTask(opts: {
   completedHour?: number;
   status?: Column;
   type?: "client_work" | "internal" | "admin" | "review" | "meeting" | "creative";
+  /** Makes this a subtask of that task — and that task a container. */
+  parent?: string;
 }) {
   n += 1;
   const id = `dddddddd-${String(n).padStart(4, "0")}-4000-a000-000000000000`;
@@ -126,6 +130,7 @@ export async function addTask(opts: {
     completedAt,
     createdBy: opts.assignees[0],
     teamId: opts.team,
+    parentId: opts.parent ?? null,
     createdAt: new Date(due.getTime() - DAY),
     updatedAt: due,
   });
@@ -283,5 +288,44 @@ export async function addActivity(opts: {
     subjectName: opts.subjectName ?? null,
     createdAt: new Date(NOW.getTime() - (opts.minutesAgo ?? 0) * 60_000),
   });
+  return id;
+}
+
+/** A calendar day, `n` days from the fixture's today. */
+export const day = (n: number) => dayKey(new Date(TODAY.getTime() + n * DAY));
+
+let leaveN = 0;
+
+/**
+ * File a leave request. Offsets are days from today, the way `addTask`'s
+ * `dueDay` is, so a test reads as "off from tomorrow for three days" rather
+ * than as a date somebody has to work out.
+ */
+export async function addLeave(opts: {
+  user: string;
+  startDay: number;
+  endDay?: number;
+  half?: "am" | "pm";
+  kind?: "vacation" | "sick" | "personal" | "unpaid";
+  status?: "pending" | "approved" | "declined" | "cancelled";
+  decidedBy?: string;
+  note?: string;
+}): Promise<string> {
+  leaveN += 1;
+  const id = `cafecafe-${String(leaveN).padStart(4, "0")}-4000-a000-000000000000`;
+
+  await db.insert(leaveRequests).values({
+    id,
+    userId: opts.user,
+    kind: opts.kind ?? "vacation",
+    startDate: day(opts.startDay),
+    endDate: day(opts.endDay ?? opts.startDay),
+    half: opts.half ?? null,
+    status: opts.status ?? "approved",
+    decidedBy: opts.decidedBy ?? null,
+    decidedAt: opts.status && opts.status === "pending" ? null : new Date(),
+    note: opts.note ?? null,
+  });
+
   return id;
 }

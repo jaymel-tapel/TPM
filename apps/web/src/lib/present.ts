@@ -1,6 +1,10 @@
 import "server-only";
 import type {
   ActivityItemData,
+  SubtaskData,
+  AvailabilityData,
+  AvailabilityRowData,
+  LeaveRequestData,
   PlanBlockData,
   InboxItemData,
   AttentionItemData,
@@ -16,11 +20,14 @@ import type {
   TaskType,
 } from "@meridian/ui";
 import { agoLabel, dueLabel, fmtTime, now, startOfAppDay, type Zone } from "@/lib/date";
+import { dayKey, leaveDays, lengthText, rangeText, spanDays } from "@/lib/leave";
+import type { Role, User } from "@/db/schema";
 import { formatDuration } from "@/lib/duration";
 import { minutesFromMidnight } from "@/lib/plan";
 import type { TaskCard } from "@/queries/sql";
 import type { BoardView } from "@/queries/tasks";
 import type { MemberRollup } from "@/queries/team";
+import type { AwayMark, LeaveRow } from "@/queries/leave";
 import type { AttentionItem } from "@/queries/attention";
 import type { ActivityEntry } from "@/queries/activity";
 import type { InboxEntry } from "@/queries/notifications";
@@ -65,8 +72,118 @@ export function toTaskRow(
   };
 }
 
-export function toMemberRow(member: MemberRollup, hrefBase = "/team"): MemberRowData {
-  return { ...member, href: `${hrefBase}/${member.id}` };
+/* ── Leave and availability ─────────────────────────────────────────────── */
+
+const HALF_LABEL = { am: "Away this morning", pm: "Away this afternoon" } as const;
+
+/**
+ * The away marker, with its sentence already written.
+ *
+ * `@meridian/ui` has no calendar, so "Away until Fri 18 Sep" is composed here
+ * — the same seam `dueLabel` draws for a task. The run's end is only mentioned
+ * when it is still ahead: on the last day of somebody's leave, "away until
+ * today" is a worse sentence than "away today".
+ */
+export function toAvailability(
+  away: AwayMark | null,
+  reference: Date = now(),
+  zone?: Zone,
+): AvailabilityData | null {
+  if (!away) return null;
+  if (away.away !== "full") {
+    return { away: away.away, kind: away.kind, label: HALF_LABEL[away.away] };
+  }
+
+  const today = dayKey(reference, zone);
+  const label =
+    away.endDate > today
+      ? `Away until ${rangeText(away.endDate, away.endDate)}`
+      : "Away today";
+  return { away: "full", kind: away.kind, label };
+}
+
+export function toAvailabilityRow(
+  person: { id: string; name: string; role: Role },
+  away: AwayMark | null,
+  href: string | null,
+  reference: Date = now(),
+  zone?: Zone,
+): AvailabilityRowData {
+  return {
+    id: person.id,
+    name: person.name,
+    role: person.role,
+    href,
+    away: toAvailability(away, reference, zone),
+  };
+}
+
+/**
+ * A request as a row reads it.
+ *
+ * `cancellable` and the decision sentence are resolved here because both are
+ * questions about who is looking and what day it is, and the design system
+ * knows neither.
+ */
+export function toLeaveRequest(
+  row: LeaveRow,
+  viewer: User,
+  reference: Date = now(),
+  zone?: Zone,
+): LeaveRequestData {
+  const today = dayKey(reference, zone);
+
+  const decisionText =
+    row.status === "pending"
+      ? row.role === "account_director"
+        ? "Waiting on the Senior Director"
+        : "Waiting on the Account Director"
+      : row.decidedByName
+        ? `${LEAVE_DECISION_VERB[row.status]} by ${row.decidedByName}`
+        : row.status === "approved"
+          ? "Recorded"
+          : null;
+
+  return {
+    id: row.id,
+    personName: row.userName,
+    kind: row.kind,
+    status: row.status,
+    rangeText: rangeText(row.startDate, row.endDate),
+    lengthText: lengthText(
+      leaveDays(row.startDate, row.endDate, row.half),
+      row.half,
+      spanDays(row.startDate, row.endDate),
+    ),
+    note: row.note,
+    decisionText,
+    // Yours to withdraw, while there is still something to withdraw. Leave
+    // already taken stays on the record.
+    cancellable:
+      row.userId === viewer.id &&
+      (row.status === "pending" || row.status === "approved") &&
+      row.endDate >= today,
+  };
+}
+
+const LEAVE_DECISION_VERB = {
+  approved: "Approved",
+  declined: "Declined",
+  cancelled: "Cancelled",
+  pending: "",
+} as const;
+
+export function toMemberRow(
+  member: MemberRollup,
+  hrefBase = "/team",
+  reference: Date = now(),
+  zone?: Zone,
+): MemberRowData {
+  return {
+    ...member,
+    href: `${hrefBase}/${member.id}`,
+    away: toAvailability(member.away, reference, zone),
+  };
 }
 
 export function toAttentionItem(item: AttentionItem): AttentionItemData {
@@ -219,5 +336,19 @@ export function toPlanBlock(entry: PlanEntry, zone?: Zone): PlanBlockData {
     startMinutes: minutesFromMidnight(entry.startsAt, zone),
     minutes: entry.minutes,
     timeText: fmtTime(entry.startsAt, zone),
+  };
+}
+
+/** One piece of a broken-down task, ready to render. */
+export function toSubtask(task: TaskCard, reference: Date = now(), zone?: Zone): SubtaskData {
+  const done = task.completedAt !== null;
+  return {
+    id: task.id,
+    href: `/tasks/${task.id}`,
+    title: task.title,
+    done,
+    dueText: dueLabel(task.dueDate, reference, zone),
+    overdue: !done && task.dueDate < startOfAppDay(reference, zone),
+    assignees: task.assignees,
   };
 }

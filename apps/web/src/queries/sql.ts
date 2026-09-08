@@ -54,6 +54,21 @@ export const onTimeIn = (zone: string = TZ) =>
  * Overdue means carried over from an earlier day. Today's unfinished work is
  * "remaining", not overdue — otherwise every evening reads as a crisis.
  */
+/**
+ * A task nobody has broken down — the unit of work.
+ *
+ * Every count and every list of work is filtered by this, so that splitting a
+ * task into three parts changes what the day *looks like* without changing how
+ * much there is to do. A task with children is a container; its children are
+ * the work.
+ *
+ * It has to be applied in two places, not one. `runTaskQuery` covers the
+ * lists, but `team.ts`, `department.ts`, `reports.ts` and `attention.ts` each
+ * write `from tasks k` directly — so filtering the shared path alone would fix
+ * every list and leave every number wrong.
+ */
+export const isLeaf = sql`not exists (select 1 from tasks c where c.parent_id = k.id)`;
+
 export const overdueSql = (todayStart: Date): SQL =>
   sql`(k.due_date < ${todayStart} and k.completed_at is null)`;
 
@@ -72,6 +87,12 @@ export type TaskCard = {
   boardId: string;
   boardName: string;
   createdBy: string;
+  /** The task this is a piece of, and its title for the breadcrumb. */
+  parentId: string | null;
+  parentTitle: string | null;
+  /** How many pieces this task was broken into, and how many are finished. */
+  childCount: number;
+  childrenDone: number;
   /**
    * The column this task is in. `name` is whatever the board's owner called
    * it; `kind` is the only part any query is allowed to reason about.
@@ -95,6 +116,10 @@ export const taskCardSelect = sql`
   k.due_date as "dueDate", k.completed_at as "completedAt",
   k.estimate_minutes as "estimateMinutes", k.actual_minutes as "actualMinutes",
   k.team_id as "teamId", k.created_by as "createdBy",
+  k.parent_id as "parentId",
+  (select p.title from tasks p where p.id = k.parent_id) as "parentTitle",
+  (select count(*) from tasks c where c.parent_id = k.id)::int as "childCount",
+  (select count(*) from tasks c where c.parent_id = k.id and c.completed_at is not null)::int as "childrenDone",
   k.board_id as "boardId", b.name as "boardName",
   k.status_id as "statusId", s.name as "statusName", s.kind as "statusKind",
   coalesce(

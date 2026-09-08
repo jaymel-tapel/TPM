@@ -99,6 +99,18 @@ export type PlanBlockData = {
   timeText: string;
 };
 
+/** One piece a task was broken into. */
+export type SubtaskData = {
+  id: string;
+  href: string;
+  title: string;
+  done: boolean;
+  /** Already formatted; this package has no clock. */
+  dueText: string;
+  overdue: boolean;
+  assignees: Person[];
+};
+
 /** What a task row needs. Due text and overdue are resolved by the app, which
  *  owns the clock and the timezone. */
 export type TaskRowData = {
@@ -117,6 +129,18 @@ export type TaskRowData = {
   docs: number;
 };
 
+/**
+ * Whether somebody is at work, as a row shows it.
+ *
+ * `label` is already written — this package has no calendar, so "Away until
+ * Friday" is the app's sentence, the same seam `TaskRowData.dueText` draws.
+ */
+export type AvailabilityData = {
+  away: "full" | "am" | "pm";
+  kind: LeaveKind;
+  label: string;
+};
+
 export type MemberRowData = {
   id: string;
   href: string;
@@ -127,7 +151,70 @@ export type MemberRowData = {
   overdue: number;
   remaining: number;
   percent: number;
+  /**
+   * Null when they are in.
+   *
+   * Shown, never subtracted. A percentage for a day somebody was not working
+   * is not a fact about them, so the row quietens it — but it is the same
+   * number the rollup counted, because completion has exactly one definition
+   * and leave is not allowed to become a second one.
+   */
+  away?: AvailabilityData | null;
 };
+
+/**
+ * A roster row for a reader who is not a director.
+ *
+ * It carries no numbers. A team member sees who is in, not how their
+ * colleagues are doing — that is the rollup, and `canViewTeam` refuses them
+ * it. `href` is nullable for the same reason: a member may open their own day
+ * and nobody else's, so most of these rows are not links.
+ */
+export type AvailabilityRowData = {
+  id: string;
+  name: string;
+  role: Role;
+  href: string | null;
+  away: AvailabilityData | null;
+};
+
+export type LeaveKind = "vacation" | "sick" | "personal" | "unpaid";
+export type LeaveStatus = "pending" | "approved" | "declined" | "cancelled";
+
+/** A request, with every date already turned into words by the app. */
+export type LeaveRequestData = {
+  id: string;
+  personName: string;
+  kind: LeaveKind;
+  status: LeaveStatus;
+  /** "12–16 Oct" */
+  rangeText: string;
+  /** "5 days" · "Half day (PM)" */
+  lengthText: string;
+  /** Withheld from anyone but the filer and whoever decides it. */
+  note: string | null;
+  /** "Approved by Sarah Lim" · "Waiting on the Senior Director" */
+  decisionText: string | null;
+  /** Whether this reader may withdraw it. */
+  cancellable: boolean;
+};
+
+export const LEAVE_KIND_LABELS: Record<LeaveKind, string> = {
+  vacation: "Vacation",
+  sick: "Sick",
+  personal: "Personal",
+  unpaid: "Unpaid",
+};
+
+export const LEAVE_STATUS_LABELS: Record<LeaveStatus, string> = {
+  pending: "Pending",
+  approved: "Approved",
+  declined: "Declined",
+  cancelled: "Cancelled",
+};
+
+export const LEAVE_KINDS = Object.keys(LEAVE_KIND_LABELS) as LeaveKind[];
+export const LEAVE_STATUSES = Object.keys(LEAVE_STATUS_LABELS) as LeaveStatus[];
 
 export type AttentionItemData = {
   severity: "high" | "medium";

@@ -11,6 +11,7 @@ import {
   overdueSql,
   scopeSql,
   taskCardFrom,
+  isLeaf,
   taskCardSelect,
   taskOrder,
   userScope,
@@ -18,13 +19,26 @@ import {
   type TaskCard,
 } from "./sql";
 
+/**
+ * Lists of work. Containers are excluded by default — a task somebody has
+ * broken into pieces is not itself a thing to do, and its children stand in
+ * for it everywhere.
+ *
+ * `containers: true` is for the one caller that means a specific task rather
+ * than a list of work: opening a parent's own page.
+ */
 async function runTaskQuery(
   where: ReturnType<typeof sql>,
   limit = 300,
   order = taskOrder,
+  { containers = false }: { containers?: boolean } = {},
 ) {
   const result = await db.execute(
-    sql`select ${taskCardSelect} ${taskCardFrom} where ${where} order by ${order} limit ${limit}`,
+    // `isLeaf` here covers every list; the raw counters in team.ts,
+    // department.ts, reports.ts and attention.ts each apply it themselves.
+    sql`select ${taskCardSelect} ${taskCardFrom}
+        where ${where} ${containers ? sql`` : sql`and ${isLeaf}`}
+        order by ${order} limit ${limit}`,
   );
 
   /*
@@ -178,8 +192,12 @@ export async function listTasks(
   return runTaskQuery(sql.join(clauses, sql` and `));
 }
 
+/**
+ * One task by id, container or not — the detail page has to open a parent as
+ * readily as a leaf.
+ */
 export async function getTaskCard(taskId: string): Promise<TaskCard | null> {
-  const rows = await runTaskQuery(sql`k.id = ${taskId}`, 1);
+  const rows = await runTaskQuery(sql`k.id = ${taskId}`, 1, taskOrder, { containers: true });
   return rows[0] ?? null;
 }
 
@@ -284,4 +302,15 @@ export async function listBoardsForUser(user: {
     .innerJoin(teams, eq(teams.id, boards.teamId))
     .where(where)
     .orderBy(teams.name, boards.position, boards.name);
+}
+
+/**
+ * The pieces a task was broken into, in the order they will be worked.
+ *
+ * Deliberately not filtered by `isLeaf` — this asks for children, and a child
+ * that has somehow acquired children of its own should still be visible rather
+ * than silently missing.
+ */
+export async function listSubtasks(parentId: string): Promise<TaskCard[]> {
+  return runTaskQuery(sql`k.parent_id = ${parentId}`, 100, byDueDate, { containers: true });
 }

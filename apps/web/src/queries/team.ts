@@ -2,6 +2,9 @@ import "server-only";
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
 import { dayRange, now, pct, type Zone } from "@/lib/date";
+import { isLeaf } from "./sql";
+import { dayKey } from "@/lib/leave";
+import { awayOn, type AwayMark } from "./leave";
 import type { Role } from "@/db/schema";
 
 export type MemberRollup = {
@@ -14,6 +17,15 @@ export type MemberRollup = {
   /** Due today and not done yet. */
   remaining: number;
   percent: number;
+  /**
+   * Whether they are off today. Null when they are in.
+   *
+   * Filled here rather than left to each page, because every caller of
+   * `getTeamToday` renders a `MemberRow` and one of them would eventually
+   * forget. It is a third query, not a join — the completion SQL above is what
+   * reporting depends on and nothing about leave belongs inside it.
+   */
+  away: AwayMark | null;
 };
 
 export type TeamToday = {
@@ -43,9 +55,9 @@ export async function getTeamToday(
   const teamRows = await db.execute(sql`
     select t.id, t.name, d.name as director_name,
            (select count(*) from users u where u.team_id = t.id) as headcount,
-           (select count(*) from tasks k where k.team_id = t.id and k.due_date >= ${start} and k.due_date < ${end}) as due,
-           (select count(*) from tasks k where k.team_id = t.id and k.due_date >= ${start} and k.due_date < ${end} and k.completed_at is not null) as done,
-           (select count(*) from tasks k where k.team_id = t.id and k.due_date < ${start} and k.completed_at is null) as overdue
+           (select count(*) from tasks k where k.team_id = t.id and ${isLeaf} and k.due_date >= ${start} and k.due_date < ${end}) as due,
+           (select count(*) from tasks k where k.team_id = t.id and ${isLeaf} and k.due_date >= ${start} and k.due_date < ${end} and k.completed_at is not null) as done,
+           (select count(*) from tasks k where k.team_id = t.id and ${isLeaf} and k.due_date < ${start} and k.completed_at is null) as overdue
     from teams t
     left join users d on d.id = t.account_director_id
     where t.id = ${teamId}
@@ -55,6 +67,8 @@ export async function getTeamToday(
     | undefined;
   if (!team) return null;
 
+  const away = await awayOn([teamId], dayKey(reference, zone));
+
   const memberRows = await db.execute(sql`
     select u.id, u.name, u.role,
            count(k.id) filter (where k.due_date >= ${start} and k.due_date < ${end}) as due,
@@ -62,7 +76,7 @@ export async function getTeamToday(
            count(k.id) filter (where k.due_date < ${start} and k.completed_at is null) as overdue
     from users u
     left join task_assignees a on a.user_id = u.id
-    left join tasks k on k.id = a.task_id
+    left join tasks k on k.id = a.task_id and ${isLeaf}
     where u.team_id = ${teamId}
     group by u.id, u.name, u.role
     order by (u.role = 'account_director') desc, u.name
@@ -80,6 +94,7 @@ export async function getTeamToday(
       overdue: Number(r.overdue),
       remaining: due - done,
       percent: pct(done, due),
+      away: away.get(r.id) ?? null,
     };
   });
 

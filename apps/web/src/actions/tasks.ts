@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, count, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { parseDuration } from "@/lib/duration";
 import { db } from "@/db";
@@ -415,6 +415,20 @@ export async function toggleTaskDone(formData: FormData) {
   const taskId = String(formData.get("taskId") ?? "");
   const task = await loadEditableTask(viewer, taskId);
 
+  /*
+   * A task with children is a container: its children are the work, and they
+   * are what the day counts. Ticking the container would claim a completion
+   * that no report would ever see, so it is refused rather than silently
+   * ignored.
+   */
+  const [{ children }] = await db
+    .select({ children: count() })
+    .from(tasks)
+    .where(eq(tasks.parentId, taskId));
+  if (children > 0) {
+    throw new Error("Finish this task's subtasks — they are the work now.");
+  }
+
   const done = task.completedAt !== null;
   const status = await statusLabel(task.statusId);
 
@@ -476,6 +490,113 @@ export async function setTaskStatus(formData: FormData) {
   });
 
   refresh();
+}
+
+const subtaskInput = z.object({
+  parentId: z.string().uuid(),
+  title: z.string().trim().min(1, "Give the subtask a title").max(200),
+  assignees: z.array(z.string().uuid()).optional(),
+  dueDate: z.string().optional(),
+});
+
+/**
+ * Break a task into the pieces people will actually do.
+ *
+ * The brief calls these individual contributions — Anna: Data, James: Slides —
+ * and they are real tasks: their own assignees, their own due date, their own
+ * place on the board. What they are not is *extra* work: the moment a task has
+ * children it stops counting itself, and its children count instead. See
+ * `isLeaf`.
+ *
+ * Not `createTask`, which redirects to the new task; adding a subtask should
+ * leave you looking at the parent.
+ */
+export async function createSubtask(_prev: FormState, formData: FormData): Promise<FormState> {
+  const parsed = subtaskInput.safeParse({
+    parentId: formData.get("parentId"),
+    title: formData.get("title"),
+    assignees: formData.getAll("assignees").filter(Boolean),
+    dueDate: formData.get("dueDate") || undefined,
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Check the form" };
+
+  const viewer = await requireUser();
+  // Dividing work up is editing it, so this is the edit gate rather than the
+  // view one that commenting uses.
+  const parent = await loadEditableTask(viewer, parsed.data.parentId);
+
+  /*
+   * One level. A subtask of a subtask is a tree, and a tree is the nesting the
+   * brief is a reaction against — depth is a cross-row property that Postgres
+   * cannot check without a trigger, so it is checked here.
+   */
+  if (parent.parentId !== null) {
+    return { error: "A subtask cannot be broken down further." };
+  }
+
+  const assignees = parsed.data.assignees ?? [];
+  if (assignees.length > 0) {
+    const strangers = await assigneesOutsideTeam(parent.teamId, assignees);
+    if (strangers.length > 0) {
+      return {
+        error: `${strangers.join(", ")} ${strangers.length === 1 ? "is" : "are"} not on this board's team.`,
+      };
+    }
+  }
+
+  /*
+   * Board, team and column come from the parent rather than being chosen. The
+   * composite keys make that mandatory — a child has to sit on a column of its
+   * own board — and it is also the rule folders already follow: scope is
+   * copied down, never walked up at read time.
+   */
+  const [column] = await db
+    .select({ id: boardStatuses.id, kind: boardStatuses.kind })
+    .from(boardStatuses)
+    .where(eq(boardStatuses.boardId, parent.boardId))
+    .orderBy(boardStatuses.position, boardStatuses.name)
+    .limit(1);
+  if (!column) return { error: "That board has no columns." };
+
+  const [child] = await db
+    .insert(tasks)
+    .values({
+      title: parsed.data.title,
+      parentId: parent.id,
+      type: parent.type,
+      priority: parent.priority,
+      boardId: parent.boardId,
+      statusId: column.id,
+      // A piece inherits the whole's deadline unless somebody says otherwise.
+      dueDate: parsed.data.dueDate ? new Date(parsed.data.dueDate) : parent.dueDate,
+      createdBy: viewer.id,
+      teamId: parent.teamId,
+    })
+    .returning();
+
+  if (assignees.length > 0) {
+    await db
+      .insert(taskAssignees)
+      .values(assignees.map((userId) => ({ taskId: child!.id, userId })));
+  }
+
+  await recordActivity({
+    taskId: parent.id,
+    actorId: viewer.id,
+    kind: "created",
+    subjectName: parsed.data.title,
+  });
+
+  const told = await notify({
+    task: { ...parent, id: child!.id },
+    actorId: viewer.id,
+    kind: "assigned",
+    userIds: assignees,
+  });
+
+  refresh();
+  await deliver(told);
+  return null;
 }
 
 export async function deleteTask(formData: FormData) {

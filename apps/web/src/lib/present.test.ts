@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { toTaskRow } from "./present";
+import { toAvailability, toLeaveRequest, toTaskRow } from "./present";
 import type { TaskCard } from "@/queries/sql";
+import type { LeaveRow } from "@/queries/leave";
+import type { User } from "@/db/schema";
 
 const reference = new Date("2026-09-07T05:00:00Z"); // 1pm Manila, Sep 7
 
@@ -22,6 +24,10 @@ function task(overrides: Partial<TaskCard> = {}): TaskCard {
     completedAt: null,
     teamId: "team-a",
     createdBy: "u1",
+    parentId: null,
+    parentTitle: null,
+    childCount: 0,
+    childrenDone: 0,
     assignees: [{ id: "u1", name: "Anna Santos" }],
     tags: [],
     docs: 0,
@@ -108,6 +114,10 @@ describe("a task row's overdue flag", () => {
       statusId: "s1",
       statusName: "To Do",
       statusKind: "open",
+      parentId: null,
+      parentTitle: null,
+      childCount: 0,
+      childrenDone: 0,
       assignees: [],
       tags: [],
       docs: 0,
@@ -135,5 +145,124 @@ describe("a task row's overdue flag", () => {
     const ref = new Date("2026-09-08T13:00:00Z");
     expect(toTaskRow(card(due), ref, "Asia/Manila").overdue).toBe(false);
     expect(toTaskRow(card(due), ref, "America/Los_Angeles").overdue).toBe(false);
+  });
+});
+
+/* ── Leave ──────────────────────────────────────────────────────────────── */
+
+const MANILA = "Asia/Manila";
+
+function leave(overrides: Partial<LeaveRow> = {}): LeaveRow {
+  return {
+    id: "l1",
+    userId: "u1",
+    userName: "Anna Santos",
+    role: "team_member",
+    teamId: "team-a",
+    kind: "vacation",
+    status: "pending",
+    startDate: "2026-09-07",
+    endDate: "2026-09-11",
+    half: null,
+    note: null,
+    decidedByName: null,
+    decidedAt: null,
+    createdAt: reference,
+    ...overrides,
+  };
+}
+
+const viewer = (overrides: Partial<User> = {}) =>
+  ({ id: "u1", role: "team_member", teamId: "team-a", ...overrides }) as User;
+
+describe("toAvailability", () => {
+  it("says when they are back, but only while that is still ahead", () => {
+    const until = toAvailability(
+      { away: "full", kind: "vacation", endDate: "2026-09-11" },
+      reference,
+      MANILA,
+    );
+    expect(until?.label).toBe("Away until 11 Sep");
+
+    // On the last day of the run, "away until today" is a worse sentence.
+    const last = toAvailability(
+      { away: "full", kind: "vacation", endDate: "2026-09-07" },
+      reference,
+      MANILA,
+    );
+    expect(last?.label).toBe("Away today");
+  });
+
+  it("names the half of the day", () => {
+    expect(
+      toAvailability({ away: "am", kind: "personal", endDate: "2026-09-07" }, reference, MANILA)
+        ?.label,
+    ).toBe("Away this morning");
+    expect(
+      toAvailability({ away: "pm", kind: "personal", endDate: "2026-09-07" }, reference, MANILA)
+        ?.label,
+    ).toBe("Away this afternoon");
+  });
+
+  it("is null for somebody who is in", () => {
+    expect(toAvailability(null, reference, MANILA)).toBeNull();
+  });
+});
+
+describe("toLeaveRequest", () => {
+  it("names who it is waiting on, from the org chart", () => {
+    expect(toLeaveRequest(leave(), viewer(), reference, MANILA).decisionText).toBe(
+      "Waiting on the Account Director",
+    );
+    // A director's own request has exactly one person left who can settle it,
+    // and nothing has to name that as a special case.
+    expect(
+      toLeaveRequest(leave({ role: "account_director" }), viewer(), reference, MANILA)
+        .decisionText,
+    ).toBe("Waiting on the Senior Director");
+  });
+
+  it("reports a decision once it is made", () => {
+    const row = leave({ status: "approved", decidedByName: "Sarah Lim" });
+    expect(toLeaveRequest(row, viewer(), reference, MANILA).decisionText).toBe(
+      "Approved by Sarah Lim",
+    );
+  });
+
+  it("counts the weekdays in the range", () => {
+    // 7-11 September 2026 is Monday to Friday.
+    expect(toLeaveRequest(leave(), viewer(), reference, MANILA).lengthText).toBe("5 days");
+    expect(
+      toLeaveRequest(
+        leave({ startDate: "2026-09-09", endDate: "2026-09-09", half: "pm" }),
+        viewer(),
+        reference,
+        MANILA,
+      ).lengthText,
+    ).toBe("Half day (PM)");
+  });
+
+  it("offers cancel only to the filer, and only while there is time left", () => {
+    expect(toLeaveRequest(leave(), viewer(), reference, MANILA).cancellable).toBe(true);
+
+    // Somebody else's row is never yours to withdraw.
+    expect(
+      toLeaveRequest(leave(), viewer({ id: "u2" }), reference, MANILA).cancellable,
+    ).toBe(false);
+
+    // Leave already taken stays on the record.
+    expect(
+      toLeaveRequest(
+        leave({ startDate: "2026-09-01", endDate: "2026-09-04" }),
+        viewer(),
+        reference,
+        MANILA,
+      ).cancellable,
+    ).toBe(false);
+
+    // A settled request has nothing to withdraw.
+    expect(
+      toLeaveRequest(leave({ status: "declined" }), viewer(), reference, MANILA).cancellable,
+    ).toBe(false);
   });
 });

@@ -2,7 +2,7 @@ import "server-only";
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
 import { dayRange, now, pct, type Zone } from "@/lib/date";
-import { isBlocked, onTimeIn, overdueSql, scopeSql, type Scope } from "./sql";
+import { isBlocked, isLeaf, onTimeIn, overdueSql, scopeSql, type Scope } from "./sql";
 import { TASK_TYPE_LABELS } from "@/lib/constants";
 import type { TaskType } from "@/db/schema";
 
@@ -34,7 +34,7 @@ export async function getNeedsAttention(
     from tasks k
     join task_assignees a on a.task_id = k.id
     join users u on u.id = a.user_id
-    where ${where} and ${overdueSql(start)}
+    where ${where} and ${isLeaf} and ${overdueSql(start)}
     group by u.id, u.name
     order by n desc, u.name
     limit 2
@@ -62,7 +62,7 @@ export async function getNeedsAttention(
   const soon = await db.execute(sql`
     select count(*) as n from tasks k
     join board_statuses s on s.id = k.status_id
-    where ${where} and k.completed_at is null
+    where ${where} and ${isLeaf} and k.completed_at is null
       and s.position = (
         select min(s2.position) from board_statuses s2
         where s2.board_id = k.board_id
@@ -81,7 +81,7 @@ export async function getNeedsAttention(
   // 3. Shared work is the easiest to let slip, so it gets its own line.
   const collab = await db.execute(sql`
     select count(*) as n from tasks k
-    where ${where} and k.completed_at is null and k.due_date < ${end}
+    where ${where} and ${isLeaf} and k.completed_at is null and k.due_date < ${end}
       and (select count(*) from task_assignees a where a.task_id = k.id) > 1
   `);
   const collabCount = Number((collab.rows[0] as { n: string }).n);
@@ -98,7 +98,7 @@ export async function getNeedsAttention(
   const blocked = await db.execute(sql`
     select count(*) as n from tasks k
     join board_statuses s on s.id = k.status_id
-    where ${where} and ${isBlocked}
+    where ${where} and ${isLeaf} and ${isBlocked}
   `);
   const blockedCount = Number((blocked.rows[0] as { n: string }).n);
   if (blockedCount > 0) {
@@ -132,7 +132,7 @@ export async function getDepartmentAttention(
       count(*) filter (where k.due_date >= ${priorStart} and k.due_date < ${weekStart}) as prior_due,
       count(*) filter (where k.due_date >= ${priorStart} and k.due_date < ${weekStart} and ${onTimeIn(zone)}) as prior_done
     from teams t
-    join tasks k on k.team_id = t.id and k.due_date >= ${priorStart}
+    join tasks k on k.team_id = t.id and ${isLeaf} and k.due_date >= ${priorStart}
     group by t.id, t.name
   `);
 
@@ -153,7 +153,7 @@ export async function getDepartmentAttention(
   const byType = await db.execute(sql`
     select k.type, count(*) as due, count(*) filter (where ${onTimeIn(zone)}) as done
     from tasks k
-    where k.due_date >= ${weekStart}
+    where ${isLeaf} and k.due_date >= ${weekStart}
     group by k.type
     having count(*) > 20
     order by (count(*) filter (where ${onTimeIn(zone)}))::numeric / count(*) asc

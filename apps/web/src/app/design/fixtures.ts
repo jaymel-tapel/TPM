@@ -6,9 +6,12 @@ import type {
   DocRefData,
   AttentionItemData,
   MemberRowData,
+  AvailabilityRowData,
+  LeaveRequestData,
   ActivityItemData,
   InboxItemData,
   PlanBlockData,
+  SubtaskData,
   DayChipData,
   AttachmentData,
   BoardData,
@@ -99,7 +102,87 @@ export const MEMBERS: MemberRowData[] = [
   { id: "m1", href: "#", name: "Sarah Lim", role: "account_director", due: 4, done: 3, overdue: 0, remaining: 1, percent: 75 },
   { id: "m2", href: "#", name: "Anna Santos", role: "team_member", due: 6, done: 5, overdue: 0, remaining: 1, percent: 83 },
   { id: "m3", href: "#", name: "James Cruz", role: "team_member", due: 7, done: 3, overdue: 7, remaining: 4, percent: 43 },
-  { id: "m4", href: "#", name: "Sofia Reyes", role: "team_member", due: 6, done: 6, overdue: 0, remaining: 0, percent: 100 },
+  {
+    id: "m4",
+    href: "#",
+    name: "Sofia Reyes",
+    role: "team_member",
+    due: 2,
+    done: 0,
+    overdue: 0,
+    remaining: 2,
+    percent: 0,
+    // The point of the state: 0% is dimmed rather than recomputed, because it
+    // is the same number the rollup counted.
+    away: { away: "full", kind: "vacation", label: "Away until 18 Sep" },
+  },
+];
+
+export const AVAILABILITY: AvailabilityRowData[] = [
+  { id: "a1", href: "#", name: "Sarah Lim", role: "account_director", away: null },
+  {
+    id: "a2",
+    href: "#",
+    name: "Anna Santos",
+    role: "team_member",
+    away: { away: "full", kind: "vacation", label: "Away today" },
+  },
+  {
+    id: "a3",
+    // Not a link: a team member may open their own day and nobody else's.
+    href: null,
+    name: "James Cruz",
+    role: "team_member",
+    away: { away: "am", kind: "personal", label: "Away this morning" },
+  },
+  { id: "a4", href: null, name: "Sofia Reyes", role: "team_member", away: null },
+];
+
+export const LEAVE_REQUESTS: LeaveRequestData[] = [
+  {
+    id: "l1",
+    personName: "Anna Santos",
+    kind: "vacation",
+    status: "pending",
+    rangeText: "12–16 Oct",
+    lengthText: "5 days",
+    note: "Family trip, booked back in June.",
+    decisionText: "Waiting on the Account Director",
+    cancellable: true,
+  },
+  {
+    id: "l2",
+    personName: "James Cruz",
+    kind: "personal",
+    status: "approved",
+    rangeText: "14 Oct",
+    lengthText: "Half day (PM)",
+    note: null,
+    decisionText: "Approved by Sarah Lim",
+    cancellable: false,
+  },
+  {
+    id: "l3",
+    personName: "Sofia Reyes",
+    kind: "unpaid",
+    status: "declined",
+    rangeText: "28 Dec – 3 Jan",
+    lengthText: "5 days",
+    note: null,
+    decisionText: "Declined by Sarah Lim",
+    cancellable: false,
+  },
+  {
+    id: "l4",
+    personName: "Marco Ilagan",
+    kind: "sick",
+    status: "cancelled",
+    rangeText: "2 Oct",
+    lengthText: "1 day",
+    note: null,
+    decisionText: null,
+    cancellable: false,
+  },
 ];
 
 export const ATTENTION: AttentionItemData[] = [
@@ -471,4 +554,34 @@ export const DAY_CHIPS: DayChipData[] = [
   { href: "#", weekday: "Sat", day: "13", count: 0, active: false, today: false },
   { href: "#", weekday: "Sun", day: "14", count: 0, active: false, today: false },
   { href: "#", weekday: "Mon", day: "15", count: 2, active: false, today: false },
+];
+
+export const SUBTASKS: SubtaskData[] = [
+  {
+    id: "s1",
+    href: "/tasks/s1",
+    title: "Anna — Data",
+    done: true,
+    dueText: "Today, 11:00 AM",
+    overdue: false,
+    assignees: [{ id: "u-anna", name: "Anna Santos" }],
+  },
+  {
+    id: "s2",
+    href: "/tasks/s2",
+    title: "James — Slides",
+    done: false,
+    dueText: "Today, 4:00 PM",
+    overdue: false,
+    assignees: [{ id: "u-james", name: "James Cruz" }],
+  },
+  {
+    id: "s3",
+    href: "/tasks/s3",
+    title: "Sofia — Review",
+    done: false,
+    dueText: "Yesterday, 5:00 PM",
+    overdue: true,
+    assignees: [{ id: "u-sofia", name: "Sofia Reyes" }],
+  },
 ];

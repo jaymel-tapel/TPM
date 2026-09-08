@@ -5,6 +5,7 @@ import {
   text,
   integer,
   timestamp,
+  date,
   index,
   uniqueIndex,
   primaryKey,
@@ -21,14 +22,21 @@ export const roleEnum = pgEnum("role", [
 ]);
 
 /**
- * What a status *means* to the rest of the system, as opposed to what it is
- * called. An Account Director can name a column anything; these three kinds
- * are the only thing any query is allowed to reason about.
+ * What a column *does*, as opposed to what it is called.
  *
- * This is what keeps custom statuses from breaking reporting. Completion is
- * `completed_at` and always was — a status marked `done` is what stamps it.
- * Without a declared kind, "how did last Tuesday go?" would have as many
- * answers as there are boards.
+ * `done` names a board's finish line — the column that marks work complete
+ * when something lands in it. It does not mean "finished work lives here", and
+ * a task does not stop being complete by leaving. Completion is
+ * `tasks.completed_at`, set by finishing the task, and that is the only thing
+ * any report reads.
+ *
+ * The distinction is what lets a board be
+ * `Brief → Design → Client review → Approved → Delivered` rather than three
+ * columns: the stages are the workflow, and exactly one of them is where work
+ * is considered done.
+ *
+ * `blocked` is the brief's exceptional state and is counted by Needs
+ * Attention. Everything else is `open` — an ordinary stage.
  */
 export const statusKindEnum = pgEnum("status_kind", ["open", "done", "blocked"]);
 
@@ -178,8 +186,25 @@ export const tasks = pgTable(
     teamId: uuid("team_id")
       .notNull()
       .references(() => teams.id),
-    // Source of truth for reporting. Stamped when status becomes "done",
-    // cleared when it moves off "done".
+    /*
+     * The task this one is a piece of. Null for ordinary work.
+     *
+     * A task with children is a *container*: its children are the units of
+     * work, and it is counted nowhere itself. Without that rule "3 of 5 done
+     * today" would move whenever somebody reorganised rather than when they
+     * finished something — a number you improve by splitting things up.
+     *
+     * One level only, enforced in `createSubtask`. Depth is a cross-row
+     * property and Postgres cannot express it without a trigger; this codebase
+     * has none and a subtask of a subtask is a tree, which is the nesting the
+     * brief is a reaction against. The same lesson is already recorded on
+     * `folders`: `documents` had a `parent_id` in migration 0003 and lost it
+     * again in 0008, because a row that is both a thing you open and a thing
+     * that holds other things makes "open" and "expand" fight.
+     */
+    parentId: uuid("parent_id"),
+    // Source of truth for reporting, and the task's own fact. Set by finishing
+    // the work; landing on a board's finish line is one way to do that.
     completedAt: timestamp("completed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -193,6 +218,19 @@ export const tasks = pgTable(
     index("tasks_team_due_idx").on(t.teamId, t.dueDate),
     index("tasks_completed_idx").on(t.completedAt),
     index("tasks_board_idx").on(t.boardId),
+    // Read by `isLeaf`, which runs on every list and count in the product.
+    index("tasks_parent_idx").on(t.parentId),
+    /*
+     * Declared here rather than inline, the way `folders_parent_fk` is: a
+     * self-reference cannot name its own table from the column definition.
+     * Cascading because a subtask has no life of its own — "Slides" with no
+     * presentation to belong to is not work anybody could act on.
+     */
+    foreignKey({
+      columns: [t.parentId],
+      foreignColumns: [t.id],
+      name: "tasks_parent_fk",
+    }).onDelete("cascade"),
     /*
      * Two composite keys the database enforces so nothing else has to:
      * a task's team always matches its board's team, and its status always
@@ -596,6 +634,89 @@ export const department = pgTable(
   () => [check("department_single_row_ck", sql`id = 1`)],
 );
 
+/**
+ * Leave: the days somebody is not at work.
+ *
+ * A request, not a fact, until somebody above them says so — filed as
+ * `pending` and decided by the person above the requester on the org chart.
+ * Only an approved row marks anyone away on a roster.
+ *
+ * What this deliberately does *not* do is touch a number. Completion stays
+ * "tasks due that day, completed by end of that day", defined once in
+ * `queries/reports.ts`; leave never removes a task from that denominator and
+ * never edits `completed_at`. A person's percentage is quietened on a day they
+ * were away because it is not a signal about them, but it is the same
+ * percentage. Anything else would give "how did last Tuesday go?" a second
+ * answer, which is the one thing the whole reporting model refuses.
+ */
+export const leaveKindEnum = pgEnum("leave_kind", [
+  "vacation",
+  "sick",
+  "personal",
+  "unpaid",
+]);
+
+export const leaveStatusEnum = pgEnum("leave_status", [
+  "pending",
+  "approved",
+  "declined",
+  "cancelled",
+]);
+
+/** Which half of a single day. Null is the whole of it. */
+export const leaveHalfEnum = pgEnum("leave_half", ["am", "pm"]);
+
+export const leaveRequests = pgTable(
+  "leave_requests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    kind: leaveKindEnum("kind").notNull(),
+    /*
+     * A day, not an instant — the same distinction `actions/schedule.ts` makes
+     * about a planned afternoon, and the reason these are `date` rather than
+     * `timestamp`. Leave on the 14th is leave on the 14th wherever the reader
+     * happens to be; an instant would make a request filed in Manila start on
+     * the 13th for somebody in London. `mode: "string"` keeps it a `yyyy-MM-dd`
+     * string the whole way through, so no zone is ever applied to it by
+     * accident on the way in or out.
+     */
+    startDate: date("start_date", { mode: "string" }).notNull(),
+    endDate: date("end_date", { mode: "string" }).notNull(),
+    /** AM or PM on a one-day request. Null means whole days. */
+    half: leaveHalfEnum("half"),
+    note: text("note"),
+    status: leaveStatusEnum("status").notNull().default("pending"),
+    /*
+     * Who decided, as a live reference rather than a snapshot. This is an
+     * approval record, not history the way `task_activity` is — so it may go
+     * null when an approver leaves the department, and the request stays valid
+     * without them.
+     */
+    decidedBy: uuid("decided_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    decidedAt: timestamp("decided_at", { withTimezone: true }),
+    decisionNote: text("decision_note"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    // Both reads are "this person, around these dates": a roster asking who is
+    // away today, and a person reading their own list.
+    index("leave_user_range_idx").on(t.userId, t.startDate),
+    check("leave_range_ck", sql`end_date >= start_date`),
+    /*
+     * A half day is half of *one* day. Without this, "12-16 Oct, AM" has no
+     * meaning and every length calculation downstream has to invent one.
+     */
+    check("leave_half_single_day_ck", sql`half is null or start_date = end_date`),
+  ],
+);
+
 export type Role = (typeof roleEnum.enumValues)[number];
 export type StatusKind = (typeof statusKindEnum.enumValues)[number];
 export type ActivityKind = (typeof activityKindEnum.enumValues)[number];
@@ -614,3 +735,7 @@ export type NotificationKind = (typeof notificationKindEnum.enumValues)[number];
 export type Notification = typeof notifications.$inferSelect;
 export type PlanBlock = typeof taskSchedule.$inferSelect;
 export type Department = typeof department.$inferSelect;
+export type LeaveRequest = typeof leaveRequests.$inferSelect;
+export type LeaveKind = (typeof leaveKindEnum.enumValues)[number];
+export type LeaveStatus = (typeof leaveStatusEnum.enumValues)[number];
+export type LeaveHalf = (typeof leaveHalfEnum.enumValues)[number];

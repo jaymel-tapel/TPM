@@ -3,7 +3,7 @@ import { sql } from "drizzle-orm";
 import { format } from "date-fns";
 import { db } from "@/db";
 import { dayRange, now, pct, type Zone } from "@/lib/date";
-import { onTimeIn, overdueSql, scopeSql, TZ, type Scope } from "./sql";
+import { isLeaf, onTimeIn, overdueSql, scopeSql, TZ, type Scope } from "./sql";
 import { TASK_TYPE_LABELS } from "@/lib/constants";
 import type { TaskType } from "@/db/schema";
 
@@ -45,7 +45,7 @@ export async function getReportMetrics(
       avg(extract(epoch from (k.completed_at - k.created_at)) / 3600)
         filter (where k.completed_at is not null and k.due_date >= ${start} and k.due_date < ${end}) as avg_hours
     from tasks k
-    where ${where}
+    where ${where} and ${isLeaf}
   `);
 
   const r = rows.rows[0] as Record<string, string | null>;
@@ -88,7 +88,7 @@ export async function getCompletionTrend(
     left join tasks k
       on k.due_date >= (span.d::timestamp at time zone ${zone})
      and k.due_date <  ((span.d + 1)::timestamp at time zone ${zone})
-     and ${where}
+     and ${where} and ${isLeaf}
     group by span.d
     order by span.d
   `);
@@ -124,7 +124,7 @@ export async function getCompletionByType(
   const rows = await db.execute(sql`
     select k.type, count(*) as due, count(*) filter (where ${onTimeIn(zone)}) as done
     from tasks k
-    where ${where} and k.due_date >= ${start} and k.due_date < ${end}
+    where ${where} and ${isLeaf} and k.due_date >= ${start} and k.due_date < ${end}
     group by k.type
     order by 1
   `);
@@ -162,7 +162,7 @@ export async function getWorkload(
     from users u
     join teams t on t.id = u.team_id
     left join task_assignees a on a.user_id = u.id
-    left join tasks k on k.id = a.task_id and k.due_date >= ${start} and k.due_date < ${end} and ${where}
+    left join tasks k on k.id = a.task_id and ${isLeaf} and k.due_date >= ${start} and k.due_date < ${end} and ${where}
     group by u.id, u.name, t.name
     order by count(k.id) desc, u.name
   `);
