@@ -197,6 +197,20 @@ export function AppSidebar({
         <span className="text-body-strong text-gray-1000">Meridian</span>
       </Link>
 
+      {/* Who you are sits with the app's own name, above the navigation:
+          it answers "whose day is this" before you read a single link, which
+          matters most on a product where the same screens say different things
+          depending on the answer. */}
+      <div className="flex shrink-0 items-center gap-2 border-b border-gray-300 px-4 py-3">
+        <UserAvatar name={user.name} size="md" />
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-body-strong leading-tight text-gray-1000">{user.name}</div>
+          <div className="truncate text-caption leading-tight text-gray-600">
+            {ROLE_LABELS[user.role]}
+          </div>
+        </div>
+      </div>
+
       <nav className="flex-1 overflow-y-auto p-2">
         {links.map((link) => (
           <NavGroup
@@ -220,25 +234,20 @@ export function AppSidebar({
           </div>
         ) : null}
 
-        <div className="mt-3 flex items-center gap-2">
-          <UserAvatar name={user.name} size="md" />
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-body-strong leading-tight text-gray-1000">{user.name}</div>
-            <div className="truncate text-caption leading-tight text-gray-600">
-              {ROLE_LABELS[user.role]}
-            </div>
-          </div>
-          <form action={logout}>
-            <button
-              type="submit"
-              aria-label="Sign out"
-              title="Sign out"
-              className="rounded-md p-1.5 text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-1000"
-            >
-              <LogOut className="size-4" strokeWidth={1.75} />
-            </button>
-          </form>
-        </div>
+        {/* Reads as a rail item rather than an icon in a corner: it is the
+            one thing down here you would go looking for by name. */}
+        <form action={logout} className="mt-3">
+          <button
+            type="submit"
+            className={cn(
+              itemStyles,
+              "w-full cursor-pointer text-gray-700 hover:bg-gray-100 hover:text-gray-1000",
+            )}
+          >
+            <LogOut className="size-4 shrink-0" strokeWidth={1.75} />
+            Sign out
+          </button>
+        </form>
       </div>
     </aside>
   );
