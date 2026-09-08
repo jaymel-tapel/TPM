@@ -1,9 +1,5 @@
 import { notFound } from "next/navigation";
-import { BarChart3, Columns3, List, Plus } from "lucide-react";
 import {
-  Command,
-  CommandBar,
-  CommandDivider,
   MemberList,
   TaskBoard,
   MemberRow,
@@ -12,7 +8,6 @@ import {
   Panel,
   SectionHeader,
   Stat,
-  UserAvatar,
 } from "@meridian/ui";
 import { Progress } from "@meridian/ui/primitives/progress";
 import { getTeamToday } from "@/queries/team";
@@ -22,7 +17,6 @@ import { setTaskStatus } from "@/actions/tasks";
 import { getNeedsAttention } from "@/queries/attention";
 import { teamScope } from "@/queries/sql";
 import { toMemberRow } from "@/lib/present";
-import { fmtLongDate, now } from "@/lib/date";
 
 /**
  * Screen 3. The Account Director should understand the team in seconds: one
@@ -30,8 +24,15 @@ import { fmtLongDate, now } from "@/lib/date";
  */
 export async function TeamTodayView({
   teamId,
+  showTeamName = false,
 }: {
   teamId: string;
+  /**
+   * The Account Director has one team and the rail already says so, so their
+   * screen goes straight to the numbers. A Senior Director is looking at one
+   * of several, and a page about a team should say which.
+   */
+  showTeamName?: boolean;
 }) {
   const [team, attention] = await Promise.all([
     getTeamToday(teamId),
@@ -41,36 +42,11 @@ export async function TeamTodayView({
 
   return (
     <div className="space-y-10">
-      <div className="flex flex-wrap items-end justify-between gap-6">
-          <div>
-            <p className="text-caption-strong uppercase tracking-[0.08em] text-gray-600">
-              {fmtLongDate(now())}
-            </p>
-            <h1 className="mt-3 text-title-1 text-gray-1000">{team.teamName}</h1>
-            {team.directorName ? (
-              <div className="mt-3 flex items-center gap-2">
-                <UserAvatar name={team.directorName} size="sm" />
-                <p className="text-body text-gray-700">
-                  <span className="text-gray-1000">{team.directorName}</span> · Account Director
-                </p>
-              </div>
-            ) : null}
-          </div>
-        </div>
+      {showTeamName ? (
+        <h1 className="text-title-1 text-gray-1000">{team.teamName}</h1>
+      ) : null}
 
-      {/* Bleeds to the gutters so the sticky background covers the full width
-          as the board scrolls under it. */}
-      <CommandBar>
-        <Command icon={Plus} href="/tasks/new" tone="primary">
-          New Task
-        </Command>
-        <CommandDivider />
-        <Command icon={BarChart3} href="/reports">
-          Reports
-        </Command>
-      </CommandBar>
-
-            <Panel className="p-8">
+      <Panel className="p-8">
         <div className="flex flex-wrap items-end gap-x-12 gap-y-6">
           <Stat
             value={<Percent value={team.percent} />}

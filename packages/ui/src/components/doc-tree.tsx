@@ -227,7 +227,12 @@ export function DocBreadcrumb({
   /** The thing you are looking at. It is where you are, so it is not a link. */
   current: string;
 }) {
-  if (trail.length === 0) return null;
+  /*
+   * Always rendered, even at the top of the tree. A root folder has nothing
+   * above it but "Docs", and that is exactly the case where a way back up
+   * matters most — bailing out on an empty trail left the first level of the
+   * browser with no way out except the rail.
+   */
   return (
     <nav aria-label="Breadcrumb" className="mb-2 flex flex-wrap items-center gap-1 text-caption">
       <Link href="/docs" className="text-blue-700 hover:text-blue-800">

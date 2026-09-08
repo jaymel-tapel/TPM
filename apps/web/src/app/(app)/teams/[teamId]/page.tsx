@@ -18,6 +18,6 @@ export default async function TeamDetailPage({
 
   const view = (await searchParams).view === "board" ? "board" : "list";
   return (
-    <TeamTodayView teamId={teamId} />
+    <TeamTodayView teamId={teamId} showTeamName />
   );
 }
