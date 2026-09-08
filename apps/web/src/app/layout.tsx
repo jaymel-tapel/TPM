@@ -17,7 +17,7 @@ const sans = Instrument_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Meridian — Daily Operating System",
+  title: "MB Advertising — Daily Operating System",
   description: "What you need to do today, and how the department is doing.",
 };
 

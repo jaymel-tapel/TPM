@@ -21,5 +21,11 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  /*
+   * Pages only. Anything with a file extension is a static asset and is left
+   * alone — the brand mark lives in `public/`, and the image optimiser fetches
+   * it over HTTP without a cookie, so gating it turned the logo into a
+   * redirect to /login. The login page needs it while signed out anyway.
+   */
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.[a-zA-Z0-9]+$).*)"],
 };

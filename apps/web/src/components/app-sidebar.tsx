@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   BarChart3,
@@ -191,10 +192,14 @@ export function AppSidebar({
         href="/"
         className="flex h-14 shrink-0 items-center gap-2 border-b border-gray-300 px-4"
       >
-        <span className="grid size-6 shrink-0 place-items-center rounded-md bg-blue-700 text-caption-strong text-white">
-          M
-        </span>
-        <span className="text-body-strong text-gray-1000">Meridian</span>
+        <Image
+          src="/mb-mark.png"
+          alt=""
+          width={24}
+          height={24}
+          className="shrink-0 rounded-md"
+        />
+        <span className="text-body-strong text-gray-1000">MB Advertising</span>
       </Link>
 
       {/* Who you are sits with the app's own name, above the navigation:

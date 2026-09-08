@@ -82,7 +82,7 @@ import {
 } from "./fixtures";
 import { DocRefListDemo } from "./doc-refs-demo";
 
-export const metadata = { title: "Meridian — Design System" };
+export const metadata = { title: "MB Advertising — Design System" };
 
 /* ── gallery scaffolding ──────────────────────────────────────────────── */
 
@@ -163,7 +163,7 @@ export default function DesignSystemPage() {
           <span className="grid size-6 place-items-center rounded-md bg-blue-700 text-caption-strong text-white">
             M
           </span>
-          <span className="text-body-strong text-gray-1000">Meridian</span>
+          <span className="text-body-strong text-gray-1000">MB Advertising</span>
           <Badge variant="secondary">Design system</Badge>
           <span className="ml-auto text-caption text-gray-600">
             Following Fluent 2 · see DESIGN.md

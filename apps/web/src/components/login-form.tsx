@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import Image from "next/image";
 import { Button } from "@meridian/ui/primitives/button";
 import { Input } from "@meridian/ui/primitives/input";
 import { Label } from "@meridian/ui/primitives/label";
@@ -21,10 +22,14 @@ export function LoginForm() {
     <main className="grid min-h-screen lg:grid-cols-2">
       <section className="hidden flex-col justify-between bg-navy p-12 text-white lg:flex">
         <div className="flex items-center gap-2">
-          <span className="grid size-6 place-items-center rounded-md bg-blue-700 text-caption-strong text-white">
-            M
-          </span>
-          <span className="text-body-strong">Meridian</span>
+          <Image
+            src="/mb-mark.png"
+            alt=""
+            width={24}
+            height={24}
+            className="shrink-0 rounded-md"
+          />
+          <span className="text-body-strong">MB Advertising</span>
         </div>
         <div>
           <h1 className="max-w-[12ch] text-large-title text-white">
