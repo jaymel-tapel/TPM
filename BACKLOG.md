@@ -99,6 +99,13 @@ says not to make Kanban the default interface.
   clock. That boundary is what makes `/design` renderable from fixtures.
 - **Every value cites a token.** See `DESIGN.md`. If a component is not on
   `/design`, it does not exist yet.
+- **A description is a BlockNote document stored as JSON in the same text
+  column.** No migration: `toBlocks` accepts either JSON or prose, so rows
+  written before the editor — and everything the seed writes — still open.
+- **Object keys are minted by the server, never by the client.** A filename is
+  user input; it lives in a column, not in a path. Everything a task holds is
+  recorded in `task_attachments`, whether it was dropped into the prose or onto
+  the list, so there is one lifecycle to delete and one place to count.
 - **A board column is capped, never scrolled.** Done holds seventy cards on a
   fifteen-person team. The count in the header is the real answer; the list
   view is where you read all of them.

@@ -19,7 +19,10 @@ import { assertCanViewUser, loadEditableTask } from "@/lib/permissions";
 
 const taskInput = z.object({
   title: z.string().trim().min(1, "Give the task a title").max(200),
-  description: z.string().trim().max(2000).optional().nullable(),
+  // A BlockNote document, not prose: the cap is a sanity limit on the JSON,
+  // not a word count. Images live in object storage and appear here only as a
+  // URL, so a long description is long because someone wrote a lot.
+  description: z.string().trim().max(200_000).optional().nullable(),
   type: z.enum(taskTypeEnum.enumValues),
   priority: z.enum(priorityEnum.enumValues),
   status: z.enum(taskStatusEnum.enumValues),

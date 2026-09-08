@@ -16,10 +16,13 @@ import { canEditTask, canViewTask } from "@/lib/permissions";
 import { db } from "@/db";
 import { tasks as tasksTable } from "@/db/schema";
 import { getTaskCard, listAllTags } from "@/queries/tasks";
+import { getAttachments } from "@/queries/attachments";
 import { listAssignableUsers } from "@/queries/team";
 import { setTaskStatus, updateTask } from "@/actions/tasks";
 import { DeleteTaskButton } from "@/components/delete-task-button";
 import { TaskForm } from "@/components/task-form";
+import { TaskAttachments } from "@/components/task-attachments";
+import { RichTextView } from "@meridian/ui/editor";
 import { dueLabel } from "@/lib/date";
 
 export const dynamic = "force-dynamic";
@@ -36,10 +39,11 @@ export default async function TaskDetailPage({
   if (!record || !(await canViewTask(user, record))) notFound();
   const editable = await canEditTask(user, record);
 
-  const [task, people, tags] = await Promise.all([
+  const [task, people, tags, attachments] = await Promise.all([
     getTaskCard(id),
     listAssignableUsers(),
     listAllTags(),
+    getAttachments(id),
   ]);
   if (!task) notFound();
 
@@ -106,13 +110,21 @@ export default async function TaskDetailPage({
         />
       ) : (
         <Panel className="p-6">
-          <p className="text-copy-14 text-gray-1000">{task.description || "No description."}</p>
+          {task.description ? (
+            <RichTextView value={task.description} />
+          ) : (
+            <p className="text-copy-14 text-gray-600">No description.</p>
+          )}
           <p className="mt-4 text-copy-13 text-gray-600">
             Assigned to {task.assignees.map((a) => a.name).join(", ")}. You have read-only access
             to this task.
           </p>
         </Panel>
       )}
+
+      <div className="mt-6">
+        <TaskAttachments taskId={task.id} attachments={attachments} editable={editable} />
+      </div>
 
       {editable ? (
         <div className="mt-6">

@@ -93,3 +93,10 @@ export async function loadEditableTask(viewer: User, taskId: string): Promise<Ta
   if (!(await canEditTask(viewer, task))) notFound();
   return task;
 }
+
+export async function loadViewableTask(viewer: User, taskId: string): Promise<Task> {
+  const task = await db.query.tasks.findFirst({ where: eq(tasks.id, taskId) });
+  if (!task) notFound();
+  if (!(await canViewTask(viewer, task))) notFound();
+  return task;
+}

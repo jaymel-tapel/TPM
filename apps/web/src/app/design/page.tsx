@@ -11,6 +11,7 @@ import { Skeleton } from "@meridian/ui/primitives/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@meridian/ui/primitives/table";
 import { Tabs, TabsList, TabsTrigger } from "@meridian/ui/primitives/tabs";
 import { Textarea } from "@meridian/ui/primitives/textarea";
+import { RichTextEditor, RichTextView } from "@meridian/ui/editor";
 import {
   AvatarStack,
   CompletionMeter,
@@ -31,6 +32,7 @@ import {
   Stat,
   StatBandSkeleton,
   StatusBadge,
+  AttachmentList,
   TaskBoard,
   TaskListSkeleton,
   TeamCompare,
@@ -47,7 +49,7 @@ import {
 } from "@meridian/ui";
 import { TrendChart } from "@meridian/ui/chart";
 import { ErrorStateDemo } from "./error-demo";
-import { ATTENTION, BOARD, MEMBERS, TASKS, TEAMS, TREND } from "./fixtures";
+import { ATTACHMENTS, ATTENTION, BOARD, MEMBERS, TASKS, TEAMS, TREND } from "./fixtures";
 
 export const metadata = { title: "Meridian — Design System" };
 
@@ -419,6 +421,33 @@ export default function DesignSystemPage() {
               </Eyebrow>
               <EmptyState>Everything due today is done.</EmptyState>
             </div>
+          </div>
+        </Block>
+
+        <Block title="Description" note="Rich text, and the files that come with it">
+          <p className="mb-6 max-w-prose text-copy-13 text-gray-700">
+            BlockNote wearing this system&rsquo;s tokens rather than its own skin. Dropping a
+            file into the prose uploads it and records it as an attachment, so there is one
+            list of everything on a task instead of two. The column stores the document as
+            JSON; a description written before the editor existed still opens as prose.
+          </p>
+          <div className="grid gap-6 lg:grid-cols-2">
+            <div>
+              <p className="mb-2 text-label-12 uppercase tracking-[0.08em] text-gray-600">
+                Editing
+              </p>
+              <RichTextEditor name="design-description" defaultValue="Client moved the launch up. Deck needs a rebuild before Friday." />
+            </div>
+            <div>
+              <p className="mb-2 text-label-12 uppercase tracking-[0.08em] text-gray-600">
+                Reading
+              </p>
+              <RichTextView value="Client moved the launch up. Deck needs a rebuild before Friday." />
+            </div>
+          </div>
+
+          <div className="mt-6 max-w-xl">
+            <AttachmentList attachments={ATTACHMENTS} />
           </div>
         </Block>
 

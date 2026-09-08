@@ -1,0 +1,92 @@
+/*
+ * BlockNote ships a Mantine skin: its own greys, its own radii, its own font.
+ * Dropped in untouched it reads as a different product embedded in a hole in
+ * the page. Every value below is one of our tokens — the same rule as the rest
+ * of the system, applied to somebody else's component.
+ */
+
+.meridian-editor {
+  --bn-font-family: var(--font-sans);
+
+  --bn-colors-editor-text: var(--color-gray-1000);
+  --bn-colors-editor-background: var(--color-background-100);
+
+  --bn-colors-menu-text: var(--color-gray-1000);
+  --bn-colors-menu-background: var(--color-background-100);
+  --bn-colors-tooltip-text: var(--color-gray-1000);
+  --bn-colors-tooltip-background: var(--color-gray-100);
+  --bn-colors-hovered-text: var(--color-gray-1000);
+  --bn-colors-hovered-background: var(--color-gray-100);
+  --bn-colors-selected-text: var(--color-blue-900);
+  --bn-colors-selected-background: var(--color-blue-100);
+  --bn-colors-disabled-text: var(--color-gray-600);
+  --bn-colors-disabled-background: var(--color-gray-100);
+
+  --bn-colors-border: var(--color-gray-400);
+  --bn-colors-side-menu: var(--color-gray-600);
+  --bn-colors-highlights-blue-background: var(--color-blue-200);
+
+  --bn-border-radius: var(--radius-8);
+  --bn-shadow-medium: var(--shadow-medium);
+}
+
+/*
+ * The editor sits in a field alongside Input and Textarea, so it is bordered
+ * like one. The border goes on the container and the horizontal padding stays
+ * on `.bn-editor`: BlockNote draws the block handles (+ and the drag dots) in
+ * that left gutter, so zeroing it puts them outside the border, straddling the
+ * rounded corner. 54px is BlockNote's own gutter and the width the handles are
+ * positioned against.
+ */
+.meridian-editor:not(.meridian-editor--read-only) .bn-container {
+  border: 1px solid var(--color-gray-400);
+  border-radius: var(--radius-8);
+  background: var(--color-background-100);
+  padding-block: calc(var(--spacing) * 2);
+  transition: border-color 150ms ease;
+}
+
+.meridian-editor:not(.meridian-editor--read-only) .bn-container:focus-within {
+  border-color: var(--color-gray-700);
+}
+
+.meridian-editor:not(.meridian-editor--read-only) .bn-editor {
+  padding-inline: 54px calc(var(--spacing) * 4);
+  /* Roughly the four rows the textarea had. A description is somewhere to
+     write, and a single-line field invites a single line. Clicking anywhere in
+     the box puts the caret in the last block rather than missing the editor. */
+  min-height: 8rem;
+}
+
+/* Read-only output is prose on the page, not a control — and with no handles
+   to make room for, the gutter would just be an indent. */
+.meridian-editor--read-only .bn-container,
+.meridian-editor--read-only .bn-editor {
+  border: 0;
+  padding: 0;
+  background: transparent;
+}
+
+/* Drop target. BlockNote's own indicator is a thin blue line that is easy to
+   miss when you are holding a file over a form. */
+.meridian-editor .bn-drop-cursor {
+  background: var(--color-blue-700);
+}
+
+.meridian-editor .bn-block-content[data-content-type="heading"] {
+  letter-spacing: -0.02em;
+}
+
+/* Type comes off our ramp rather than BlockNote's. */
+.meridian-editor .bn-block-content[data-content-type="paragraph"],
+.meridian-editor .bn-inline-content {
+  font-size: var(--text-copy-14);
+  line-height: var(--text-copy-14--line-height);
+}
+
+.meridian-editor .bn-block-content[data-content-type="codeBlock"] {
+  font-family: var(--font-mono);
+  background: var(--color-gray-100);
+  border: 1px solid var(--color-gray-400);
+  border-radius: var(--radius-6);
+}

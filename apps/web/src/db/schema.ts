@@ -3,6 +3,7 @@ import {
   pgEnum,
   uuid,
   text,
+  integer,
   timestamp,
   index,
   primaryKey,
@@ -110,6 +111,34 @@ export const taskAssignees = pgTable(
     primaryKey({ columns: [t.taskId, t.userId] }),
     index("task_assignees_user_idx").on(t.userId),
   ],
+);
+
+/**
+ * A file on a task. The row is the record; the bytes live in object storage
+ * under `key`. Nothing is ever served from the bucket directly — reads go
+ * through a route that checks the same permission as the task itself.
+ */
+export const taskAttachments = pgTable(
+  "task_attachments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    taskId: uuid("task_id")
+      .notNull()
+      .references(() => tasks.id, { onDelete: "cascade" }),
+    // Object key in the bucket. Unique so a retried upload cannot leave two
+    // rows pointing at the same bytes.
+    key: text("key").notNull().unique(),
+    filename: text("filename").notNull(),
+    contentType: text("content_type").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    uploadedBy: uuid("uploaded_by")
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("task_attachments_task_idx").on(t.taskId)],
 );
 
 export const tags = pgTable("tags", {

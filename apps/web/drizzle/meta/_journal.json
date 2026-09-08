@@ -8,6 +8,13 @@
       "when": 1788699336318,
       "tag": "0000_far_jocasta",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1788861695438,
+      "tag": "0001_windy_captain_universe",
+      "breakpoints": true
     }
   ]
 }

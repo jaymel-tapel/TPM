@@ -19,6 +19,7 @@ decorative system would.
 | **Grid** | Geist's 4pt grid. |
 | **Colour structure** | Geist's 10-step scales with Geist's role-per-step semantics. |
 | **Colour values** | **Substituted.** The client's brand (blue `#5B88F7`, yellow `#FFC72C`) replaces Geist's own accent hues. The scale *structure* and step *roles* are unchanged, so components still read `blue-700` for a solid and `gray-400` for a border. |
+| **Third-party UI** | **One import.** BlockNote provides the description editor. It arrives with its own greys, radii and font; `packages/ui/src/editor/blocknote.css` re-points every one of them at a token here. The Ariakit build, not the default Mantine one — `@mantine/hooks@9` calls React&rsquo;s `useEffectEvent`, which React 19.2 does not have. |
 | **Surfaces** | **One addition.** Geist has no dark editorial surface; the brief requires navy for leadership summaries. `navy` is a documented exception, used only for the Senior Director hero. |
 
 ---

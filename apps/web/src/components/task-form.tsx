@@ -5,7 +5,6 @@ import { Button } from "@meridian/ui/primitives/button";
 import { Input } from "@meridian/ui/primitives/input";
 import { Label } from "@meridian/ui/primitives/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@meridian/ui/primitives/select";
-import { Textarea } from "@meridian/ui/primitives/textarea";
 import {
   ButtonLink,
   cn,
@@ -18,7 +17,9 @@ import {
   type TaskStatus,
   type TaskType,
 } from "@meridian/ui";
+import { RichTextEditor } from "@meridian/ui/editor";
 import type { FormState } from "@/actions/tasks";
+import { uploadAttachment } from "@/components/task-attachments";
 
 export type AssignableUser = { id: string; name: string; team_name: string | null };
 
@@ -111,13 +112,25 @@ export function TaskForm({
           <Label htmlFor="description" className={label}>
             Description
           </Label>
-          <Textarea
-            id="description"
+          {/*
+            Files can only be attached to a task that exists — there is no id
+            to hang them off until the first save — so the new-task form gets
+            the editor without uploads and says so.
+          */}
+          <RichTextEditor
             name="description"
-            rows={4}
             defaultValue={values.description}
-            placeholder="Optional context"
+            uploadFile={
+              values.id
+                ? async (file) => (await uploadAttachment(values.id!, file)).href
+                : undefined
+            }
           />
+          <p className="mt-2 text-copy-13 text-gray-600">
+            {values.id
+              ? "Drop an image or file into the description to attach it."
+              : "Save the task first to attach files."}
+          </p>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">

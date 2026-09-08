@@ -1,6 +1,7 @@
 import type {
   AttentionItemData,
   MemberRowData,
+  AttachmentData,
   BoardData,
   TaskRowData,
   TeamCompareData,
@@ -135,3 +136,30 @@ export const BOARD: BoardData = {
   done: [TASKS.done],
   blocked: [TASKS.blocked],
 };
+
+export const ATTACHMENTS: AttachmentData[] = [
+  {
+    id: "a1",
+    filename: "nike-brief-v2.pdf",
+    contentType: "application/pdf",
+    sizeBytes: 1_240_000,
+    uploadedByName: "Anna Santos",
+    href: "#",
+  },
+  {
+    id: "a2",
+    filename: "hero-crop.png",
+    contentType: "image/png",
+    sizeBytes: 340_000,
+    uploadedByName: "James Cruz",
+    href: "#",
+  },
+  {
+    id: "a3",
+    filename: "budget-q4.xlsx",
+    contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    sizeBytes: 88_000,
+    uploadedByName: "Anna Santos",
+    href: "#",
+  },
+];
