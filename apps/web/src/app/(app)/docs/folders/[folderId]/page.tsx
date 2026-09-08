@@ -3,7 +3,6 @@ import { FilePlus, FolderPlus, Pencil, X } from "lucide-react";
 import {
   Command,
   CommandBar,
-  CommandDivider,
   DocBreadcrumb,
   DocTree,
   PageHeader,
@@ -58,18 +57,8 @@ export default async function FolderPage({
         commands={
           editable || canAdd ? (
             <CommandBar>
-              {editable ? (
-                <Command
-                  icon={editing ? X : Pencil}
-                  href={editing ? folder.href : `${folder.href}?edit`}
-                  active={editing}
-                >
-                  {editing ? "Done" : "Rename or move"}
-                </Command>
-              ) : null}
               {canAdd ? (
                 <>
-                  {editable ? <CommandDivider /> : null}
                   <Command icon={FilePlus} href={`/docs/new?folder=${folder.id}`}>
                     New document here
                   </Command>
@@ -77,6 +66,21 @@ export default async function FolderPage({
                     New folder here
                   </Command>
                 </>
+              ) : null}
+
+              {/* What you do to the folder itself sits at the far end, away
+                  from what you use to put things in it — the same split the
+                  board bar makes. */}
+              {editable ? (
+                <div className="ml-auto flex items-center gap-1">
+                  <Command
+                    icon={editing ? X : Pencil}
+                    href={editing ? folder.href : `${folder.href}?edit`}
+                    active={editing}
+                  >
+                    {editing ? "Done editing" : "Edit"}
+                  </Command>
+                </div>
               ) : null}
             </CommandBar>
           ) : null
