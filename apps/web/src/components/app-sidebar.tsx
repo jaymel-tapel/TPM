@@ -15,9 +15,10 @@ import {
   Users,
   UsersRound,
 } from "lucide-react";
-import { ROLE_LABELS, UserAvatar, cn, type Role } from "@meridian/ui";
+import { ROLE_LABELS, UserAvatar, cn, type InboxItemData, type Role } from "@meridian/ui";
 import type { NavIcon, NavItem } from "@/lib/permissions";
 import { logout } from "@/actions/auth";
+import { NotificationBell } from "./notification-bell";
 import { RoleSwitcher } from "./role-switcher";
 
 const ICONS: Record<NavIcon, typeof CalendarCheck> = {
@@ -170,25 +171,32 @@ export function AppSidebar({
   user,
   showRoleSwitcher,
   canCreateBoard = false,
+  notifications,
+  unread,
 }: {
   links: NavItem[];
   user: { name: string; role: Role };
   showRoleSwitcher: boolean;
   canCreateBoard?: boolean;
+  notifications: InboxItemData[];
+  unread: number;
 }) {
   const pathname = usePathname();
 
   return (
     <aside className="sticky top-0 flex h-screen w-56 shrink-0 flex-col border-r border-gray-400 bg-background-100">
-      <Link
-        href="/"
-        className="flex h-14 shrink-0 items-center gap-2 border-b border-gray-300 px-4"
-      >
-        <span className="grid size-6 shrink-0 place-items-center rounded-md bg-blue-700 text-caption-strong text-white">
-          M
-        </span>
-        <span className="text-body-strong text-gray-1000">Meridian</span>
-      </Link>
+      {/* The bell sits beside the wordmark rather than inside it: the brand is
+          a link, and a button nested in an anchor is invalid markup that
+          swallows its own clicks. */}
+      <div className="flex h-14 shrink-0 items-center gap-2 border-b border-gray-300 px-4">
+        <Link href="/" className="flex min-w-0 items-center gap-2">
+          <span className="grid size-6 shrink-0 place-items-center rounded-md bg-blue-700 text-caption-strong text-white">
+            M
+          </span>
+          <span className="truncate text-body-strong text-gray-1000">Meridian</span>
+        </Link>
+        <NotificationBell items={notifications} unread={unread} />
+      </div>
 
       <nav className="flex-1 overflow-y-auto p-2">
         {links.map((link) => (

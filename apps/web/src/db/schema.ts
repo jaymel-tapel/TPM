@@ -6,6 +6,7 @@ import {
   integer,
   timestamp,
   index,
+  uniqueIndex,
   primaryKey,
   foreignKey,
   unique,
@@ -398,6 +399,79 @@ export const taskDocuments = pgTable(
   ],
 );
 
+export const notificationKindEnum = pgEnum("notification_kind", [
+  "mentioned",
+  "assigned",
+  "commented",
+]);
+
+/**
+ * What someone still has to look at.
+ *
+ * A row per recipient, written when the thing happens, rather than a feed
+ * derived at read time. Read state is per person, so there is no version of
+ * this without a row each — and `assigned` could not be derived at all:
+ * `task_activity` records the assignee as `subject_name`, a text snapshot,
+ * with no id to match a reader against.
+ *
+ * This is a nudge, not history. `task_activity` is the record of what
+ * happened and outlives everything; a notification exists only until it has
+ * done its job, which is why it cascades away so freely below.
+ */
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    /** Who is being told. */
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /**
+     * Who caused it. Never the same as `user_id` — you are not told about
+     * your own doing.
+     *
+     * This cascades, and `task_activity.actor_id` deliberately does not. That
+     * table is the record of what someone did and must survive them; this one
+     * is a note on a desk.
+     */
+    actorId: uuid("actor_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    taskId: uuid("task_id")
+      .notNull()
+      .references(() => tasks.id, { onDelete: "cascade" }),
+    /**
+     * The comment or event this came from, when there was one. Null for a
+     * mention added by editing a description, which writes no activity row.
+     *
+     * The cascade is the point: delete the comment and the notification
+     * pointing at it goes with it, rather than surviving as a link to
+     * something no longer there.
+     */
+    activityId: uuid("activity_id").references(() => taskActivity.id, {
+      onDelete: "cascade",
+    }),
+    kind: notificationKindEnum("kind").notNull(),
+    /** Null is unread. A timestamp, not a boolean, so *when* survives too. */
+    readAt: timestamp("read_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    // The inbox read, and the unread count, are both this index.
+    index("notifications_inbox_idx").on(t.userId, t.createdAt),
+    /*
+     * One telling per person per event, so a retried action cannot notify
+     * twice. Postgres treats nulls as distinct, so this does not constrain a
+     * description mention (`activity_id` null) — those are kept idempotent by
+     * diffing the old body against the new in `updateTask`, which is the
+     * better answer anyway: editing a typo should not re-ping the room.
+     */
+    uniqueIndex("notifications_once_idx").on(t.userId, t.activityId, t.kind),
+  ],
+);
+
 export type Role = (typeof roleEnum.enumValues)[number];
 export type StatusKind = (typeof statusKindEnum.enumValues)[number];
 export type ActivityKind = (typeof activityKindEnum.enumValues)[number];
@@ -411,3 +485,5 @@ export type Task = typeof tasks.$inferSelect;
 export type DocVisibility = (typeof docVisibilityEnum.enumValues)[number];
 export type DocLinkSource = (typeof docLinkSourceEnum.enumValues)[number];
 export type Doc = typeof documents.$inferSelect;
+export type NotificationKind = (typeof notificationKindEnum.enumValues)[number];
+export type Notification = typeof notifications.$inferSelect;

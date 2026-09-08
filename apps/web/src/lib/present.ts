@@ -1,6 +1,7 @@
 import "server-only";
 import type {
   ActivityItemData,
+  InboxItemData,
   AttentionItemData,
   BoardData,
   DocBacklinkData,
@@ -19,6 +20,7 @@ import type { BoardView } from "@/queries/tasks";
 import type { MemberRollup } from "@/queries/team";
 import type { AttentionItem } from "@/queries/attention";
 import type { ActivityEntry } from "@/queries/activity";
+import type { InboxEntry } from "@/queries/notifications";
 import type {
   DocBacklink,
   DocNode,
@@ -161,5 +163,22 @@ export function toActivityItem(
     removable:
       (entry.kind === "comment" || entry.kind === "time_logged") &&
       (entry.actorId === viewer.id || viewer.role !== "team_member"),
+  };
+}
+
+/**
+ * One inbox row, ready to render. The excerpt was already flattened in the
+ * query — the design system never receives a document to mount an editor for.
+ */
+export function toInboxItem(entry: InboxEntry, reference: Date = now()): InboxItemData {
+  return {
+    id: entry.id,
+    kind: entry.kind,
+    actorName: entry.actorName,
+    taskId: entry.taskId,
+    taskTitle: entry.taskTitle,
+    excerpt: entry.excerpt,
+    when: agoLabel(entry.createdAt, reference),
+    read: entry.readAt !== null,
   };
 }

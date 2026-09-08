@@ -126,8 +126,39 @@ function asPerson(node: unknown): UserMentionProps | null {
 }
 
 /**
- * Every document a stored description mentions, in the order it mentions them
- * and without repeats.
+ * Every mention of one kind in a stored body, in the order it appears and
+ * without repeats.
+ *
+ * The walk is shared because the two callers must agree: if documents and
+ * people were scanned by different recursions, a mention nested inside a list
+ * item could count for one and not the other.
+ */
+function collect<T>(
+  value: string | null | undefined,
+  read: (node: unknown) => T | null,
+  keyOf: (item: T) => string,
+): T[] {
+  const blocks = toBlocks(value);
+  if (!blocks) return [];
+
+  const found = new Map<string, T>();
+  const walk = (list: Block[]) => {
+    for (const block of list) {
+      if (Array.isArray(block.content)) {
+        for (const node of block.content) {
+          const item = read(node);
+          if (item && !found.has(keyOf(item))) found.set(keyOf(item), item);
+        }
+      }
+      if (block.children?.length) walk(block.children);
+    }
+  };
+  walk(blocks);
+  return [...found.values()];
+}
+
+/**
+ * Every document a stored description mentions.
  *
  * This is what turns prose into rows in `task_documents`, so it runs on the
  * server on every save — which is why it lives beside `toBlocks` as a plain
@@ -136,21 +167,18 @@ function asPerson(node: unknown): UserMentionProps | null {
 export function collectMentions(
   value: string | null | undefined,
 ): DocMentionProps[] {
-  const blocks = toBlocks(value);
-  if (!blocks) return [];
+  return collect(value, asMention, (m) => m.docId);
+}
 
-  const found = new Map<string, DocMentionProps>();
-  const walk = (list: Block[]) => {
-    for (const block of list) {
-      if (Array.isArray(block.content)) {
-        for (const node of block.content) {
-          const mention = asMention(node);
-          if (mention && !found.has(mention.docId)) found.set(mention.docId, mention);
-        }
-      }
-      if (block.children?.length) walk(block.children);
-    }
-  };
-  walk(blocks);
-  return [...found.values()];
+/**
+ * Every person a stored body mentions — a description or a comment.
+ *
+ * The `userId` here came out of the browser, so it is the author's *claim*
+ * about who they meant, not a fact. Anything acting on it has to check the
+ * named person may actually see the task first; see `notify` in the app.
+ */
+export function collectPeople(
+  value: string | null | undefined,
+): UserMentionProps[] {
+  return collect(value, asPerson, (p) => p.userId);
 }

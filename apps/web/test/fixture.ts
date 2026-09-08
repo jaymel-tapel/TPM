@@ -50,7 +50,7 @@ export const statusId = (boardId: string, column: Column) =>
 
 export async function resetDb() {
   await db.execute(
-    sql`truncate task_activity, task_documents, documents, task_tags, task_assignees, task_attachments, tasks, board_statuses, boards, tags, users, teams restart identity cascade`,
+    sql`truncate notifications, task_activity, task_documents, documents, task_tags, task_assignees, task_attachments, tasks, board_statuses, boards, tags, users, teams restart identity cascade`,
   );
 }
 
@@ -198,6 +198,25 @@ export function bodyMentioning(
         ...mentions.map((m) => ({
           type: "docMention",
           props: { docId: m.id, title: m.title, stale: false },
+        })),
+      ],
+    },
+  ]);
+}
+
+/** A BlockNote body that mentions the given people, as the editor writes it. */
+export function bodyNaming(
+  text: string,
+  people: { id: string; name: string }[],
+): string {
+  return JSON.stringify([
+    {
+      type: "paragraph",
+      content: [
+        { type: "text", text, styles: {} },
+        ...people.map((p) => ({
+          type: "userMention",
+          props: { userId: p.id, name: p.name },
         })),
       ],
     },
