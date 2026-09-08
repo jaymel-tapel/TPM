@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { Check } from "lucide-react";
 import { cn } from "../lib/utils";
 import { AvatarStack } from "./user-avatar";
 import { DocCount, PriorityBadge, StatusMark, TypeLabel } from "./task-meta";
@@ -57,11 +58,21 @@ function BoardCard({
         ) : null}
         <p
           className={cn(
-            "text-body-strong",
+            "flex items-start gap-1.5 text-body-strong",
             task.done ? "text-gray-600" : "text-gray-1000",
           )}
         >
-          {task.title}
+          {/* Completion is the task's own, so the card states it rather than
+              implying it by which column the card is sitting in. A board can
+              have six stages and finish work at any of them. */}
+          {task.done ? (
+            <Check
+              className="mt-0.5 size-4 shrink-0 text-green-700"
+              strokeWidth={2.5}
+              aria-label="Completed"
+            />
+          ) : null}
+          <span className={cn(task.done && "line-through")}>{task.title}</span>
         </p>
         <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-caption text-gray-700">
           <TypeLabel type={task.type} />
@@ -78,13 +89,21 @@ function BoardCard({
             size="sm"
             title={collaborators.map((a) => a.name).join(", ")}
           />
+          {/* Always the deadline. It used to read "Done" once a card reached
+              the done column, which threw away the one thing the card is there
+              to tell you — when the work is wanted. Whether it is finished is
+              the tick above. */}
           <span
             className={cn(
               "tabular shrink-0 text-caption",
-              task.overdue ? "font-medium text-red-700" : "text-gray-600",
+              task.done
+                ? "text-gray-600"
+                : task.overdue
+                  ? "font-medium text-red-700"
+                  : "text-gray-600",
             )}
           >
-            {task.done ? "Done" : task.dueText}
+            {task.dueText}
           </span>
         </div>
       </Link>

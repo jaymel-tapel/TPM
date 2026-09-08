@@ -21,6 +21,7 @@ import {
   type StatusKind,
 } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
+import { completionOnMove } from "@/lib/completion";
 import { collectPeople } from "@meridian/ui/editor";
 import { syncMentionedDocs } from "@/lib/doc-links";
 import { deliver, notify } from "@/lib/notify";
@@ -183,7 +184,7 @@ export async function createTask(_prev: FormState, formData: FormData): Promise<
       statusId: status.id,
       dueDate: new Date(input.dueDate),
       estimateMinutes: estimate.minutes,
-      completedAt: completionStamp(status.kind, null),
+      completedAt: completionOnMove(status.kind, null),
       createdBy: viewer.id,
       teamId: board.teamId,
     })
@@ -287,7 +288,7 @@ export async function updateTask(_prev: FormState, formData: FormData): Promise<
       estimateMinutes: estimate.minutes,
       // `actualMinutes` is deliberately absent: it is the sum of logged time
       // and is written only by the actions that add or remove an entry.
-      completedAt: completionStamp(status.kind, existing.completedAt),
+      completedAt: completionOnMove(status.kind, existing.completedAt),
       updatedAt: new Date(),
     })
     .where(eq(tasks.id, taskId));
@@ -379,15 +380,6 @@ export async function updateTask(_prev: FormState, formData: FormData): Promise<
 }
 
 /**
- * `completed_at` is what every report reads, so it is stamped on the way into
- * a `done` column and cleared on the way out — never left stale. A board owner
- * can rename or reorder columns freely; only `kind` decides this.
- */
-function completionStamp(kind: StatusKind, current: Date | null): Date | null {
-  return kind === "done" ? (current ?? new Date()) : null;
-}
-
-/**
  * Resolves a status to the board it is on, which is the only place that
  * pairing is trusted. Returns null when the status does not belong to the
  * board the caller claims — the composite foreign key would refuse the write
@@ -406,40 +398,30 @@ async function statusOnBoard(statusId: string, boardId: string) {
   return row ?? null;
 }
 
-/** The column a board sends work to, by kind and then by its own order. */
-async function firstStatusOfKind(boardId: string, kind: StatusKind) {
-  const [row] = await db
-    .select({ id: boardStatuses.id, name: boardStatuses.name, kind: boardStatuses.kind })
-    .from(boardStatuses)
-    .where(and(eq(boardStatuses.boardId, boardId), eq(boardStatuses.kind, kind)))
-    .orderBy(boardStatuses.position, boardStatuses.name)
-    .limit(1);
-  return row ?? null;
-}
-
-/** The one-click affordance on every task row. */
+/**
+ * The one-click affordance on every task row, and the only thing that decides
+ * whether work is finished.
+ *
+ * It no longer moves the card. It used to, on the reasoning that a finished
+ * task sitting in a column saying otherwise would make the board second-guess
+ * every card — but that argument only holds while the column *is* the
+ * completion. Now the card carries a tick of its own, so where it sits on the
+ * board is a question about the workflow ("has the client seen it?") and the
+ * tick is a question about the work ("is it done?"). Those are different
+ * questions and a six-stage board needs both.
+ */
 export async function toggleTaskDone(formData: FormData) {
   const viewer = await requireUser();
   const taskId = String(formData.get("taskId") ?? "");
   const task = await loadEditableTask(viewer, taskId);
 
-  /*
-   * Ticking a task moves it into its board's `done` column, rather than only
-   * stamping `completed_at`. If it just stamped, a finished task would sit in
-   * a column that says otherwise, and the board would have to second-guess
-   * every card. Untick sends it back to the first open column.
-   */
   const done = task.completedAt !== null;
-  const target = await firstStatusOfKind(task.boardId, done ? "open" : "done");
-  if (!target) throw new Error(`Board has no ${done ? "open" : "done"} column`);
-
-  const from = await statusLabel(task.statusId);
+  const status = await statusLabel(task.statusId);
 
   await db
     .update(tasks)
     .set({
-      statusId: target.id,
-      completedAt: completionStamp(target.kind, done ? null : task.completedAt),
+      completedAt: done ? null : new Date(),
       updatedAt: new Date(),
     })
     .where(eq(tasks.id, taskId));
@@ -448,8 +430,8 @@ export async function toggleTaskDone(formData: FormData) {
     taskId,
     actorId: viewer.id,
     kind: done ? "reopened" : "completed",
-    fromLabel: from?.name ?? null,
-    toLabel: target.name,
+    // The column it happened in, which is now context rather than the cause.
+    toLabel: status?.name ?? null,
   });
 
   refresh();
@@ -470,13 +452,15 @@ export async function setTaskStatus(formData: FormData) {
 
   const from = await statusLabel(task.statusId);
   const wasDone = task.completedAt !== null;
-  const nowDone = status.kind === "done";
+  // Only the crossing *into* done is an event now — a move can no longer
+  // reopen anything, so there is no "reopened" to record here.
+  const nowDone = wasDone || status.kind === "done";
 
   await db
     .update(tasks)
     .set({
       statusId: status.id,
-      completedAt: completionStamp(status.kind, task.completedAt),
+      completedAt: completionOnMove(status.kind, task.completedAt),
       updatedAt: new Date(),
     })
     .where(eq(tasks.id, taskId));
@@ -486,7 +470,7 @@ export async function setTaskStatus(formData: FormData) {
   await recordActivity({
     taskId,
     actorId: viewer.id,
-    kind: nowDone && !wasDone ? "completed" : !nowDone && wasDone ? "reopened" : "status_changed",
+    kind: nowDone && !wasDone ? "completed" : "status_changed",
     fromLabel: from?.name ?? null,
     toLabel: status.name,
   });

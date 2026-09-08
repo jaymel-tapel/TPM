@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { format } from "date-fns";
+import { Check } from "lucide-react";
 import { eq } from "drizzle-orm";
 import { Button } from "@meridian/ui/primitives/button";
 import {
@@ -18,7 +19,7 @@ import { getAttachments } from "@/queries/attachments";
 import { getActivity } from "@/queries/activity";
 import { getLinkedDocs } from "@/queries/docs";
 import { listBoardOptions, listBoardStatuses } from "@/queries/boards";
-import { setTaskStatus, updateTask } from "@/actions/tasks";
+import { setTaskStatus, toggleTaskDone, updateTask } from "@/actions/tasks";
 import { DeleteTaskButton } from "@/components/delete-task-button";
 import { TaskForm } from "@/components/task-form";
 import { TaskAttachments } from "@/components/task-attachments";
@@ -80,8 +81,29 @@ export default async function TaskDetailPage({
         }
       />
 
-      {/* The columns of this task's own board, in the board's order. */}
+      {/*
+        Two different questions, so two different controls: the columns say
+        where the work has got to, and the button says whether it is finished.
+        They used to be the same gesture, which capped a board at three columns
+        and let a drag rewrite when something was completed.
+      */}
       <div className="mb-6 flex flex-wrap items-center gap-2">
+        <form action={toggleTaskDone} className="mr-1">
+          <input type="hidden" name="taskId" value={task.id} />
+          <button
+            type="submit"
+            className={cn(
+              "flex cursor-pointer items-center gap-2 rounded-md border px-3 py-1.5 text-body-strong transition-colors",
+              task.completedAt
+                ? "border-green-700 bg-green-100 text-green-900"
+                : "border-gray-400 bg-background-100 text-gray-700 hover:border-gray-500 hover:text-gray-1000",
+            )}
+          >
+            <Check className="size-4" strokeWidth={2.5} />
+            {task.completedAt ? "Completed" : "Mark complete"}
+          </button>
+        </form>
+        <span aria-hidden className="mr-1 h-6 w-px bg-gray-400" />
         {columns.map((status) => (
           <form key={status.id} action={setTaskStatus}>
             <input type="hidden" name="taskId" value={task.id} />

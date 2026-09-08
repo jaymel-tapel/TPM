@@ -2,7 +2,7 @@ import "server-only";
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
 import { dayRange, now, pct, type Zone } from "@/lib/date";
-import { isBlocked, isOpen, onTimeIn, overdueSql, scopeSql, type Scope } from "./sql";
+import { isBlocked, onTimeIn, overdueSql, scopeSql, type Scope } from "./sql";
 import { TASK_TYPE_LABELS } from "@/lib/constants";
 import type { TaskType } from "@/db/schema";
 
@@ -49,16 +49,23 @@ export async function getNeedsAttention(
     });
   }
 
-  // 2. Work landing in the next two hours that has not been started.
-  // "Not started" is the first open column on its board, whatever it is
-  // called — a board that renames To Do to "Backlog" still counts here.
+  /*
+   * 2. Work landing in the next two hours that has not been started.
+   *
+   * "Not started" is the board's first column by position, whatever it is
+   * called — a board that renames To Do to "Backlog" still counts here. It
+   * used to be the first column of kind `open`, which was the same thing only
+   * while boards were three columns deep; on a board that opens with a
+   * client-facing stage the first column is where work waits regardless of
+   * how it is classified.
+   */
   const soon = await db.execute(sql`
     select count(*) as n from tasks k
     join board_statuses s on s.id = k.status_id
-    where ${where} and ${isOpen} and k.completed_at is null
+    where ${where} and k.completed_at is null
       and s.position = (
         select min(s2.position) from board_statuses s2
-        where s2.board_id = k.board_id and s2.kind = 'open'
+        where s2.board_id = k.board_id
       )
       and k.due_date between now() and now() + interval '2 hours'
   `);
