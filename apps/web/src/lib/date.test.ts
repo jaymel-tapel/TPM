@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { dayRange, dueLabel, lastNDays, pct, startOfAppDay } from "./date";
+import {
+  APP_TIMEZONE,
+  dayRange,
+  dueLabel,
+  fmt,
+  lastNDays,
+  pct,
+  startOfAppDay,
+  zoneOf,
+} from "./date";
 
 /**
  * Every "due today" and "completed that day" comparison in the product goes
@@ -84,5 +93,54 @@ describe("pct", () => {
   it("reads an empty day as 100%, not NaN", () => {
     // Nothing due and nothing done is a finished day, not a failed one.
     expect(pct(0, 0)).toBe(100);
+  });
+});
+
+describe("a day belongs to whoever is reckoning it", () => {
+  /*
+   * The consequence of per-person timezones, pinned rather than left implied.
+   * 6am on the 9th in Manila is 3pm on the 8th in Los Angeles — the same
+   * instant, two different days — so "due today", "overdue" and "finished on
+   * time" can all honestly differ between two readers.
+   */
+  const instant = new Date("2026-09-08T22:00:00Z"); // 6am Sep 9 Manila
+
+  it("puts one instant on different days for different readers", () => {
+    expect(fmt(instant, "yyyy-MM-dd", "Asia/Manila")).toBe("2026-09-09");
+    expect(fmt(instant, "yyyy-MM-dd", "America/Los_Angeles")).toBe("2026-09-08");
+  });
+
+  it("moves the day boundary with the zone", () => {
+    const manila = startOfAppDay(instant, "Asia/Manila");
+    const la = startOfAppDay(instant, "America/Los_Angeles");
+    expect(manila.getTime()).not.toBe(la.getTime());
+    // Manila's midnight is the more recent one: its day started later.
+    expect(manila.getTime()).toBeGreaterThan(la.getTime());
+  });
+
+  it("gives each reader a day that contains the instant", () => {
+    for (const zone of ["Asia/Manila", "America/Los_Angeles", "Europe/London"]) {
+      const { start, end } = dayRange(instant, zone);
+      expect(instant >= start && instant < end).toBe(true);
+      expect(end.getTime() - start.getTime()).toBe(86_400_000);
+    }
+  });
+
+  it("falls back to the department when a person has not chosen", () => {
+    expect(zoneOf(null)).toBe(APP_TIMEZONE);
+    expect(zoneOf({ timezone: null })).toBe(APP_TIMEZONE);
+    // An empty string is not a zone; treat it as unset rather than passing it
+    // to Intl, which would throw.
+    expect(zoneOf({ timezone: "" })).toBe(APP_TIMEZONE);
+    expect(zoneOf({ timezone: "Europe/London" })).toBe("Europe/London");
+  });
+
+  it("still labels the reader's own today as Today", () => {
+    // The label is relative to the same zone it is rendered in, or someone in
+    // London reads "Tomorrow" about work due on their own afternoon.
+    const london = "Europe/London";
+    const ref = new Date("2026-09-08T12:00:00Z");
+    expect(dueLabel(new Date("2026-09-08T16:00:00Z"), ref, london)).toContain("Today");
+    expect(dueLabel(new Date("2026-09-09T09:00:00Z"), ref, london)).toContain("Tomorrow");
   });
 });

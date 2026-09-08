@@ -37,6 +37,7 @@ import {
   ActivityFeed,
   InboxList,
   DayPlan,
+  DayStrip,
   AttachmentList,
   DocBacklinkList,
   DocRefList,
@@ -78,6 +79,7 @@ import {
   TREND,
   INBOX,
   DAY_PLAN,
+  DAY_CHIPS,
   DAY_PLAN_HOURS,
 } from "./fixtures";
 import { DocRefListDemo } from "./doc-refs-demo";
@@ -608,16 +610,20 @@ export default function DesignSystemPage() {
             the way a calendar does — blocks that merely abut do not, so a tidy
             back-to-back morning stays full width. Dropping is an enhancement:
             without an action the grid is read-only, and every row in the list
-            beside it carries a Plan command for anyone not using a mouse.
+            beside it carries a Plan command for anyone not using a mouse. The
+            strip picks the day, so you can block out Thursday without losing
+            sight of what is due now — the dot says how full a day already is,
+            because that is the question you are actually asking.
           </p>
           <div className="grid gap-6 lg:grid-cols-2">
             <div className="max-w-sm">
+              <DayStrip days={DAY_CHIPS} />
               <DayPlan
                 blocks={DAY_PLAN}
                 startHour={7}
                 endHour={21}
                 nowMinutes={10 * 60 + 20}
-                dayStartIso={new Date(0).toISOString()}
+                day="2026-09-09"
                 hourLabels={DAY_PLAN_HOURS}
               />
             </div>
@@ -630,7 +636,7 @@ export default function DesignSystemPage() {
                 startHour={9}
                 endHour={13}
                 nowMinutes={null}
-                dayStartIso={new Date(0).toISOString()}
+                day="2026-09-09"
                 hourLabels={DAY_PLAN_HOURS}
               />
             </div>

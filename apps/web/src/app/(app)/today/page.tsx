@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Plus } from "lucide-react";
 import {
   Command,
@@ -6,37 +7,76 @@ import {
   Panel,
   Percent,
   Stat,
+  DayStrip,
   TaskList,
   TaskRow,
 } from "@meridian/ui";
 import { Progress } from "@meridian/ui/primitives/progress";
 import { requireSession } from "@/lib/auth";
 import { getDayView } from "@/queries/tasks";
-import { getDayPlan } from "@/queries/schedule";
+import { getDayPlan, getPlanCounts, plannedTaskIds } from "@/queries/schedule";
 import { toPlanBlock, toTaskRow } from "@/lib/present";
 import { toggleTaskDone } from "@/actions/tasks";
 import { planTaskNext } from "@/actions/schedule";
-import { dayRange, fmt, fmtLongDate, greeting, now } from "@/lib/date";
-import { MINUTES_PER_HOUR, atMinutes, gridRange, minutesFromMidnight } from "@/lib/plan";
+import {
+  dayRange,
+  fmt,
+  fmtLongDate,
+  greeting,
+  isSameAppDay,
+  now,
+} from "@/lib/date";
+import {
+  MINUTES_PER_HOUR,
+  atMinutes,
+  gridRange,
+  minutesFromMidnight,
+  planDays,
+} from "@/lib/plan";
 import { DayPlanPanel } from "@/components/day-plan-panel";
 
 export const dynamic = "force-dynamic";
+
+/** "9 AM" / "12 PM" — the same shape the grid's gutter uses. */
+function hourLabelFor(hour: number): string {
+  if (hour === 0 || hour === 24) return "12 AM";
+  if (hour === 12) return "12 PM";
+  return hour < 12 ? `${hour} AM` : `${hour - 12} PM`;
+}
 
 /**
  * Screen 1. The day opens as a work sheet, not a board: what's left, what's
  * done, and one honest percentage.
  */
-export default async function TodayPage() {
-  const { user } = await requireSession();
-  const today = now();
-  const day = await getDayView(user.id, today);
-  const row = (t: Parameters<typeof toTaskRow>[0]) => toTaskRow(t, today);
+export default async function TodayPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ plan?: string }>;
+}) {
+  /* Everything on this screen is reckoned in the reader's own timezone: which
+     tasks are due today, what counts as overdue, where the grid's hours fall.
+     Both come off the session, so no page can forget to ask. */
+  const { user, zone, hours } = await requireSession();
+  const today = now(zone);
+  const day = await getDayView(user.id, today, zone);
+  const row = (t: Parameters<typeof toTaskRow>[0]) => toTaskRow(t, today, zone);
 
   const pending = day.today.length;
 
-  const plan = (await getDayPlan(user.id, today)).map(toPlanBlock);
-  const planned = new Set(plan.map((b) => b.taskId));
-  const { startHour, endHour } = gridRange(plan);
+  /*
+   * The lists always show today — that is what this screen is. Only the plan
+   * moves, so you can block out Thursday without losing sight of what is due
+   * now. The day lives in the URL, so it survives a reload.
+   */
+  const days = planDays(today, zone);
+  const asked = (await searchParams).plan;
+  const on = days.find((d) => fmt(d, "yyyy-MM-dd", zone) === asked) ?? days[0]!;
+  const showingToday = isSameAppDay(on, today, zone);
+
+  const plan = (await getDayPlan(user.id, on, zone)).map((e) => toPlanBlock(e, zone));
+  const planned = await plannedTaskIds(user.id, on, zone);
+  const counts = await getPlanCounts(user.id, days, zone);
+  const { startHour, endHour } = gridRange(plan, hours);
   /*
    * The hour labels are formatted here, not in the component: `@meridian/ui`
    * has no clock, and the app reasons in one fixed timezone whatever the
@@ -47,20 +87,34 @@ export default async function TodayPage() {
       const minutes = (startHour + i) * MINUTES_PER_HOUR;
       // "9 AM", not "9:00 AM" — an hour rule has no minutes to report,
       // and the long form wraps in the gutter.
-      return [minutes, fmt(atMinutes(today, minutes), "h a")];
+      return [minutes, fmt(atMinutes(on, minutes, zone), "h a", zone)];
     }),
   );
 
-  const plannable = { onPlan: planTaskNext } as const;
+  const dayChips = days.map((d) => {
+    const key = fmt(d, "yyyy-MM-dd", zone);
+    return {
+      href: isSameAppDay(d, today, zone) ? "/today" : `/today?plan=${key}`,
+      weekday: fmt(d, "EEE", zone),
+      day: fmt(d, "d", zone),
+      count: counts[key] ?? 0,
+      active: isSameAppDay(d, on, zone),
+      today: isSameAppDay(d, today, zone),
+    };
+  });
+
+  /* Rows carry the day the plan is showing, so Plan puts work where you are
+     looking rather than always into today. */
+  const plannable = { onPlan: planTaskNext, planDay: fmt(on, "yyyy-MM-dd", zone) } as const;
 
   return (
     <div className="space-y-8">
         <header>
           <p className="text-caption-strong uppercase tracking-[0.08em] text-gray-600">
-            {fmtLongDate(today)}
+            {fmtLongDate(today, zone)}
           </p>
           <h1 className="mt-3 text-title-1 text-gray-1000">
-            {greeting(today)}, {user.name.split(" ")[0]}
+            {greeting(today, zone)}, {user.name.split(" ")[0]}
           </h1>
           {/* The panel below counts the day; saying it twice in two shapes
               just makes the reader check whether they agree. */}
@@ -147,7 +201,11 @@ export default async function TodayPage() {
           <section>
             <p className="mb-3 text-caption-strong uppercase tracking-[0.08em] text-gray-600">Today</p>
             <EmptyState>
-              {day.due === 0 ? "Nothing is due today." : "Everything due today is done."}
+              {day.due === 0
+                ? day.upcoming.length > 0
+                  ? "Nothing is due today. What is coming is below."
+                  : "Nothing is due today."
+                : "Everything due today is done."}
             </EmptyState>
           </section>
         ) : (
@@ -164,6 +222,21 @@ export default async function TodayPage() {
             ))}
           </TaskList>
         )}
+
+        {day.upcoming.length > 0 ? (
+          <TaskList title="Upcoming">
+            {day.upcoming.map((task) => (
+              <TaskRow
+                key={task.id}
+                task={row(task)}
+                viewer={user.id}
+                onToggle={toggleTaskDone}
+                planned={planned.has(task.id)}
+                {...plannable}
+              />
+            ))}
+          </TaskList>
+        ) : null}
 
         {day.completed.length > 0 ? (
           <TaskList title="Completed" tone="quiet">
@@ -182,14 +255,27 @@ export default async function TodayPage() {
 
         {/* Sticky, so it stays in view while you work the lists beside it. */}
         <aside className="lg:sticky lg:top-8">
-        <DayPlanPanel
-          blocks={plan}
-          startHour={startHour}
-          endHour={endHour}
-          nowMinutes={minutesFromMidnight(today)}
-          dayStartIso={dayRange(today).start.toISOString()}
-          hourLabels={hourLabels}
-        />
+          <DayStrip days={dayChips} />
+          <DayPlanPanel
+            blocks={plan}
+            startHour={startHour}
+            endHour={endHour}
+            /* The now line belongs to today and to no other day. */
+            nowMinutes={showingToday ? minutesFromMidnight(today, zone) : null}
+            day={fmt(on, "yyyy-MM-dd", zone)}
+            hourLabels={hourLabels}
+          />
+          {/* Small, quiet, and under the thing it explains: the grid's hours
+              are a preference, and the only place anyone wonders about them is
+              while looking at the grid. */}
+          <p className="mt-2 text-caption text-gray-600">
+            <Link
+              href="/settings"
+              className="text-blue-700 underline-offset-2 hover:underline"
+            >
+              {hourLabelFor(hours.startHour)}–{hourLabelFor(hours.endHour)} · {zone}
+            </Link>
+          </p>
         </aside>
       </div>
     </div>

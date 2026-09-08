@@ -21,16 +21,16 @@ export const dynamic = "force-dynamic";
 
 /** Both teams side by side, then straight into the people. */
 export default async function TeamsPage() {
-  const { user } = await requireSession();
+  const { user, zone } = await requireSession();
   if (!isSenior(user)) notFound();
 
-  const dept = await getDepartmentToday();
-  const rosters = await Promise.all(dept.teams.map((t) => getTeamToday(t.id)));
+  const dept = await getDepartmentToday(undefined, zone);
+  const rosters = await Promise.all(dept.teams.map((t) => getTeamToday(t.id, undefined, zone)));
 
   return (
     <>
       <PageHeader
-        eyebrow={fmtLongDate(now())}
+        eyebrow={fmtLongDate(now(zone), zone)}
         title="Teams"
         subtitle="Both teams side by side, then straight into the people."
       />

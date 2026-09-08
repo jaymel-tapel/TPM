@@ -13,14 +13,15 @@ export function DayPlanPanel({
   startHour,
   endHour,
   nowMinutes,
-  dayStartIso,
+  day,
   hourLabels,
 }: {
   blocks: PlanBlockData[];
   startHour: number;
   endHour: number;
   nowMinutes: number | null;
-  dayStartIso: string;
+  /** The day being shown, `yyyy-MM-dd`. */
+  day: string;
   /** Minutes-from-midnight → "9 AM", formatted server-side. */
   hourLabels: Record<number, string>;
 }) {
@@ -30,7 +31,7 @@ export function DayPlanPanel({
       startHour={startHour}
       endHour={endHour}
       nowMinutes={nowMinutes}
-      dayStartIso={dayStartIso}
+      day={day}
       hourLabels={hourLabels}
       onPlan={async (data) => {
         await planTask(data);

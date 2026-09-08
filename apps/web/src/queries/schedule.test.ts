@@ -3,9 +3,9 @@ import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { taskSchedule, tasks, users, type Task, type User } from "@/db/schema";
 import { canViewTask } from "@/lib/permissions";
-import { atMinutes, minutesFromMidnight } from "@/lib/plan";
+import { atMinutes, minutesFromMidnight, planDays } from "@/lib/plan";
 import { IDS, NOW, addTask, resetDb, seedOrg } from "../../test/fixture";
-import { getDayPlan, plannedTaskIds } from "./schedule";
+import { getDayPlan, getPlanCounts, plannedTaskIds } from "./schedule";
 
 const load = async (id: string): Promise<User> => {
   const user = await db.query.users.findFirst({ where: eq(users.id, id) });
@@ -167,5 +167,65 @@ describe("what may be planned", () => {
     expect(await canViewTask(await load(IDS.james), teamATask)).toBe(true);
     // A director plans time to review work that is not theirs to edit.
     expect(await canViewTask(await load(IDS.elena), teamATask)).toBe(true);
+  });
+});
+
+describe("planning further out", () => {
+  let a: string;
+  let b: string;
+
+  beforeEach(async () => {
+    await resetDb();
+    await seedOrg();
+    a = await addTask({ team: IDS.teamA, assignees: [IDS.anna], dueDay: 0 });
+    b = await addTask({ team: IDS.teamA, assignees: [IDS.anna], dueDay: 0 });
+  });
+
+  const on = (day: Date, taskId: string, minutesFromStart: number) =>
+    db.insert(taskSchedule).values({
+      taskId,
+      userId: IDS.anna,
+      startsAt: new Date(day.getTime() + minutesFromStart * 60_000),
+      minutes: 30,
+    });
+
+  it("keeps each day to itself", async () => {
+    const [today, tomorrow] = planDays(NOW);
+    await on(today!, a, 10 * 60);
+    await on(tomorrow!, b, 14 * 60);
+
+    expect((await getDayPlan(IDS.anna, today!)).map((x) => x.taskId)).toEqual([a]);
+    expect((await getDayPlan(IDS.anna, tomorrow!)).map((x) => x.taskId)).toEqual([b]);
+  });
+
+  it("marks a task planned only on the day it is planned for", async () => {
+    // The row's Plan command reads this. Marking it done on every day would
+    // say a task was handled when it is still loose on the day you are looking
+    // at.
+    const [today, tomorrow] = planDays(NOW);
+    await on(tomorrow!, a, 14 * 60);
+
+    expect((await plannedTaskIds(IDS.anna, today!)).has(a)).toBe(false);
+    expect((await plannedTaskIds(IDS.anna, tomorrow!)).has(a)).toBe(true);
+  });
+
+  it("counts the week in one query, keyed by day", async () => {
+    const days = planDays(NOW);
+    await on(days[0]!, a, 9 * 60);
+    await on(days[2]!, b, 9 * 60);
+
+    const counts = await getPlanCounts(IDS.anna, days);
+    // Every offered day gets a number, so a chip never renders undefined.
+    expect(Object.keys(counts)).toHaveLength(days.length);
+    expect(Object.values(counts).reduce((n, x) => n + x, 0)).toBe(2);
+    expect(Object.values(counts).filter((n) => n === 1)).toHaveLength(2);
+  });
+
+  it("counts nobody else's week", async () => {
+    const days = planDays(NOW);
+    await on(days[0]!, a, 9 * 60);
+    expect(Object.values(await getPlanCounts(IDS.james, days))).toEqual(
+      days.map(() => 0),
+    );
   });
 });

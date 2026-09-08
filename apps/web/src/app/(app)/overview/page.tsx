@@ -27,15 +27,15 @@ export const dynamic = "force-dynamic";
  * teams compare, and what needs me.
  */
 export default async function OverviewPage() {
-  const { user } = await requireSession();
+  const { user, zone } = await requireSession();
   await assertCanViewReports(user);
   if (!isSenior(user)) notFound();
 
   const [dept, trend, deptSignals, generalSignals] = await Promise.all([
-    getDepartmentToday(),
-    getCompletionTrend(departmentScope, 7),
-    getDepartmentAttention(),
-    getNeedsAttention(departmentScope),
+    getDepartmentToday(undefined, zone),
+    getCompletionTrend(departmentScope, 7, undefined, zone),
+    getDepartmentAttention(undefined, zone),
+    getNeedsAttention(departmentScope, undefined, zone),
   ]);
 
   // Department-level patterns first, then the individual exceptions.
@@ -47,7 +47,7 @@ export default async function OverviewPage() {
       <HeroPanel>
         <div className="flex items-baseline justify-between gap-4">
           <Eyebrow tone="onDark">Department Today</Eyebrow>
-          <span className="text-caption text-white/45">{fmtLongDate(now())}</span>
+          <span className="text-caption text-white/45">{fmtLongDate(now(zone), zone)}</span>
         </div>
 
         {/* Two columns: where we stand on the left, which way we are going on

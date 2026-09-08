@@ -9,6 +9,7 @@ import type {
   ActivityItemData,
   InboxItemData,
   PlanBlockData,
+  DayChipData,
   AttachmentData,
   BoardData,
   TaskRowData,
@@ -461,3 +462,13 @@ export const DAY_PLAN_HOURS: Record<number, string> = Object.fromEntries(
     return [hour * 60, `${twelve}:00 ${suffix}`];
   }),
 );
+
+export const DAY_CHIPS: DayChipData[] = [
+  { href: "#", weekday: "Tue", day: "9", count: 3, active: true, today: true },
+  { href: "#", weekday: "Wed", day: "10", count: 1, active: false, today: false },
+  { href: "#", weekday: "Thu", day: "11", count: 5, active: false, today: false },
+  { href: "#", weekday: "Fri", day: "12", count: 0, active: false, today: false },
+  { href: "#", weekday: "Sat", day: "13", count: 0, active: false, today: false },
+  { href: "#", weekday: "Sun", day: "14", count: 0, active: false, today: false },
+  { href: "#", weekday: "Mon", day: "15", count: 2, active: false, today: false },
+];

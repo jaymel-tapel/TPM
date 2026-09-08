@@ -5,7 +5,7 @@ import { boardStatuses, boards, statusKindEnum, teams, type StatusKind } from "@
 
 const isStatusKind = (value: string): value is StatusKind =>
   (statusKindEnum.enumValues as readonly string[]).includes(value);
-import { dayRange, now, pct } from "@/lib/date";
+import { dayRange, now, pct, type Zone } from "@/lib/date";
 import {
   boardScopeSql,
   overdueSql,
@@ -18,17 +18,51 @@ import {
   type TaskCard,
 } from "./sql";
 
-async function runTaskQuery(where: ReturnType<typeof sql>, limit = 300) {
+async function runTaskQuery(
+  where: ReturnType<typeof sql>,
+  limit = 300,
+  order = taskOrder,
+) {
   const result = await db.execute(
-    sql`select ${taskCardSelect} ${taskCardFrom} where ${where} order by ${taskOrder} limit ${limit}`,
+    sql`select ${taskCardSelect} ${taskCardFrom} where ${where} order by ${order} limit ${limit}`,
   );
-  return result.rows as unknown as TaskCard[];
+
+  /*
+   * Timestamps come back as the strings Postgres printed: drizzle replaces
+   * node-postgres' parsers so its query builder can map them itself, and a raw
+   * `db.execute` gets no such treatment.
+   *
+   * Left as strings they type-check as `Date` and quietly misbehave —
+   * `toTaskRow` compares `dueDate < startOfAppDay(...)`, which with a string on
+   * the left is a string-versus-number comparison that is always false. Every
+   * row's `overdue` flag read false because of it.
+   */
+  return (result.rows as unknown as RawTaskCard[]).map((row) => ({
+    ...row,
+    dueDate: new Date(row.dueDate),
+    completedAt: row.completedAt === null ? null : new Date(row.completedAt),
+  }));
 }
+
+/** What the driver actually hands back, before the timestamps are made real. */
+type RawTaskCard = Omit<TaskCard, "dueDate" | "completedAt"> & {
+  dueDate: string;
+  completedAt: string | null;
+};
+
+/**
+ * Work still ahead reads best in the order it arrives, not by priority.
+ * "What is coming" is a question about time; the day's own lists are the ones
+ * that should put urgent work first.
+ */
+const byDueDate = sql`k.due_date asc`;
 
 export type DayView = {
   today: TaskCard[];
   completed: TaskCard[];
   overdue: TaskCard[];
+  /** Still to come, within the horizon a day plan can reach. */
+  upcoming: TaskCard[];
   due: number;
   done: number;
   percent: number;
@@ -38,8 +72,15 @@ export type DayView = {
  * Screen 1. Splits the day into what's left, what's finished, and anything
  * that slipped from an earlier day — the three questions the brief asks.
  */
-export async function getDayView(userId: string, reference: Date = now()): Promise<DayView> {
-  const { start, end } = dayRange(reference);
+export async function getDayView(
+  userId: string,
+  reference: Date = now(),
+  zone?: Zone,
+  /** How far ahead "upcoming" reaches. Matches how far the plan can reach. */
+  aheadDays = 7,
+): Promise<DayView> {
+  const { start, end } = dayRange(reference, zone);
+  const horizon = new Date(end.getTime() + aheadDays * 86_400_000);
   const scope = scopeSql(userScope(userId));
 
   const dueToday = await runTaskQuery(
@@ -49,6 +90,17 @@ export async function getDayView(userId: string, reference: Date = now()): Promi
     sql`${scope} and k.due_date < ${start} and k.completed_at is null`,
     50,
   );
+  /*
+   * Not part of the day's arithmetic — `due`, `done` and the percentage stay
+   * about today, or the number stops meaning "how today went". This is here so
+   * the day plan has something to reach for: the strip opens Thursday, and
+   * Thursday's work should be on the page to drag.
+   */
+  const upcoming = await runTaskQuery(
+    sql`${scope} and k.due_date >= ${end} and k.due_date < ${horizon} and k.completed_at is null`,
+    50,
+    byDueDate,
+  );
 
   const completed = dueToday.filter((t) => t.completedAt !== null);
   const today = dueToday.filter((t) => t.completedAt === null);
@@ -57,6 +109,7 @@ export async function getDayView(userId: string, reference: Date = now()): Promi
     today,
     completed,
     overdue,
+    upcoming,
     due: dueToday.length,
     done: completed.length,
     percent: pct(completed.length, dueToday.length),
@@ -77,8 +130,9 @@ export async function listTasks(
   scope: Scope,
   filters: TaskFilters = {},
   reference: Date = now(),
+  zone?: Zone,
 ): Promise<TaskCard[]> {
-  const { start, end } = dayRange(reference);
+  const { start, end } = dayRange(reference, zone);
   const clauses = [scopeSql(scope)];
 
   /*
@@ -167,8 +221,9 @@ export async function getBoardView(
   reference: Date = now(),
   /** Narrows to the work this person is on. Null shows the whole board. */
   assigneeId: string | null = null,
+  zone?: Zone,
 ): Promise<BoardView | null> {
-  const { start, end } = dayRange(reference);
+  const { start, end } = dayRange(reference, zone);
 
   const [board] = await db
     .select({ id: boards.id, name: boards.name })

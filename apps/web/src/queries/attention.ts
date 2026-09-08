@@ -1,8 +1,8 @@
 import "server-only";
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
-import { dayRange, now, pct } from "@/lib/date";
-import { isBlocked, isOpen, onTime, overdueSql, scopeSql, type Scope } from "./sql";
+import { dayRange, now, pct, type Zone } from "@/lib/date";
+import { isBlocked, isOpen, onTimeIn, overdueSql, scopeSql, type Scope } from "./sql";
 import { TASK_TYPE_LABELS } from "@/lib/constants";
 import type { TaskType } from "@/db/schema";
 
@@ -22,8 +22,9 @@ const MAX_ITEMS = 4;
 export async function getNeedsAttention(
   scope: Scope,
   reference: Date = now(),
+  zone?: Zone,
 ): Promise<AttentionItem[]> {
-  const { start, end } = dayRange(reference);
+  const { start, end } = dayRange(reference, zone);
   const where = scopeSql(scope);
   const items: AttentionItem[] = [];
 
@@ -108,8 +109,11 @@ export async function getNeedsAttention(
  * Department-level signals the Senior Director cannot get from a team view:
  * a team's week-over-week slide, and the weakest kind of work.
  */
-export async function getDepartmentAttention(reference: Date = now()): Promise<AttentionItem[]> {
-  const { start } = dayRange(reference);
+export async function getDepartmentAttention(
+  reference: Date = now(),
+  zone?: Zone,
+): Promise<AttentionItem[]> {
+  const { start } = dayRange(reference, zone);
   const weekStart = new Date(start.getTime() - 6 * 86_400_000);
   const priorStart = new Date(start.getTime() - 13 * 86_400_000);
   const items: AttentionItem[] = [];
@@ -117,9 +121,9 @@ export async function getDepartmentAttention(reference: Date = now()): Promise<A
   const trend = await db.execute(sql`
     select t.id, t.name,
       count(*) filter (where k.due_date >= ${weekStart}) as week_due,
-      count(*) filter (where k.due_date >= ${weekStart} and ${onTime}) as week_done,
+      count(*) filter (where k.due_date >= ${weekStart} and ${onTimeIn(zone)}) as week_done,
       count(*) filter (where k.due_date >= ${priorStart} and k.due_date < ${weekStart}) as prior_due,
-      count(*) filter (where k.due_date >= ${priorStart} and k.due_date < ${weekStart} and ${onTime}) as prior_done
+      count(*) filter (where k.due_date >= ${priorStart} and k.due_date < ${weekStart} and ${onTimeIn(zone)}) as prior_done
     from teams t
     join tasks k on k.team_id = t.id and k.due_date >= ${priorStart}
     group by t.id, t.name
@@ -140,12 +144,12 @@ export async function getDepartmentAttention(reference: Date = now()): Promise<A
   }
 
   const byType = await db.execute(sql`
-    select k.type, count(*) as due, count(*) filter (where ${onTime}) as done
+    select k.type, count(*) as due, count(*) filter (where ${onTimeIn(zone)}) as done
     from tasks k
     where k.due_date >= ${weekStart}
     group by k.type
     having count(*) > 20
-    order by (count(*) filter (where ${onTime}))::numeric / count(*) asc
+    order by (count(*) filter (where ${onTimeIn(zone)}))::numeric / count(*) asc
     limit 1
   `);
   const worst = byType.rows[0] as Record<string, string> | undefined;

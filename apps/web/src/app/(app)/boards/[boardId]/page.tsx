@@ -10,6 +10,7 @@ import {
   TaskRow,
 } from "@meridian/ui";
 import { requireSession } from "@/lib/auth";
+import { zoneOf } from "@/lib/date";
 import { canViewTeamWork, isDirector } from "@/lib/permissions";
 import { getBoard } from "@/queries/boards";
 import { getBoardView } from "@/queries/tasks";
@@ -35,12 +36,12 @@ export default async function BoardPage({
   const query = await searchParams;
   const asList = query.view === "list";
   const mineOnly = query.mine === "1";
-  const { user } = await requireSession();
+  const { user, zone } = await requireSession();
 
   const board = await getBoard(boardId);
   if (!board || !canViewTeamWork(user, board.teamId)) notFound();
 
-  const view = await getBoardView(boardId, undefined, mineOnly ? user.id : null);
+  const view = await getBoardView(boardId, undefined, mineOnly ? user.id : null, zoneOf(user));
   if (!view) notFound();
 
   /** Keeps whichever of the two settings you are not currently changing. */

@@ -37,13 +37,20 @@ export function scopeSql(scope: Scope): SQL {
   }
 }
 
+/** The department's zone, and the fallback when a reader has not set one. */
 export const TZ = APP_TIMEZONE;
 
 /**
  * The brief's completion definition: a task counts only if it was finished by
  * the end of the day it was due. Backlog never flatters today's number.
+ *
+ * Takes the *reader's* zone, because that is what decides when the due day
+ * ended. Someone in Manila and someone in London can therefore disagree about
+ * whether the same task was on time, and both are right — a day boundary
+ * belongs to whoever is reckoning it.
  */
-export const onTime = sql`(k.completed_at is not null and k.completed_at < ((date_trunc('day', k.due_date at time zone ${TZ}) + interval '1 day') at time zone ${TZ}))`;
+export const onTimeIn = (zone: string = TZ) =>
+  sql`(k.completed_at is not null and k.completed_at < ((date_trunc('day', k.due_date at time zone ${zone}) + interval '1 day') at time zone ${zone}))`;
 
 /**
  * Overdue means carried over from an earlier day. Today's unfinished work is

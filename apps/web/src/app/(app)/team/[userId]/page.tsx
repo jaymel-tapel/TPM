@@ -28,13 +28,13 @@ export default async function PersonPage({
   params: Promise<{ userId: string }>;
 }) {
   const { userId } = await params;
-  const { user: viewer } = await requireSession();
+  const { user: viewer, zone } = await requireSession();
   const person = await assertCanViewUser(viewer, userId);
 
   const [day, metrics, overdue] = await Promise.all([
-    getDayView(person.id),
-    getReportMetrics(userScope(person.id), 7),
-    listTasks(userScope(person.id), { range: "overdue" }),
+    getDayView(person.id, undefined, zone),
+    getReportMetrics(userScope(person.id), 7, undefined, zone),
+    listTasks(userScope(person.id), { range: "overdue" }, undefined, zone),
   ]);
 
   return (
@@ -47,7 +47,7 @@ export default async function PersonPage({
               {ROLE_LABELS[person.role]}
             </p>
             <h1 className="mt-2 text-title-1 text-gray-1000">{person.name}</h1>
-            <p className="mt-1 text-body text-gray-700">{fmtLongDate(now())}</p>
+            <p className="mt-1 text-body text-gray-700">{fmtLongDate(now(zone), zone)}</p>
           </div>
         </div>
         <Link
