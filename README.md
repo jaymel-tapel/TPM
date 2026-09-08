@@ -129,6 +129,10 @@ already serving from. Running a build while dev is up leaves the dev server
 pointing at vendor chunks the build has deleted, and every page renders
 unstyled with `Cannot find module './vendor-chunks/…'`.
 
-`build` clears `.next` first so the *build* is always clean, but that does not
-rescue a dev server that was running at the time. Stop dev before building, or
-restart it afterwards.
+`dev` therefore clears `.next` on every start, which costs about a second and
+cannot affect a deployment. `build` stays the plain `next build`, because a
+deploy runs that script and has to get what it expects.
+
+What neither can fix: a dev server that was *already running* when a build
+started is still pointing at deleted chunks. Stop dev before building, or
+restart it after.
