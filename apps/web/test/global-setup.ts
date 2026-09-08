@@ -1,7 +1,8 @@
 import { execSync } from "node:child_process";
 
 export const TEST_DATABASE_URL =
-  process.env.TEST_DATABASE_URL ?? "postgresql://jaymel@localhost:5432/mb_tasks_test";
+  process.env.TEST_DATABASE_URL ??
+  `postgresql://${process.env.USER ?? "postgres"}@localhost:5432/mb_tasks_test`;
 
 /**
  * Builds a throwaway database from the same migrations the app uses, so the
