@@ -45,13 +45,19 @@ export function initials(name: string): string {
 /**
  * Sizes come off the 4pt grid: 16 / 24 / 32 / 40 / 64, each paired with its own
  * avatar step so the initials keep the same proportion at every size.
+ *
+ * Box and text are separate because they land on different elements. The
+ * shadcn fallback sets `text-sm` on *itself*, so a font size on the root was
+ * never inherited — every avatar drew 14px initials whatever its circle, which
+ * is why the 16px and 24px ones spilled out of the ring and the larger ones
+ * looked fine. Sizing the fallback directly is the only thing that reaches it.
  */
 const SIZES = {
-  xs: "size-4 text-avatar-xs",
-  sm: "size-6 text-avatar-sm",
-  md: "size-8 text-avatar-md",
-  lg: "size-10 text-avatar-lg",
-  xl: "size-16 text-avatar-xl",
+  xs: { box: "size-4", text: "text-avatar-xs" },
+  sm: { box: "size-6", text: "text-avatar-sm" },
+  md: { box: "size-8", text: "text-avatar-md" },
+  lg: { box: "size-10", text: "text-avatar-lg" },
+  xl: { box: "size-16", text: "text-avatar-xl" },
 } as const;
 
 export type AvatarSize = keyof typeof SIZES;
@@ -70,12 +76,12 @@ export function UserAvatar({
 }) {
   return (
     <Avatar
-      className={cn(SIZES[size], ring && "ring-2 ring-background-100", className)}
+      className={cn(SIZES[size].box, ring && "ring-2 ring-background-100", className)}
       title={name}
     >
       {/* `tracking-tight` because two wide capitals in a small disc need the
           pair kerned in, not the type shrunk further. */}
-      <AvatarFallback className={cn("tracking-tight", fillFor(name))}>
+      <AvatarFallback className={cn(SIZES[size].text, "tracking-tight", fillFor(name))}>
         {initials(name)}
       </AvatarFallback>
     </Avatar>
@@ -108,7 +114,8 @@ export function AvatarStack({
           className={cn(
             // No initials, so it reads as a count rather than a person.
             "inline-grid place-items-center rounded-full bg-gray-600 text-white ring-2 ring-background-100",
-            SIZES[size],
+            SIZES[size].box,
+            SIZES[size].text,
           )}
         >
           +{extra}

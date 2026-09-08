@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   BarChart3,
   CalendarCheck,
+  ChevronRight,
   ListChecks,
   LayoutDashboard,
   LogOut,
@@ -34,6 +36,109 @@ const ICONS: Record<NavIcon, typeof CalendarCheck> = {
  * The active item is marked by a bar on the leading edge as well as a tint, so
  * it survives being read at a glance or without colour.
  */
+const itemStyles =
+  "relative flex items-center gap-3 rounded-md px-3 py-2 text-body-strong transition-colors";
+
+function ActiveBar() {
+  return (
+    <span aria-hidden className="absolute inset-y-1 left-0 w-0.5 rounded-full bg-blue-700" />
+  );
+}
+
+function NavGroup({ link, pathname }: { link: NavItem; pathname: string }) {
+  const Icon = ICONS[link.icon];
+  const onSelf = pathname === link.href;
+  const inSection = onSelf || pathname.startsWith(`${link.href}/`);
+  const hasChildren = Boolean(link.children?.length);
+
+  /*
+   * null means "follow the route" — the group opens because you are inside it
+   * and closes when you leave. Once someone touches the chevron it becomes
+   * their choice and stays that way, which is the behaviour people expect from
+   * a disclosure they operated themselves.
+   */
+  const [open, setOpen] = useState<boolean | null>(null);
+  const expanded = open ?? inSection;
+
+  if (!hasChildren) {
+    return (
+      <Link
+        href={link.href}
+        aria-current={inSection ? "page" : undefined}
+        className={cn(
+          itemStyles,
+          inSection
+            ? "bg-blue-100 text-blue-900"
+            : "text-gray-700 hover:bg-gray-100 hover:text-gray-1000",
+        )}
+      >
+        {inSection ? <ActiveBar /> : null}
+        <Icon className="size-4 shrink-0" strokeWidth={1.75} />
+        {link.label}
+      </Link>
+    );
+  }
+
+  return (
+    <div>
+      <div
+        className={cn(
+          itemStyles,
+          "pr-1",
+          onSelf
+            ? "bg-blue-100 text-blue-900"
+            : "text-gray-700 hover:bg-gray-100 hover:text-gray-1000",
+        )}
+      >
+        {onSelf ? <ActiveBar /> : null}
+        <Icon className="size-4 shrink-0" strokeWidth={1.75} />
+        {/* The label navigates and the chevron discloses. Making the whole row
+            do both means one of them is a surprise. */}
+        <Link href={link.href} className="flex-1 truncate">
+          {link.label}
+        </Link>
+        <button
+          type="button"
+          onClick={() => setOpen(!expanded)}
+          aria-expanded={expanded}
+          aria-label={`${expanded ? "Collapse" : "Expand"} ${link.label}`}
+          className="rounded-md p-0.5 text-gray-600 transition-colors hover:bg-gray-200 hover:text-gray-1000"
+        >
+          <ChevronRight
+            className={cn("size-4 transition-transform", expanded && "rotate-90")}
+            strokeWidth={1.75}
+          />
+        </button>
+      </div>
+
+      {expanded ? (
+        <div className="mt-0.5 space-y-0.5">
+          {link.children!.map((child) => {
+            const active = pathname === child.href;
+            return (
+              <Link
+                key={child.href}
+                href={child.href}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  // Indented to sit under the parent's label, not its icon.
+                  "relative block truncate rounded-md py-1.5 pl-10 pr-3 text-body transition-colors",
+                  active
+                    ? "bg-blue-100 text-blue-900"
+                    : "text-gray-700 hover:bg-gray-100 hover:text-gray-1000",
+                )}
+              >
+                {active ? <ActiveBar /> : null}
+                {child.label}
+              </Link>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function AppSidebar({
   links,
   user,
@@ -58,33 +163,9 @@ export function AppSidebar({
       </Link>
 
       <nav className="flex-1 overflow-y-auto p-2">
-        {links.map((link) => {
-          const Icon = ICONS[link.icon];
-          const active = pathname === link.href || pathname.startsWith(`${link.href}/`);
-
-          return (
-            <Link
-              key={link.href}
-              href={link.href}
-              aria-current={active ? "page" : undefined}
-              className={cn(
-                "relative flex items-center gap-3 rounded-md px-3 py-2 text-body-strong transition-colors",
-                active
-                  ? "bg-blue-100 text-blue-900"
-                  : "text-gray-700 hover:bg-gray-100 hover:text-gray-1000",
-              )}
-            >
-              {active ? (
-                <span
-                  aria-hidden
-                  className="absolute inset-y-1 left-0 w-0.5 rounded-full bg-blue-700"
-                />
-              ) : null}
-              <Icon className="size-4 shrink-0" strokeWidth={1.75} />
-              {link.label}
-            </Link>
-          );
-        })}
+        {links.map((link) => (
+          <NavGroup key={link.href} link={link} pathname={pathname} />
+        ))}
       </nav>
 
       <div className="shrink-0 border-t border-gray-300 p-3">

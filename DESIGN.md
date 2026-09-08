@@ -14,6 +14,12 @@ Here it made a task list look like a landing page.
 **The rule: every value cites a token below. No arbitrary values — no
 `text-[12.5px]`, no `gap-x-14`, no one-off hex codes.**
 
+A token also has to be declared to the **class merger**, not only to Tailwind.
+`cn` resolves `text-<x>` as a font size only for steps it knows, and treats the
+rest as colours — so `cn("text-body", "text-gray-700")` silently dropped the
+size. The ramp is registered in `packages/ui/src/lib/utils.ts`; a new step goes
+in both places or it will disappear wherever classes are merged.
+
 ---
 
 ## What we take from Fluent, and what we change
@@ -190,6 +196,13 @@ Navigation is a **left rail**, not a top bar: the set is small, role-derived and
 never grows, so it can sit in the same place on every screen and hand the
 working area the full width of the window. The active item carries a leading
 bar as well as a tint, so it survives being read without colour.
+
+A rail item **expands** when the org chart gives it children — the Senior
+Director's Teams item opens to the teams themselves. Expanded, not a dropdown:
+with two teams a popover would hide two items behind a click and add the only
+floating layer in the rail. The label navigates and the chevron discloses,
+because a row that does both makes one of them a surprise. The group follows
+the route until someone works the chevron, after which it is their choice.
 
 Page-level verbs go in a **command bar** under the title — icon plus word,
 divided into groups. A page has exactly one primary button, and it is never in

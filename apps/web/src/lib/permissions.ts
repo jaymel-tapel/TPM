@@ -12,7 +12,18 @@ export const isSenior = (u: User) => u.role === "senior_director";
  * that has no business holding React elements. The sidebar maps it.
  */
 export type NavIcon = "today" | "myTasks" | "team" | "teams" | "reports" | "overview";
-export type NavItem = { href: string; label: string; icon: NavIcon };
+export type NavChild = { href: string; label: string };
+export type NavItem = {
+  href: string;
+  label: string;
+  icon: NavIcon;
+  /**
+   * Filled in by the layout from the org chart, not declared here — this
+   * module has no business running a query. A group with no children renders
+   * as a plain link, so a role that has nothing to expand shows no chevron.
+   */
+  children?: NavChild[];
+};
 
 /**
  * Navigation is derived from the role rather than hand-maintained, so a link
