@@ -21,7 +21,6 @@ import { ROLE_LABELS, UserAvatar, cn, type InboxItemData, type Role } from "@mer
 import type { NavIcon, NavItem } from "@/lib/permissions";
 import { logout } from "@/actions/auth";
 import { NotificationBell } from "./notification-bell";
-import { RoleSwitcher } from "./role-switcher";
 
 const ICONS: Record<NavIcon, typeof CalendarCheck> = {
   today: CalendarCheck,
@@ -183,14 +182,12 @@ function NavGroup({
 export function AppSidebar({
   links,
   user,
-  showRoleSwitcher,
   canCreateBoard = false,
   notifications,
   unread,
 }: {
   links: NavItem[];
   user: { name: string; role: Role };
-  showRoleSwitcher: boolean;
   canCreateBoard?: boolean;
   notifications: InboxItemData[];
   unread: number;
@@ -229,12 +226,6 @@ export function AppSidebar({
         {/* Above the account, below the navigation: the last thing read on the
             way down, and the one row whose job is to be noticed. */}
         <NotificationBell items={notifications} unread={unread} />
-
-        {showRoleSwitcher ? (
-          <div className="mt-3">
-            <RoleSwitcher currentRole={user.role} />
-          </div>
-        ) : null}
 
         {/* Reads as a rail item rather than an icon in a corner: it is the
             one thing down here you would go looking for by name. */}

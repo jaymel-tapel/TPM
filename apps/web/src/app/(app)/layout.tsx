@@ -7,6 +7,7 @@ import { getInbox, getUnreadCount } from "@/queries/notifications";
 import { toInboxItem } from "@/lib/present";
 import { realtimeEnabled } from "@/lib/realtime";
 import { AppSidebar } from "@/components/app-sidebar";
+import { RoleSwitcher } from "@/components/role-switcher";
 import { RealtimeProvider } from "@/components/realtime-provider";
 import { RefreshOnFocus } from "@/components/refresh-on-focus";
 
@@ -56,7 +57,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <AppSidebar
         links={links}
         user={{ name: session.user.name, role: session.user.role }}
-        showRoleSwitcher={demoSwitcherEnabled}
         // Boards are the Account Director's to create, for their own team.
         canCreateBoard={session.user.role === "account_director"}
         notifications={inbox.map((entry) => toInboxItem(entry))}
@@ -64,6 +64,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       />
       {/* min-w-0 so a wide table inside can scroll instead of pushing the rail. */}
       <main className="min-w-0 flex-1 px-8 py-8">{children}</main>
+      {demoSwitcherEnabled ? <RoleSwitcher currentRole={session.user.role} /> : null}
     </div>
   );
 }
