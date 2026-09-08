@@ -327,12 +327,22 @@ async function main() {
    * One board per team, with the four columns that used to be the status
    * enum. Boards are now where work lives, so the seed has to create them
    * before it can create a task.
+   *
+   * Named for the work, not for the team that owns it. A board called "Team A"
+   * sitting inside a group called "Team A" reads as a mistake, and in the
+   * Senior Director's rail — where both teams' boards are listed under their
+   * teams — it was one line saying the same word twice.
    */
   const boardRows = await db
     .insert(boards)
     .values([
-      { teamId: teamA.id, name: "Team A", position: 0, createdBy: idOf("Sarah Lim") },
-      { teamId: teamB.id, name: "Team B", position: 0, createdBy: idOf("Michael Ortega") },
+      { teamId: teamA.id, name: "Brand & Creative", position: 0, createdBy: idOf("Sarah Lim") },
+      {
+        teamId: teamB.id,
+        name: "Performance & Media",
+        position: 0,
+        createdBy: idOf("Michael Ortega"),
+      },
     ])
     .returning();
   const boardOf = { A: boardRows[0]!, B: boardRows[1]! } as const;
