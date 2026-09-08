@@ -1,9 +1,11 @@
 import Link from "next/link";
+import { CalendarPlus } from "lucide-react";
 import { Progress } from "../primitives/progress";
 import { cn } from "../lib/utils";
 import { AvatarStack } from "./user-avatar";
 import { DocCount, PriorityLabel, StatusMark, TagBadge, TypeLabel } from "./task-meta";
 import { Eyebrow } from "./section";
+import { DragSource } from "./task-drag";
 import { Percent } from "./stat";
 import type { Person, TaskRowData } from "../types";
 
@@ -23,6 +25,8 @@ export function TaskRow({
   viewer,
   onToggle,
   quiet = false,
+  onPlan,
+  planned = false,
 }: {
   task: TaskRowData;
   /** Omit to show who a task belongs to (team and report views). */
@@ -31,6 +35,14 @@ export function TaskRow({
   onToggle?: (formData: FormData) => void | Promise<void>;
   /** Completed work sits back visually rather than competing for attention. */
   quiet?: boolean;
+  /**
+   * Schedules this task into the next free slot. Supplied only where a day
+   * plan is on the page; it also turns the row into a drag source, and is the
+   * keyboard equivalent of dragging one over.
+   */
+  onPlan?: (formData: FormData) => void | Promise<void>;
+  /** Already has a place in the day, so the command reads as done. */
+  planned?: boolean;
 }) {
   const collaborators = task.assignees.filter((a) => a.id !== viewer);
   const shared = task.assignees.length > 1;
@@ -47,13 +59,14 @@ export function TaskRow({
     </button>
   );
 
-  return (
-    <div
-      className={cn(
-        "group flex items-start gap-3 px-4 transition-colors hover:bg-gray-100",
-        quiet ? "py-2" : "py-3",
-      )}
-    >
+  const shell = cn(
+    "group flex items-start gap-3 px-4 transition-colors hover:bg-gray-100",
+    quiet ? "py-2" : "py-3",
+    onPlan && "cursor-grab active:cursor-grabbing",
+  );
+
+  const body = (
+    <>
       <div className="group/check pt-0.5">
         {onToggle ? (
           <form action={onToggle}>
@@ -120,7 +133,38 @@ export function TaskRow({
       >
         {task.done ? null : task.dueText}
       </div>
-    </div>
+
+      {/* Dragging is an enhancement. This is the same move without a mouse. */}
+      {onPlan && !task.done ? (
+        <form action={onPlan} className="shrink-0 pt-0.5">
+          <input type="hidden" name="taskId" value={task.id} />
+          <button
+            type="submit"
+            disabled={planned}
+            aria-label={planned ? `${task.title} is already in your day` : `Plan ${task.title}`}
+            title={planned ? "In your day" : "Plan this"}
+            className={cn(
+              "rounded-md p-1 transition-colors",
+              planned
+                ? "text-blue-700"
+                : "text-gray-600 opacity-0 hover:bg-gray-200 hover:text-gray-1000 focus-visible:opacity-100 group-hover:opacity-100",
+            )}
+          >
+            <CalendarPlus className="size-4" strokeWidth={1.75} />
+          </button>
+        </form>
+      ) : null}
+    </>
+  );
+
+  /* Only rows that can be planned become a client component, and only the
+     wrapper does — see `DragSource`. */
+  return onPlan ? (
+    <DragSource taskId={task.id} className={shell}>
+      {body}
+    </DragSource>
+  ) : (
+    <div className={shell}>{body}</div>
   );
 }
 

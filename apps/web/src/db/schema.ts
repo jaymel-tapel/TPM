@@ -511,6 +511,48 @@ export const notifications = pgTable(
   ],
 );
 
+/**
+ * When somebody means to do a task, as opposed to when it is due.
+ *
+ * Keyed by person, like `task_assignees`, and for the same reason: a task is
+ * one row of work but two people's afternoons. A `scheduled_at` column on
+ * `tasks` would let Anna's plan overwrite James's on a task they share.
+ *
+ * A plan is private and disposable. It records an intention, never a fact —
+ * `due_date` is still the deadline and `completed_at` is still what reporting
+ * reads, and nothing here touches either.
+ */
+export const taskSchedule = pgTable(
+  "task_schedule",
+  {
+    taskId: uuid("task_id")
+      .notNull()
+      .references(() => tasks.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** When this person means to start. Snapped to a quarter hour. */
+    startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+    /**
+     * How much of the day they are giving it — deliberately not
+     * `tasks.estimate_minutes`. An estimate is how much effort the work takes;
+     * a block is how much room you are making for it, and the two disagree all
+     * the time. It also has to work when there is no estimate, which for now
+     * is always.
+     */
+    minutes: integer("minutes").notNull(),
+  },
+  (t) => [
+    /*
+     * One place in your day per task, which makes the primary key the feature
+     * rather than only a constraint: dragging an already-planned task to a new
+     * time is an upsert, so "place it" and "move it" are the same write.
+     */
+    primaryKey({ columns: [t.taskId, t.userId] }),
+    index("task_schedule_day_idx").on(t.userId, t.startsAt),
+  ],
+);
+
 export type Role = (typeof roleEnum.enumValues)[number];
 export type StatusKind = (typeof statusKindEnum.enumValues)[number];
 export type ActivityKind = (typeof activityKindEnum.enumValues)[number];
@@ -527,3 +569,4 @@ export type Doc = typeof documents.$inferSelect;
 export type Folder = typeof folders.$inferSelect;
 export type NotificationKind = (typeof notificationKindEnum.enumValues)[number];
 export type Notification = typeof notifications.$inferSelect;
+export type PlanBlock = typeof taskSchedule.$inferSelect;

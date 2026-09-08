@@ -12,9 +12,13 @@ import {
 import { Progress } from "@meridian/ui/primitives/progress";
 import { requireSession } from "@/lib/auth";
 import { getDayView } from "@/queries/tasks";
-import { toTaskRow } from "@/lib/present";
+import { getDayPlan } from "@/queries/schedule";
+import { toPlanBlock, toTaskRow } from "@/lib/present";
 import { toggleTaskDone } from "@/actions/tasks";
-import { fmtLongDate, greeting, now } from "@/lib/date";
+import { planTaskNext } from "@/actions/schedule";
+import { dayRange, fmt, fmtLongDate, greeting, now } from "@/lib/date";
+import { MINUTES_PER_HOUR, atMinutes, gridRange, minutesFromMidnight } from "@/lib/plan";
+import { DayPlanPanel } from "@/components/day-plan-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -30,9 +34,27 @@ export default async function TodayPage() {
 
   const pending = day.today.length;
 
+  const plan = (await getDayPlan(user.id, today)).map(toPlanBlock);
+  const planned = new Set(plan.map((b) => b.taskId));
+  const { startHour, endHour } = gridRange(plan);
+  /*
+   * The hour labels are formatted here, not in the component: `@meridian/ui`
+   * has no clock, and the app reasons in one fixed timezone whatever the
+   * viewer's laptop is set to.
+   */
+  const hourLabels = Object.fromEntries(
+    Array.from({ length: endHour - startHour }, (_, i) => {
+      const minutes = (startHour + i) * MINUTES_PER_HOUR;
+      // "9 AM", not "9:00 AM" — an hour rule has no minutes to report,
+      // and the long form wraps in the gutter.
+      return [minutes, fmt(atMinutes(today, minutes), "h a")];
+    }),
+  );
+
+  const plannable = { onPlan: planTaskNext } as const;
+
   return (
     <div className="space-y-8">
-      <div className="min-w-0 space-y-8">
         <header>
           <p className="text-caption-strong uppercase tracking-[0.08em] text-gray-600">
             {fmtLongDate(today)}
@@ -99,6 +121,13 @@ export default async function TodayPage() {
           </Panel>
         ) : null}
 
+      {/*
+        The plan sits beside the lists rather than beside the whole page: the
+        summary above counts the day and wants the width, and a task only has
+        to travel as far as the next column to be planned.
+      */}
+      <div className="grid gap-x-8 gap-y-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+        <div className="min-w-0 space-y-8">
         {day.overdue.length > 0 ? (
           <TaskList title="Overdue" tone="danger">
             {day.overdue.map((task) => (
@@ -107,6 +136,8 @@ export default async function TodayPage() {
                 task={row(task)}
                 viewer={user.id}
                 onToggle={toggleTaskDone}
+                planned={planned.has(task.id)}
+                {...plannable}
               />
             ))}
           </TaskList>
@@ -127,6 +158,8 @@ export default async function TodayPage() {
                 task={row(task)}
                 viewer={user.id}
                 onToggle={toggleTaskDone}
+                planned={planned.has(task.id)}
+                {...plannable}
               />
             ))}
           </TaskList>
@@ -145,6 +178,19 @@ export default async function TodayPage() {
             ))}
           </TaskList>
         ) : null}
+      </div>
+
+        {/* Sticky, so it stays in view while you work the lists beside it. */}
+        <aside className="lg:sticky lg:top-8">
+        <DayPlanPanel
+          blocks={plan}
+          startHour={startHour}
+          endHour={endHour}
+          nowMinutes={minutesFromMidnight(today)}
+          dayStartIso={dayRange(today).start.toISOString()}
+          hourLabels={hourLabels}
+        />
+        </aside>
       </div>
     </div>
   );

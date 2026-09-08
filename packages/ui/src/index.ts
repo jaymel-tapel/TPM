@@ -1,5 +1,6 @@
 export * from "./types";
 export * from "./lib/utils";
+export * from "./lib/day-layout";
 
 export * from "./components/activity-feed";
 export * from "./components/inbox-list";
@@ -9,6 +10,8 @@ export * from "./components/command-bar";
 export * from "./components/section";
 export * from "./components/user-avatar";
 export * from "./components/task-board";
+export * from "./components/day-plan";
+export * from "./components/task-drag";
 export * from "./components/task-meta";
 export * from "./components/task-row";
 export * from "./components/member-row";

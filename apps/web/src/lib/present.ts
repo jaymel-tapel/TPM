@@ -1,6 +1,7 @@
 import "server-only";
 import type {
   ActivityItemData,
+  PlanBlockData,
   InboxItemData,
   AttentionItemData,
   BoardData,
@@ -14,14 +15,16 @@ import type {
   TaskRowData,
   TaskType,
 } from "@meridian/ui";
-import { agoLabel, dueLabel, now, startOfAppDay } from "@/lib/date";
+import { agoLabel, dueLabel, fmtTime, now, startOfAppDay } from "@/lib/date";
 import { formatDuration } from "@/lib/duration";
+import { minutesFromMidnight } from "@/lib/plan";
 import type { TaskCard } from "@/queries/sql";
 import type { BoardView } from "@/queries/tasks";
 import type { MemberRollup } from "@/queries/team";
 import type { AttentionItem } from "@/queries/attention";
 import type { ActivityEntry } from "@/queries/activity";
 import type { InboxEntry } from "@/queries/notifications";
+import type { PlanEntry } from "@/queries/schedule";
 import type {
   DocBacklink,
   DocRef,
@@ -191,5 +194,26 @@ export function toInboxItem(entry: InboxEntry, reference: Date = now()): InboxIt
     excerpt: entry.excerpt,
     when: agoLabel(entry.createdAt, reference),
     read: entry.readAt !== null,
+  };
+}
+
+/**
+ * One block on the day plan.
+ *
+ * The raw `Date` stops here: `@meridian/ui` has no clock and no timezone, so it
+ * gets minutes from the app day's own midnight plus a formatted label. Same
+ * seam `toTaskRow` draws with `dueText`.
+ */
+export function toPlanBlock(entry: PlanEntry): PlanBlockData {
+  return {
+    taskId: entry.taskId,
+    href: `/tasks/${entry.taskId}`,
+    title: entry.title,
+    type: entry.type as TaskType,
+    priority: entry.priority as Priority,
+    done: entry.done,
+    startMinutes: minutesFromMidnight(entry.startsAt),
+    minutes: entry.minutes,
+    timeText: fmtTime(entry.startsAt),
   };
 }

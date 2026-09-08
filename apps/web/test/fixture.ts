@@ -51,7 +51,7 @@ export const statusId = (boardId: string, column: Column) =>
 
 export async function resetDb() {
   await db.execute(
-    sql`truncate notifications, task_activity, task_documents, documents, task_tags, task_assignees, task_attachments, tasks, board_statuses, boards, tags, users, teams restart identity cascade`,
+    sql`truncate task_schedule, notifications, task_activity, task_documents, documents, task_tags, task_assignees, task_attachments, tasks, board_statuses, boards, tags, users, teams restart identity cascade`,
   );
 }
 

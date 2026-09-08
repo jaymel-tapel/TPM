@@ -1,3 +1,6 @@
+/** What a task drag carries, so a drop target can ignore files and links. */
+export const TASK_DRAG_TYPE = "application/x-meridian-task";
+
 /**
  * The presentational contract.
  *
@@ -76,6 +79,24 @@ export type InboxItemData = {
   excerpt: string | null;
   when: string;
   read: boolean;
+};
+
+/**
+ * One block on the day plan. The app does the date maths and hands over
+ * numbers — this package has no clock, and `startMinutes` is minutes from the
+ * app day's own midnight so the grid never has to know a timezone.
+ */
+export type PlanBlockData = {
+  taskId: string;
+  href: string;
+  title: string;
+  type: TaskType;
+  priority: Priority;
+  done: boolean;
+  startMinutes: number;
+  minutes: number;
+  /** "10:00 AM", already formatted. */
+  timeText: string;
 };
 
 /** What a task row needs. Due text and overdue are resolved by the app, which

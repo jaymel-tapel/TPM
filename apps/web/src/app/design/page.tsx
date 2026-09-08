@@ -36,6 +36,7 @@ import {
   StatusBadge,
   ActivityFeed,
   InboxList,
+  DayPlan,
   AttachmentList,
   DocBacklinkList,
   DocRefList,
@@ -76,6 +77,8 @@ import {
   TEAMS,
   TREND,
   INBOX,
+  DAY_PLAN,
+  DAY_PLAN_HOURS,
 } from "./fixtures";
 import { DocRefListDemo } from "./doc-refs-demo";
 
@@ -594,6 +597,42 @@ export default function DesignSystemPage() {
                 Nothing yet
               </p>
               <ActivityFeed items={[]} total={0} />
+            </div>
+          </div>
+        </Block>
+
+        <Block title="Day plan" note="What is due, and when you mean to do it">
+          <p className="mb-6 max-w-prose text-caption text-gray-700">
+            A due time is a deadline; this is an intention, and the two are
+            different questions. Blocks that genuinely overlap share the width
+            the way a calendar does — blocks that merely abut do not, so a tidy
+            back-to-back morning stays full width. Dropping is an enhancement:
+            without an action the grid is read-only, and every row in the list
+            beside it carries a Plan command for anyone not using a mouse.
+          </p>
+          <div className="grid gap-6 lg:grid-cols-2">
+            <div className="max-w-sm">
+              <DayPlan
+                blocks={DAY_PLAN}
+                startHour={7}
+                endHour={21}
+                nowMinutes={10 * 60 + 20}
+                dayStartIso={new Date(0).toISOString()}
+                hourLabels={DAY_PLAN_HOURS}
+              />
+            </div>
+            <div className="max-w-sm">
+              <p className="mb-2 text-caption-strong uppercase tracking-[0.08em] text-gray-600">
+                Nothing planned
+              </p>
+              <DayPlan
+                blocks={[]}
+                startHour={9}
+                endHour={13}
+                nowMinutes={null}
+                dayStartIso={new Date(0).toISOString()}
+                hourLabels={DAY_PLAN_HOURS}
+              />
             </div>
           </div>
         </Block>

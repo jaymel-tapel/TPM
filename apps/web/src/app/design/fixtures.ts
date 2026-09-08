@@ -8,6 +8,7 @@ import type {
   MemberRowData,
   ActivityItemData,
   InboxItemData,
+  PlanBlockData,
   AttachmentData,
   BoardData,
   TaskRowData,
@@ -413,3 +414,50 @@ export const INBOX: InboxItemData[] = [
     read: true,
   },
 ];
+
+export const DAY_PLAN: PlanBlockData[] = [
+  {
+    taskId: "p1",
+    href: "/tasks/p1",
+    title: "Nike Q4 campaign brief",
+    type: "client_work",
+    priority: "high",
+    done: false,
+    startMinutes: 9 * 60,
+    minutes: 90,
+    timeText: "9:00 AM",
+  },
+  {
+    // Overlapping the brief, so the two share the width the way a calendar does.
+    taskId: "p2",
+    href: "/tasks/p2",
+    title: "Standup",
+    type: "meeting",
+    priority: "normal",
+    done: false,
+    startMinutes: 10 * 60,
+    minutes: 30,
+    timeText: "10:00 AM",
+  },
+  {
+    // Abutting the brief rather than overlapping it: full width, no split.
+    taskId: "p3",
+    href: "/tasks/p3",
+    title: "Send Northline recap",
+    type: "admin",
+    priority: "normal",
+    done: true,
+    startMinutes: 11 * 60,
+    minutes: 45,
+    timeText: "11:00 AM",
+  },
+];
+
+export const DAY_PLAN_HOURS: Record<number, string> = Object.fromEntries(
+  Array.from({ length: 15 }, (_, i) => {
+    const hour = 7 + i;
+    const suffix = hour < 12 ? "AM" : "PM";
+    const twelve = hour % 12 === 0 ? 12 : hour % 12;
+    return [hour * 60, `${twelve}:00 ${suffix}`];
+  }),
+);
