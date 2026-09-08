@@ -130,6 +130,14 @@ says not to make Kanban the default interface.
   user input; it lives in a column, not in a path. Everything a task holds is
   recorded in `task_attachments`, whether it was dropped into the prose or onto
   the list, so there is one lifecycle to delete and one place to count.
+- **Writing a document follows the org chart, not ownership.** Both kinds of
+  director publish to the whole department; a team's documents belong to the
+  team, and anyone on it may write them. That is deliberately *not*
+  `canViewTeam`'s rule, which refuses team members outright — that rule is
+  about reading across the org chart, this one is about writing inside your own
+  team, and reusing it would have locked members out of their own runbooks.
+  There is no per-document author check: a runbook only one person may correct
+  is a runbook that goes stale.
 - **A document's visibility belongs to its subtree, not its row.** A document
   is the department's or one team's, and one filed under another is whatever
   its parent is. Per-document visibility inside a tree makes holes: a team-only

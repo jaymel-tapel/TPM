@@ -161,15 +161,20 @@ export async function assertCanManageBoard(viewer: User, boardId: string) {
 /*
  * Documents.
  *
- * Reading follows the org chart the same way everything else does: a document
- * is either the department's or one team's, and you see your own team's plus
- * the department's.
+ * Reading follows the org chart the way everything else does: a document is
+ * either the department's or one team's, and you see your own team's plus the
+ * department's.
  *
- * Writing is narrower, and deliberately: an org-wide document is a leadership
- * artefact, so only the Senior Director publishes one, and a team's documents
- * belong to whoever already runs that team. That is `canViewTeam`'s rule
- * reused rather than a second rule invented — the person who names a board's
- * columns is the person who writes down how the team works.
+ * Writing follows how far up the chart you sit, not who owns the row. Both
+ * kinds of director publish to the whole department. A team's documents belong
+ * to the team — anyone on it may write them, because the person who does the
+ * work is usually the person who knows how it is done, and a runbook only one
+ * person may correct is a runbook that goes stale.
+ *
+ * This is deliberately *not* `canViewTeam`'s rule, which refuses team members
+ * outright: that rule is about reading across the org chart, and this one is
+ * about writing inside your own team. Reusing it would have quietly locked
+ * members out of their own runbooks.
  */
 /** All a visibility decision needs — so a view type can be asked directly. */
 export type DocScopeOf = Pick<Doc, "visibility" | "teamId">;
@@ -182,18 +187,34 @@ export function canViewDoc(viewer: User, doc: DocScopeOf): boolean {
 
 export function canEditDoc(viewer: User, doc: DocScopeOf): boolean {
   if (isSenior(viewer)) return true;
-  if (doc.visibility === "org") return false;
-  return viewer.role === "account_director" && viewer.teamId === doc.teamId;
+  if (doc.visibility === "org") return isDirector(viewer);
+  return Boolean(viewer.teamId) && viewer.teamId === doc.teamId;
 }
 
 /** Whether this person may start a document at all, org-wide or on a team. */
 export function canCreateDocs(viewer: User): boolean {
+  return isDirector(viewer) || Boolean(viewer.teamId);
+}
+
+/** Directors publish to the whole department. Team members write for theirs. */
+export function canCreateOrgDocs(viewer: User): boolean {
   return isDirector(viewer);
 }
 
-/** Only the Senior Director publishes to the whole department. */
-export function canCreateOrgDocs(viewer: User): boolean {
-  return isSenior(viewer);
+/**
+ * Whether a document may be placed here at all.
+ *
+ * The one gate every write goes through, so "who may write an org-wide
+ * document" is answered in a single place rather than once per action.
+ */
+export function canPlaceDoc(viewer: User, placement: DocScopeOf): boolean {
+  if (placement.visibility === "org") return canCreateOrgDocs(viewer);
+  if (!placement.teamId) return false;
+  return isSenior(viewer) || viewer.teamId === placement.teamId;
+}
+
+export async function assertMayPlaceDoc(viewer: User, placement: DocScopeOf) {
+  if (!canPlaceDoc(viewer, placement)) notFound();
 }
 
 export async function loadViewableDoc(viewer: User, docId: string): Promise<Doc> {

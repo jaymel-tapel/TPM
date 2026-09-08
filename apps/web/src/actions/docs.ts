@@ -9,13 +9,12 @@ import { db } from "@/db";
 import { docVisibilityEnum, documents, taskDocuments } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
 import {
-  assertCanViewTeam,
+  assertMayPlaceDoc,
   canCreateDocs,
-  canCreateOrgDocs,
   loadEditableDoc,
   loadEditableTask,
 } from "@/lib/permissions";
-import { listMentionableFor } from "@/queries/docs";
+import { filterVisibleDocIds, listMentionableFor } from "@/queries/docs";
 
 const docInput = z.object({
   title: z.string().trim().min(1, "Give the document a title").max(200),
@@ -91,22 +90,6 @@ async function wouldCycle(docId: string, candidate: string): Promise<boolean> {
   return result.rows.length > 0;
 }
 
-/**
- * A placement the viewer is actually allowed to make. Org-wide is the Senior
- * Director's alone; a team document belongs to whoever runs that team.
- */
-async function assertMayPlace(
-  viewer: Awaited<ReturnType<typeof requireUser>>,
-  placement: { visibility: "org" | "team"; teamId: string | null },
-) {
-  if (placement.visibility === "org") {
-    if (!canCreateOrgDocs(viewer)) notFound();
-    return;
-  }
-  if (!placement.teamId) notFound();
-  await assertCanViewTeam(viewer, placement.teamId);
-}
-
 export async function createDoc(_prev: FormState, formData: FormData): Promise<FormState> {
   const viewer = await requireUser();
   if (!canCreateDocs(viewer)) notFound();
@@ -124,7 +107,7 @@ export async function createDoc(_prev: FormState, formData: FormData): Promise<F
   if (placement.visibility === "team" && !placement.teamId) {
     return { error: "Pick the team this document belongs to." };
   }
-  await assertMayPlace(viewer, placement);
+  await assertMayPlaceDoc(viewer, placement);
 
   const [doc] = await db
     .insert(documents)
@@ -169,7 +152,7 @@ export async function updateDoc(_prev: FormState, formData: FormData): Promise<F
   if (placement.visibility === "team" && !placement.teamId) {
     return { error: "Pick the team this document belongs to." };
   }
-  await assertMayPlace(viewer, placement);
+  await assertMayPlaceDoc(viewer, placement);
 
   await db
     .update(documents)
@@ -209,11 +192,9 @@ export async function attachDocToTask(formData: FormData) {
   const taskId = String(formData.get("taskId") ?? "");
   const documentId = String(formData.get("documentId") ?? "");
   await loadEditableTask(viewer, taskId);
-  // A document the viewer cannot see is a document they cannot link.
-  const [visible] = await db
-    .select({ id: documents.id })
-    .from(documents)
-    .where(eq(documents.id, documentId));
+  // A document the viewer cannot see is a document they cannot link. Existing
+  // is not the same question as visible, and the id came off a form.
+  const [visible] = await filterVisibleDocIds(viewer, [documentId]);
   if (!visible) notFound();
 
   await db

@@ -10,6 +10,7 @@ import {
   searchDocs,
 } from "./docs";
 import { syncMentionedDocs } from "@/lib/doc-links";
+import { canCreateOrgDocs, canEditDoc, canPlaceDoc, canViewDoc } from "@/lib/permissions";
 import {
   IDS,
   addDoc,
@@ -258,5 +259,62 @@ describe("mentions and attachments are separate links", () => {
     expect(backlinks).toHaveLength(2);
     expect(backlinks.find((b) => b.id === attached)?.mentionedOnly).toBe(false);
     expect(backlinks.find((b) => b.id === mentioned)?.mentionedOnly).toBe(true);
+  });
+});
+
+describe("who can write a document", () => {
+  const org = { visibility: "org" as const, teamId: null };
+  const teamA = { visibility: "team" as const, teamId: IDS.teamA };
+  const teamB = { visibility: "team" as const, teamId: IDS.teamB };
+
+  beforeEach(async () => {
+    await resetDb();
+    await seedOrg();
+  });
+
+  it("lets both kinds of director publish to the whole department", async () => {
+    expect(canCreateOrgDocs(await load(IDS.elena))).toBe(true); // senior
+    expect(canCreateOrgDocs(await load(IDS.sarah))).toBe(true); // account director
+    expect(canEditDoc(await load(IDS.sarah), org)).toBe(true);
+  });
+
+  it("does not let a team member write one", async () => {
+    const anna = await load(IDS.anna);
+    expect(canCreateOrgDocs(anna)).toBe(false);
+    expect(canEditDoc(anna, org)).toBe(false);
+    expect(canPlaceDoc(anna, org)).toBe(false);
+    // Reading is a separate question, and the answer there is yes.
+    expect(canViewDoc(anna, org)).toBe(true);
+  });
+
+  it("lets a team member write their own team's documents", async () => {
+    const anna = await load(IDS.anna); // Team A, plain member
+    expect(canEditDoc(anna, teamA)).toBe(true);
+    expect(canPlaceDoc(anna, teamA)).toBe(true);
+  });
+
+  it("still stops them writing another team's", async () => {
+    const anna = await load(IDS.anna);
+    expect(canEditDoc(anna, teamB)).toBe(false);
+    expect(canPlaceDoc(anna, teamB)).toBe(false);
+  });
+
+  it("gives the senior director every team", async () => {
+    const elena = await load(IDS.elena); // no team of their own
+    expect(canPlaceDoc(elena, teamA)).toBe(true);
+    expect(canPlaceDoc(elena, teamB)).toBe(true);
+  });
+
+  it("refuses a member a child of an org-wide document", async () => {
+    // A child adopts its parent's scope, so filing under an org-wide document
+    // is publishing an org-wide document by another name.
+    const anna = await load(IDS.anna);
+    expect(canPlaceDoc(anna, org)).toBe(false);
+    expect(canPlaceDoc(await load(IDS.sarah), org)).toBe(true);
+  });
+
+  it("refuses a team placement with no team behind it", async () => {
+    // The check constraint forbids the row; this refuses it a step earlier.
+    expect(canPlaceDoc(await load(IDS.sarah), { visibility: "team", teamId: null })).toBe(false);
   });
 });

@@ -12,7 +12,7 @@ import {
 } from "@meridian/ui";
 import { RichTextView } from "@meridian/ui/editor";
 import { requireSession } from "@/lib/auth";
-import { canCreateDocs, canEditDoc, isSenior } from "@/lib/permissions";
+import { canCreateOrgDocs, canEditDoc, canPlaceDoc, isSenior } from "@/lib/permissions";
 import { listTeams } from "@/queries/team";
 import {
   getDoc,
@@ -43,6 +43,10 @@ export default async function DocPage({ params }: { params: Promise<{ id: string
     editable ? listDocParentOptions(user, id) : Promise.resolve([]),
   ]);
   const scoped = isSenior(user) ? teams : teams.filter((t) => t.id === user.teamId);
+  // Filing under a document adopts its scope, so only offer parents whose
+  // scope this person is allowed to write in — otherwise the form offers a
+  // choice the save would refuse.
+  const placeable = parents.filter((p) => canPlaceDoc(user, p));
 
   return (
     <>
@@ -57,7 +61,7 @@ export default async function DocPage({ params }: { params: Promise<{ id: string
         }
         aside={
           <div className="flex items-center gap-3">
-            {canCreateDocs(user) ? (
+            {canPlaceDoc(user, doc) ? (
               <ButtonLink href={`/docs/new?parent=${doc.id}`} variant="ghost">
                 Add a child
               </ButtonLink>
@@ -74,8 +78,8 @@ export default async function DocPage({ params }: { params: Promise<{ id: string
           action={updateDoc}
           submitLabel="Save changes"
           teams={scoped}
-          parents={parents.map((p) => ({ id: p.id, title: p.title }))}
-          canPublishOrgWide={isSenior(user)}
+          parents={placeable.map((p) => ({ id: p.id, title: p.title }))}
+          canPublishOrgWide={canCreateOrgDocs(user)}
           values={{
             id: doc.id,
             title: doc.title,
