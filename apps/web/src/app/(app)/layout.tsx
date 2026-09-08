@@ -17,18 +17,28 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const links = navFor(session.user.role);
 
   /*
-   * Rail groups are filled from the org chart, not configured: the Senior
-   * Director's Teams item opens to the teams, and everyone else's Boards item
-   * opens to the boards they can reach.
+   * Rail groups are filled from the org chart, not configured: the Teams item
+   * opens to the teams, and the Boards item to the boards that person can
+   * reach. The Senior Director gets both — every team, and every team's work.
    */
   if (isSenior(session.user)) {
     const teams = await listTeams();
     const item = links.find((l) => l.href === "/teams");
     if (item) item.children = teams.map((t) => ({ href: `/teams/${t.id}`, label: t.name }));
-  } else {
+  }
+
+  {
     const boards = await listBoardsForUser(session.user);
     const item = links.find((l) => l.href === "/boards");
-    if (item) item.children = boards.map((b) => ({ href: `/boards/${b.id}`, label: b.name }));
+    if (item) {
+      item.children = boards.map((b) => ({
+        href: `/boards/${b.id}`,
+        label: b.name,
+        // Only where it disambiguates: within a team the name is enough, and a
+        // second line on every row for no reason is just noise.
+        note: isSenior(session.user) ? b.teamName : undefined,
+      }));
+    }
   }
 
   // The bell's contents come down with the page, like the rail's boards — no

@@ -10,8 +10,8 @@ import {
   TaskRow,
 } from "@meridian/ui";
 import { requireSession } from "@/lib/auth";
-import { zoneOf } from "@/lib/date";
-import { canViewTeamWork, isDirector } from "@/lib/permissions";
+
+import { canViewTeamWork, isDirector, isSenior } from "@/lib/permissions";
 import { getBoard } from "@/queries/boards";
 import { getBoardView } from "@/queries/tasks";
 import { toBoard, toTaskRow } from "@/lib/present";
@@ -41,7 +41,7 @@ export default async function BoardPage({
   const board = await getBoard(boardId);
   if (!board || !canViewTeamWork(user, board.teamId)) notFound();
 
-  const view = await getBoardView(boardId, undefined, mineOnly ? user.id : null, zoneOf(user));
+  const view = await getBoardView(boardId, undefined, mineOnly ? user.id : null, zone);
   if (!view) notFound();
 
   /** Keeps whichever of the two settings you are not currently changing. */
@@ -57,6 +57,11 @@ export default async function BoardPage({
     <>
       <CommandBar className="sticky top-0 z-20 -mx-8 mb-6 border-b border-gray-300 bg-background px-8 py-3">
         <span className="mr-2 text-subtitle-2 text-gray-1000">{board.name}</span>
+        {/* Only for the Senior Director, who is the one person who reaches
+            boards across both teams and cannot tell them apart by context. */}
+        {isSenior(user) ? (
+          <span className="mr-2 text-caption text-gray-600">{board.teamName}</span>
+        ) : null}
         <CommandDivider />
         {/*
           Columns or a list — of the same board. The switch means something

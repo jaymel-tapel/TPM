@@ -32,7 +32,15 @@ export type NavIcon =
   | "reports"
   | "overview"
   | "admin";
-export type NavChild = { href: string; label: string };
+export type NavChild = {
+  href: string;
+  label: string;
+  /**
+   * A quieter second line. Only the Senior Director needs it: they see every
+   * team's boards at once, and two teams can name a board the same thing.
+   */
+  note?: string;
+};
 export type NavItem = {
   href: string;
   label: string;
@@ -55,6 +63,10 @@ export function navFor(role: Role): NavItem[] {
       return [
         { href: "/overview", label: "Overview", icon: "overview" },
         { href: "/teams", label: "Teams", icon: "teams" },
+        // Every team's boards, not one team's. The rail is the quickest way
+        // into a client's work, and the person who spans both teams is the one
+        // who most often has to cross between them.
+        { href: "/boards", label: "Boards", icon: "boards" },
         { href: "/docs", label: "Docs", icon: "docs" },
         { href: "/reports", label: "Reports", icon: "reports" },
         { href: "/admin", label: "Admin", icon: "admin" },

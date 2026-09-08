@@ -144,14 +144,21 @@ function NavGroup({
                 aria-current={active ? "page" : undefined}
                 className={cn(
                   // Indented to sit under the parent's label, not its icon.
-                  "relative block truncate rounded-md py-1.5 pl-10 pr-3 text-body transition-colors",
+                  "relative block rounded-md py-1.5 pl-10 pr-3 text-body transition-colors",
                   active
                     ? "bg-blue-100 text-blue-900"
                     : "text-gray-700 hover:bg-gray-100 hover:text-gray-1000",
                 )}
               >
                 {active ? <ActiveBar /> : null}
-                {child.label}
+                <span className="block truncate">{child.label}</span>
+                {/* Which team owns it. A second line rather than a suffix: the
+                    rail is 224px wide and a board name deserves all of it. */}
+                {child.note ? (
+                  <span className="block truncate text-caption text-gray-600">
+                    {child.note}
+                  </span>
+                ) : null}
               </Link>
             );
           })}
