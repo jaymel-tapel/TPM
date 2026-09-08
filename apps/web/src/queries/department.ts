@@ -1,8 +1,8 @@
 import "server-only";
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
-import { dayRange, now, pct } from "@/lib/date";
-import { onTime } from "./sql";
+import { dayRange, now, pct, type Zone } from "@/lib/date";
+import { onTimeIn } from "./sql";
 
 export type TeamSummary = {
   id: string;
@@ -31,8 +31,11 @@ export type DepartmentToday = {
 };
 
 /** Screen 4. One pass over both teams — the SD view is a comparison, not a sum. */
-export async function getDepartmentToday(reference: Date = now()): Promise<DepartmentToday> {
-  const { start, end } = dayRange(reference);
+export async function getDepartmentToday(
+  reference: Date = now(),
+  zone?: Zone,
+): Promise<DepartmentToday> {
+  const { start, end } = dayRange(reference, zone);
   const weekStart = new Date(start.getTime() - 6 * 86_400_000);
   const priorStart = new Date(start.getTime() - 13 * 86_400_000);
 
@@ -44,10 +47,10 @@ export async function getDepartmentToday(reference: Date = now()): Promise<Depar
              count(*) filter (where k.due_date < ${start} and k.completed_at is null) as overdue,
              count(*) filter (where k.due_date >= ${weekStart} and k.due_date < ${end}) as week_due,
              count(*) filter (where k.due_date >= ${weekStart} and k.due_date < ${end}
-                              and ${onTime}) as week_done,
+                              and ${onTimeIn(zone)}) as week_done,
              count(*) filter (where k.due_date >= ${priorStart} and k.due_date < ${weekStart}) as prior_due,
              count(*) filter (where k.due_date >= ${priorStart} and k.due_date < ${weekStart}
-                              and ${onTime}) as prior_done
+                              and ${onTimeIn(zone)}) as prior_done
       from tasks k group by k.team_id
     )
     select t.id, t.name, d.name as director_name,

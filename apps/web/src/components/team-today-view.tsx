@@ -10,6 +10,7 @@ import {
   Stat,
 } from "@meridian/ui";
 import { Progress } from "@meridian/ui/primitives/progress";
+import type { Zone } from "@/lib/date";
 import { getTeamToday } from "@/queries/team";
 import { getBoardView } from "@/queries/tasks";
 import { toBoard } from "@/lib/present";
@@ -24,9 +25,12 @@ import { toMemberRow } from "@/lib/present";
  */
 export async function TeamTodayView({
   teamId,
+  zone,
   showTeamName = false,
 }: {
   teamId: string;
+  /** The reader's timezone — a team's "today" is reckoned by whoever opens it. */
+  zone?: Zone;
   /**
    * The Account Director has one team and the rail already says so, so their
    * screen goes straight to the numbers. A Senior Director is looking at one
@@ -35,8 +39,8 @@ export async function TeamTodayView({
   showTeamName?: boolean;
 }) {
   const [team, attention] = await Promise.all([
-    getTeamToday(teamId),
-    getNeedsAttention(teamScope(teamId)),
+    getTeamToday(teamId, undefined, zone),
+    getNeedsAttention(teamScope(teamId), undefined, zone),
   ]);
   if (!team) notFound();
 

@@ -6,6 +6,9 @@ import { SignJWT, jwtVerify } from "jose";
 import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
+import { zoneOf, type Zone } from "@/lib/date";
+import { workHoursOf } from "@/lib/plan";
+import { getDepartmentSettings } from "@/queries/department-settings";
 import { users, type User } from "@/db/schema";
 
 const COOKIE = "mb_session";
@@ -90,6 +93,14 @@ export type Session = {
   /** Who the app renders as — differs only via the demo role switcher. */
   user: User;
   impersonating: boolean;
+  /**
+   * How this viewer reckons a day: their own timezone, or the department's if
+   * they have not chosen one. Resolved here so no page can forget to ask, and
+   * so every query on a screen agrees about where the day begins.
+   */
+  zone: Zone;
+  /** The hours their day plan opens on, theirs or the department's. */
+  hours: { startHour: number; endHour: number };
 };
 
 /**
@@ -113,13 +124,24 @@ export const getSession = cache(async (): Promise<Session | null> => {
    */
   if (sessionOutdated(payload.issuedAt, account.passwordChangedAt)) return null;
 
+  const dept = await getDepartmentSettings();
+  const settingsFor = (user: User) => ({
+    zone: zoneOf(user, dept.timezone),
+    hours: workHoursOf(user, {
+      startHour: dept.workStartHour,
+      endHour: dept.workEndHour,
+    }),
+  });
+
   if (payload.viewAs && payload.viewAs !== account.id) {
     const viewed = await db.query.users.findFirst({
       where: eq(users.id, payload.viewAs),
     });
-    if (viewed) return { account, user: viewed, impersonating: true };
+    if (viewed) {
+      return { account, user: viewed, impersonating: true, ...settingsFor(viewed) };
+    }
   }
-  return { account, user: account, impersonating: false };
+  return { account, user: account, impersonating: false, ...settingsFor(account) };
 });
 
 /**

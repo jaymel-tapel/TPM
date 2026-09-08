@@ -1,7 +1,7 @@
 import "server-only";
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
-import { dayRange, now, pct } from "@/lib/date";
+import { dayRange, now, pct, type Zone } from "@/lib/date";
 import type { Role } from "@/db/schema";
 
 export type MemberRollup = {
@@ -33,8 +33,12 @@ export type TeamToday = {
  * counts for each person), while the team totals use tasks.team_id (so it
  * counts once for the team).
  */
-export async function getTeamToday(teamId: string, reference: Date = now()): Promise<TeamToday | null> {
-  const { start, end } = dayRange(reference);
+export async function getTeamToday(
+  teamId: string,
+  reference: Date = now(),
+  zone?: Zone,
+): Promise<TeamToday | null> {
+  const { start, end } = dayRange(reference, zone);
 
   const teamRows = await db.execute(sql`
     select t.id, t.name, d.name as director_name,

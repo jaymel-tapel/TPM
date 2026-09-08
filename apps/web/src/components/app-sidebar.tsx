@@ -70,13 +70,17 @@ function NavGroup({
   const hasChildren = Boolean(link.children?.length);
 
   /*
-   * null means "follow the route" — the group opens because you are inside it
-   * and closes when you leave. Once someone touches the chevron it becomes
-   * their choice and stays that way, which is the behaviour people expect from
-   * a disclosure they operated themselves.
+   * Open by default, not "open because you are already inside it".
+   *
+   * The earlier behaviour followed the route, which meant the one moment you
+   * could not see the other boards was the moment you were on a board and
+   * wanted to switch. Boards are how people move between clients all day, and
+   * a list you have to open first is a click on every hop.
+   *
+   * The chevron still works, and once someone uses it the choice is theirs.
    */
   const [open, setOpen] = useState<boolean | null>(null);
-  const expanded = open ?? inSection;
+  const expanded = open ?? true;
 
   if (!hasChildren) {
     return (

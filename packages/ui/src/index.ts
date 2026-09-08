@@ -11,6 +11,7 @@ export * from "./components/section";
 export * from "./components/user-avatar";
 export * from "./components/task-board";
 export * from "./components/day-plan";
+export * from "./components/day-strip";
 export * from "./components/task-drag";
 export * from "./components/task-meta";
 export * from "./components/task-row";

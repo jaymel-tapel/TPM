@@ -5,7 +5,6 @@ import Link from "next/link";
 import { X } from "lucide-react";
 import { cn } from "../lib/utils";
 import { TypeLabel } from "./task-meta";
-import { Eyebrow } from "./section";
 import { TASK_DRAG_TYPE, type PlanBlockData } from "../types";
 import { layoutBlocks, type Positioned } from "../lib/day-layout";
 
@@ -31,7 +30,7 @@ export function DayPlan({
   startHour,
   endHour,
   nowMinutes,
-  dayStartIso,
+  day,
   hourLabels,
   onPlan,
   onUnplan,
@@ -42,19 +41,21 @@ export function DayPlan({
   /** Minutes from midnight, or null when the plan is not for today. */
   nowMinutes: number | null;
   /**
-   * The instant this day starts, as ISO. Supplied rather than derived: the app
-   * reasons in one fixed timezone, and a viewer whose laptop is set to another
-   * would otherwise compute a midnight several hours off and drop work onto the
-   * wrong hour — or the wrong day.
+   * The day being shown, as `yyyy-MM-dd`.
+   *
+   * A date, not an instant: the browser posts a day and a minute, and the
+   * server turns those into a time in the reader's own zone. Building the
+   * instant here would need the zone, and would land an hour out on the day
+   * the clocks change — a London Sunday in October is twenty-five hours long.
    */
-  dayStartIso: string;
+  day: string;
   /**
    * Minutes-from-midnight → "9 AM". Data rather than a formatter, so a server
    * component can render this grid: a function prop cannot cross that seam.
    * The app owns the clock either way.
    */
   hourLabels: Record<number, string>;
-  /** Takes `taskId`, `startsAt` (ISO) and `minutes`. Omitted disables dropping. */
+  /** Takes `taskId`, `day`, `startMinutes` and `minutes`. Omitted disables dropping. */
   onPlan?: (formData: FormData) => void | Promise<void>;
   onUnplan?: (formData: FormData) => void | Promise<void>;
 }) {
@@ -70,13 +71,15 @@ export function DayPlan({
    */
   const [shown, place] = useOptimistic(
     blocks,
-    (current: PlanBlockData[], move: { taskId: string; startMinutes: number }) => {
-      const existing = current.find((b) => b.taskId === move.taskId);
-      if (!existing) return current;
-      return current.map((b) =>
-        b.taskId === move.taskId ? { ...b, startMinutes: move.startMinutes } : b,
-      );
-    },
+    (
+      current: PlanBlockData[],
+      move: { taskId: string; startMinutes: number; minutes?: number },
+    ) =>
+      current.map((b) =>
+        b.taskId === move.taskId
+          ? { ...b, startMinutes: move.startMinutes, minutes: move.minutes ?? b.minutes }
+          : b,
+      ),
   );
 
   const top = startHour * MINUTES_PER_HOUR;
@@ -115,26 +118,30 @@ export function DayPlan({
     const at = slotAt(event.clientY);
     if (!taskId || at === null) return;
 
-    const data = new FormData();
-    data.set("taskId", taskId);
-    data.set("startsAt", isoFor(at));
-    startTransition(() => {
-      place({ taskId, startMinutes: at });
-      void onPlan(data);
-    });
+    submit(taskId, at);
   }
 
-  /** The dropped slot as an instant, on the day the grid is showing. */
-  function isoFor(minutes: number): string {
-    return new Date(new Date(dayStartIso).getTime() + minutes * 60_000).toISOString();
+  /** Place or move a block, and show it there straight away. */
+  function submit(taskId: string, startMinutes: number, minutes?: number) {
+    if (!onPlan) return;
+    const data = new FormData();
+    data.set("taskId", taskId);
+    data.set("day", day);
+    data.set("startMinutes", String(startMinutes));
+    if (minutes !== undefined) data.set("minutes", String(minutes));
+    startTransition(() => {
+      place({ taskId, startMinutes, minutes });
+      void onPlan(data);
+    });
   }
 
   const positioned = layoutBlocks(shown);
 
   return (
+    /* No heading: the strip above already names the day, and a second label
+       saying "Your day" over it is a caption for a caption. The section keeps
+       an accessible name so a screen reader still knows what this is. */
     <section aria-label="Your day">
-      <Eyebrow rule>Your day</Eyebrow>
-
       <div
         className={cn(
           "overflow-hidden rounded-xl border border-gray-400 bg-background-100",
@@ -201,6 +208,7 @@ export function DayPlan({
                   block={block}
                   top={offset(block.startMinutes)}
                   onUnplan={onUnplan}
+                  onResize={onPlan ? submit : undefined}
                 />
               ))}
             </div>
@@ -217,24 +225,90 @@ export function DayPlan({
   );
 }
 
+/** Below this a block has no room for anything but its title. */
+const ROOMY_MINUTES = 45;
+const MIN_BLOCK = SLOT_MINUTES;
+
 function Block({
   block,
   top,
   onUnplan,
+  onResize,
 }: {
   block: Positioned<PlanBlockData>;
   top: number;
   onUnplan?: (formData: FormData) => void | Promise<void>;
+  /** Commits a new start and length. Omitted makes the block a fixed shape. */
+  onResize?: (taskId: string, startMinutes: number, minutes: number) => void;
 }) {
-  // Below about half an hour there is only room for the title.
-  const roomy = block.minutes >= 45;
+  /*
+   * While a handle is held, the block follows the pointer from local state —
+   * the optimistic value only lands once the drag ends. Committing on every
+   * pointermove would post a server action per pixel.
+   */
+  const [draft, setDraft] = useState<{ startMinutes: number; minutes: number } | null>(null);
+  const shape = draft ?? block;
+  const roomy = shape.minutes >= ROOMY_MINUTES;
+
+  function resizeFrom(edge: "top" | "bottom") {
+    return (event: React.PointerEvent) => {
+      if (!onResize) return;
+      // Stop the row's HTML5 drag starting underneath the resize.
+      event.preventDefault();
+      event.stopPropagation();
+
+      const handle = event.currentTarget as HTMLElement;
+      handle.setPointerCapture(event.pointerId);
+
+      const originY = event.clientY;
+      const from = { startMinutes: block.startMinutes, minutes: block.minutes };
+      let latest = from;
+
+      const move = (e: PointerEvent) => {
+        const delta =
+          Math.round((e.clientY - originY) / PX_PER_MINUTE / SLOT_MINUTES) * SLOT_MINUTES;
+
+        if (edge === "bottom") {
+          latest = {
+            startMinutes: from.startMinutes,
+            minutes: Math.max(MIN_BLOCK, from.minutes + delta),
+          };
+        } else {
+          // Dragging the top moves the start and keeps the end where it is,
+          // which is what "start earlier" means.
+          const end = from.startMinutes + from.minutes;
+          const start = Math.max(0, Math.min(end - MIN_BLOCK, from.startMinutes + delta));
+          latest = { startMinutes: start, minutes: end - start };
+        }
+        setDraft(latest);
+      };
+
+      const done = () => {
+        handle.releasePointerCapture(event.pointerId);
+        handle.removeEventListener("pointermove", move);
+        handle.removeEventListener("pointerup", done);
+        handle.removeEventListener("pointercancel", done);
+        setDraft(null);
+        if (latest.startMinutes !== from.startMinutes || latest.minutes !== from.minutes) {
+          onResize(block.taskId, latest.startMinutes, latest.minutes);
+        }
+      };
+
+      handle.addEventListener("pointermove", move);
+      handle.addEventListener("pointerup", done);
+      handle.addEventListener("pointercancel", done);
+    };
+  }
+
+  const grip =
+    "absolute inset-x-0 h-1.5 cursor-ns-resize opacity-0 transition-opacity group-hover/block:opacity-100";
 
   return (
     <div
       className="group/block absolute px-1"
       style={{
-        top,
-        height: block.minutes * PX_PER_MINUTE,
+        top: draft ? top + (draft.startMinutes - block.startMinutes) * PX_PER_MINUTE : top,
+        height: shape.minutes * PX_PER_MINUTE,
         left: `${block.left * 100}%`,
         width: `${block.width * 100}%`,
       }}
@@ -245,6 +319,7 @@ function Block({
           block.done
             ? "border-gray-400 bg-gray-200 text-gray-600"
             : "border-blue-500 bg-blue-100 text-gray-1000",
+          draft && "ring-2 ring-blue-700",
         )}
       >
         <Link href={block.href} className="min-w-0">
@@ -275,6 +350,23 @@ function Block({
               <X className="size-3" strokeWidth={2} />
             </button>
           </form>
+        ) : null}
+
+        {/* Grab the edges to change when it starts or how long it runs. Hidden
+            until hover so a full grid does not read as a row of handles. */}
+        {onResize ? (
+          <>
+            <div
+              onPointerDown={resizeFrom("top")}
+              className={cn(grip, "top-0 rounded-t-md bg-blue-700/30")}
+              role="presentation"
+            />
+            <div
+              onPointerDown={resizeFrom("bottom")}
+              className={cn(grip, "bottom-0 rounded-b-md bg-blue-700/30")}
+              role="presentation"
+            />
+          </>
         ) : null}
       </div>
     </div>

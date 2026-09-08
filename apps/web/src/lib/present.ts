@@ -15,7 +15,7 @@ import type {
   TaskRowData,
   TaskType,
 } from "@meridian/ui";
-import { agoLabel, dueLabel, fmtTime, now, startOfAppDay } from "@/lib/date";
+import { agoLabel, dueLabel, fmtTime, now, startOfAppDay, type Zone } from "@/lib/date";
 import { formatDuration } from "@/lib/duration";
 import { minutesFromMidnight } from "@/lib/plan";
 import type { TaskCard } from "@/queries/sql";
@@ -41,7 +41,11 @@ import type {
  * routes, or what time it is. Everything that depends on those is resolved
  * here, once, on the server.
  */
-export function toTaskRow(task: TaskCard, reference: Date = now()): TaskRowData {
+export function toTaskRow(
+  task: TaskCard,
+  reference: Date = now(),
+  zone?: Zone,
+): TaskRowData {
   const done = task.completedAt !== null;
   return {
     id: task.id,
@@ -50,10 +54,10 @@ export function toTaskRow(task: TaskCard, reference: Date = now()): TaskRowData 
     type: task.type as TaskType,
     status: { id: task.statusId, name: task.statusName, kind: task.statusKind },
     priority: task.priority as Priority,
-    dueText: dueLabel(task.dueDate, reference),
+    dueText: dueLabel(task.dueDate, reference, zone),
     // Overdue means carried over from an earlier day, not simply past its
     // clock time today.
-    overdue: !done && task.dueDate < startOfAppDay(reference),
+    overdue: !done && task.dueDate < startOfAppDay(reference, zone),
     done,
     assignees: task.assignees,
     tags: task.tags,
@@ -204,7 +208,7 @@ export function toInboxItem(entry: InboxEntry, reference: Date = now()): InboxIt
  * gets minutes from the app day's own midnight plus a formatted label. Same
  * seam `toTaskRow` draws with `dueText`.
  */
-export function toPlanBlock(entry: PlanEntry): PlanBlockData {
+export function toPlanBlock(entry: PlanEntry, zone?: Zone): PlanBlockData {
   return {
     taskId: entry.taskId,
     href: `/tasks/${entry.taskId}`,
@@ -212,8 +216,8 @@ export function toPlanBlock(entry: PlanEntry): PlanBlockData {
     type: entry.type as TaskType,
     priority: entry.priority as Priority,
     done: entry.done,
-    startMinutes: minutesFromMidnight(entry.startsAt),
+    startMinutes: minutesFromMidnight(entry.startsAt, zone),
     minutes: entry.minutes,
-    timeText: fmtTime(entry.startsAt),
+    timeText: fmtTime(entry.startsAt, zone),
   };
 }

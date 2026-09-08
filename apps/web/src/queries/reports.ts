@@ -2,8 +2,8 @@ import "server-only";
 import { sql } from "drizzle-orm";
 import { format } from "date-fns";
 import { db } from "@/db";
-import { dayRange, now, pct } from "@/lib/date";
-import { onTime, overdueSql, scopeSql, TZ, type Scope } from "./sql";
+import { dayRange, now, pct, type Zone } from "@/lib/date";
+import { onTimeIn, overdueSql, scopeSql, TZ, type Scope } from "./sql";
 import { TASK_TYPE_LABELS } from "@/lib/constants";
 import type { TaskType } from "@/db/schema";
 
@@ -17,8 +17,8 @@ export type ReportMetrics = {
   avgCompletionHours: number | null;
 };
 
-function windowBounds(days: number, reference: Date = now()) {
-  const { end } = dayRange(reference);
+function windowBounds(days: number, reference: Date = now(), zone: Zone = TZ) {
+  const { end } = dayRange(reference, zone);
   return { start: new Date(end.getTime() - days * 86_400_000), end };
 }
 
@@ -30,16 +30,17 @@ export async function getReportMetrics(
   scope: Scope,
   days = 7,
   reference: Date = now(),
+  zone: Zone = TZ,
 ): Promise<ReportMetrics> {
-  const { start, end } = windowBounds(days, reference);
-  const todayStart = dayRange(reference).start;
+  const { start, end } = windowBounds(days, reference, zone);
+  const todayStart = dayRange(reference, zone).start;
   const where = scopeSql(scope);
 
   const rows = await db.execute(sql`
     select
       count(*) filter (where k.due_date >= ${start} and k.due_date < ${end}) as due,
       count(*) filter (where k.due_date >= ${start} and k.due_date < ${end} and k.completed_at is not null) as completed,
-      count(*) filter (where k.due_date >= ${start} and k.due_date < ${end} and ${onTime}) as on_time,
+      count(*) filter (where k.due_date >= ${start} and k.due_date < ${end} and ${onTimeIn(zone)}) as on_time,
       count(*) filter (where ${overdueSql(todayStart)}) as overdue,
       avg(extract(epoch from (k.completed_at - k.created_at)) / 3600)
         filter (where k.completed_at is not null and k.due_date >= ${start} and k.due_date < ${end}) as avg_hours
@@ -66,26 +67,27 @@ export async function getCompletionTrend(
   scope: Scope,
   days = 7,
   reference: Date = now(),
+  zone: Zone = TZ,
 ): Promise<TrendPoint[]> {
-  const { start } = dayRange(reference);
+  const { start } = dayRange(reference, zone);
   const first = new Date(start.getTime() - (days - 1) * 86_400_000);
   const where = scopeSql(scope);
 
   const rows = await db.execute(sql`
     with span as (
       select generate_series(
-        (${first} at time zone ${TZ})::date,
-        (${start} at time zone ${TZ})::date,
+        (${first} at time zone ${zone})::date,
+        (${start} at time zone ${zone})::date,
         interval '1 day'
       )::date as d
     )
     select span.d,
       count(k.id) as due,
-      count(k.id) filter (where ${onTime}) as done
+      count(k.id) filter (where ${onTimeIn(zone)}) as done
     from span
     left join tasks k
-      on k.due_date >= (span.d::timestamp at time zone ${TZ})
-     and k.due_date <  ((span.d + 1)::timestamp at time zone ${TZ})
+      on k.due_date >= (span.d::timestamp at time zone ${zone})
+     and k.due_date <  ((span.d + 1)::timestamp at time zone ${zone})
      and ${where}
     group by span.d
     order by span.d
@@ -114,12 +116,13 @@ export async function getCompletionByType(
   scope: Scope,
   days = 7,
   reference: Date = now(),
+  zone: Zone = TZ,
 ): Promise<TypeBreakdown[]> {
-  const { start, end } = windowBounds(days, reference);
+  const { start, end } = windowBounds(days, reference, zone);
   const where = scopeSql(scope);
 
   const rows = await db.execute(sql`
-    select k.type, count(*) as due, count(*) filter (where ${onTime}) as done
+    select k.type, count(*) as due, count(*) filter (where ${onTimeIn(zone)}) as done
     from tasks k
     where ${where} and k.due_date >= ${start} and k.due_date < ${end}
     group by k.type
@@ -147,14 +150,15 @@ export async function getWorkload(
   scope: Scope,
   days = 7,
   reference: Date = now(),
+  zone: Zone = TZ,
 ): Promise<WorkloadRow[]> {
-  const { start, end } = windowBounds(days, reference);
+  const { start, end } = windowBounds(days, reference, zone);
   const where = scopeSql(scope);
 
   const rows = await db.execute(sql`
     select u.id, u.name, t.name as team_name,
            count(k.id) as due,
-           count(k.id) filter (where ${onTime}) as done
+           count(k.id) filter (where ${onTimeIn(zone)}) as done
     from users u
     join teams t on t.id = u.team_id
     left join task_assignees a on a.user_id = u.id

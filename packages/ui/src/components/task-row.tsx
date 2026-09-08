@@ -26,6 +26,7 @@ export function TaskRow({
   onToggle,
   quiet = false,
   onPlan,
+  planDay,
   planned = false,
 }: {
   task: TaskRowData;
@@ -41,7 +42,10 @@ export function TaskRow({
    * keyboard equivalent of dragging one over.
    */
   onPlan?: (formData: FormData) => void | Promise<void>;
-  /** Already has a place in the day, so the command reads as done. */
+  /** `yyyy-MM-dd` of the day the plan is showing, so Plan puts work where the
+   *  reader is looking rather than always into today. */
+  planDay?: string;
+  /** Already has a place in that day, so the command reads as done. */
   planned?: boolean;
 }) {
   const collaborators = task.assignees.filter((a) => a.id !== viewer);
@@ -138,6 +142,7 @@ export function TaskRow({
       {onPlan && !task.done ? (
         <form action={onPlan} className="shrink-0 pt-0.5">
           <input type="hidden" name="taskId" value={task.id} />
+          {planDay ? <input type="hidden" name="day" value={planDay} /> : null}
           <button
             type="submit"
             disabled={planned}

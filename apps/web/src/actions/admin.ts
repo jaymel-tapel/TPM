@@ -6,7 +6,8 @@ import { revalidatePath } from "next/cache";
 import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { roleEnum, teams, users } from "@/db/schema";
+import { supportedZones } from "@/lib/zones";
+import { department, roleEnum, teams, users } from "@/db/schema";
 import { hashPassword, requireUser } from "@/lib/auth";
 import { assertCanAdminister } from "@/lib/permissions";
 import { emailTaken } from "@/queries/admin";
@@ -216,4 +217,53 @@ export async function updateTeam(_prev: FormState, formData: FormData): Promise<
 
   refresh();
   redirect("/admin");
+}
+
+const departmentInput = z.object({
+  timezone: z.string().trim().min(1).max(64),
+  startHour: z.coerce.number().int().min(0).max(23),
+  endHour: z.coerce.number().int().min(1).max(24),
+});
+
+/**
+ * The department's defaults: the timezone and working hours everyone falls
+ * back to.
+ *
+ * Moving this moves everybody who has not chosen their own — which is the
+ * point of a default rather than a value copied onto each person. It used to
+ * be an environment variable, so changing it needed a deploy and nobody in the
+ * product could see what it was.
+ */
+export async function updateDepartment(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const viewer = await requireUser();
+  await assertCanAdminister(viewer);
+
+  const parsed = departmentInput.safeParse({
+    timezone: formData.get("timezone"),
+    startHour: formData.get("startHour"),
+    endHour: formData.get("endHour"),
+  });
+  if (!parsed.success) return { error: "Check the hours." };
+
+  const { timezone, startHour, endHour } = parsed.data;
+  if (endHour <= startHour) return { error: "The day has to end after it starts." };
+  // Checked against the runtime's own list: an unrecognised name would throw
+  // inside `Intl` on every render, for everyone at once.
+  if (!supportedZones().includes(timezone)) {
+    return { error: "That is not a timezone this server knows." };
+  }
+
+  await db
+    .insert(department)
+    .values({ id: 1, timezone, workStartHour: startHour, workEndHour: endHour })
+    .onConflictDoUpdate({
+      target: department.id,
+      set: { timezone, workStartHour: startHour, workEndHour: endHour, updatedAt: new Date() },
+    });
+
+  revalidatePath("/", "layout");
+  return null;
 }

@@ -66,6 +66,19 @@ export const users = pgTable(
     role: roleEnum("role").notNull().default("team_member"),
     // Null for the Senior Director, who sits above both teams.
     teamId: uuid("team_id").references(() => teams.id),
+    /*
+     * How this person reckons a day.
+     *
+     * Null means the department's default. Set, it decides where *their* day
+     * begins and ends — and therefore what "due today", "overdue" and
+     * "completed on time" mean on every screen they open. Two people in
+     * different zones can honestly disagree about whether the same task was
+     * late; the day boundary belongs to the reader, not to the row.
+     */
+    timezone: text("timezone"),
+    /** The hours the day plan opens on. Null means the department default. */
+    workStartHour: integer("work_start_hour"),
+    workEndHour: integer("work_end_hour"),
     /**
      * When the password last changed. A session is a signed cookie, so
      * changing the hash alone would not end one — the person stays signed in
@@ -562,6 +575,27 @@ export const taskSchedule = pgTable(
   ],
 );
 
+/**
+ * The department's own settings. Exactly one row.
+ *
+ * The timezone here is the fallback for anyone who has not chosen their own,
+ * so moving it moves everybody who never opted out — which is the point of a
+ * default rather than a copied value. It used to be an environment variable,
+ * which meant changing it needed a deploy and nobody could see what it was.
+ */
+export const department = pgTable(
+  "department",
+  {
+    /** Always 1. The check constraint is what makes this a settings row. */
+    id: integer("id").primaryKey().default(1),
+    timezone: text("timezone").notNull(),
+    workStartHour: integer("work_start_hour").notNull().default(7),
+    workEndHour: integer("work_end_hour").notNull().default(21),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  () => [check("department_single_row_ck", sql`id = 1`)],
+);
+
 export type Role = (typeof roleEnum.enumValues)[number];
 export type StatusKind = (typeof statusKindEnum.enumValues)[number];
 export type ActivityKind = (typeof activityKindEnum.enumValues)[number];
@@ -579,3 +613,4 @@ export type Folder = typeof folders.$inferSelect;
 export type NotificationKind = (typeof notificationKindEnum.enumValues)[number];
 export type Notification = typeof notifications.$inferSelect;
 export type PlanBlock = typeof taskSchedule.$inferSelect;
+export type Department = typeof department.$inferSelect;

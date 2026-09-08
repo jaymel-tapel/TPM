@@ -10,6 +10,7 @@ import {
   UserAvatar,
 } from "@meridian/ui";
 import { requireSession } from "@/lib/auth";
+
 import { assertCanViewReports, isSenior } from "@/lib/permissions";
 import {
   getCompletionByType,
@@ -35,7 +36,7 @@ function duration(hours: number | null): string {
  * consistently?" — and exactly one chart.
  */
 export default async function ReportsPage() {
-  const { user } = await requireSession();
+  const { user, zone } = await requireSession();
   await assertCanViewReports(user);
 
   const senior = isSenior(user);
@@ -43,11 +44,11 @@ export default async function ReportsPage() {
   const scope = senior ? departmentScope : teamScope(user.teamId!);
 
   const [metrics, trend, byType, workload, team] = await Promise.all([
-    getReportMetrics(scope, DAYS),
-    getCompletionTrend(scope, DAYS),
-    getCompletionByType(scope, DAYS),
-    getWorkload(scope, DAYS),
-    senior ? Promise.resolve(null) : getTeamToday(user.teamId!),
+    getReportMetrics(scope, DAYS, undefined, zone),
+    getCompletionTrend(scope, DAYS, undefined, zone),
+    getCompletionByType(scope, DAYS, undefined, zone),
+    getWorkload(scope, DAYS, undefined, zone),
+    senior ? Promise.resolve(null) : getTeamToday(user.teamId!, undefined, zone),
   ]);
 
   const headline = [

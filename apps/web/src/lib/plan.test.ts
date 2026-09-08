@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { TZDate } from "@date-fns/tz";
-import { APP_TIMEZONE } from "./date";
+import { APP_TIMEZONE, fmt } from "./date";
 import { layoutBlocks } from "@meridian/ui";
 import {
+  PLAN_DAYS,
+  planDays,
+  withinPlanHorizon,
   DEFAULT_BLOCK,
   MAX_BLOCK,
   MIN_BLOCK,
@@ -194,5 +197,91 @@ describe("nextFreeSlot", () => {
   it("skips a block that has already finished", () => {
     const taken = [{ startMinutes: 8 * 60, minutes: 60 }];
     expect(nextFreeSlot(taken, 14 * 60, 30)).toBe(14 * 60);
+  });
+});
+
+describe("the planning horizon", () => {
+  const today = at(12);
+
+  it("offers a week, today first", () => {
+    const days = planDays(today);
+    expect(days).toHaveLength(PLAN_DAYS);
+    expect(minutesFromMidnight(days[0]!)).toBe(0);
+    // Consecutive calendar days. Deliberately not asserted as multiples of 24
+    // hours: see the clocks-change test below.
+    for (let i = 1; i < days.length; i += 1) {
+      expect(days[i]!.getTime()).toBeGreaterThan(days[i - 1]!.getTime());
+      expect(fmt(days[i]!, "yyyy-MM-dd")).not.toBe(fmt(days[i - 1]!, "yyyy-MM-dd"));
+    }
+  });
+
+  it("accepts every day the strip offers, and nothing else", () => {
+    /*
+     * The rule the strip and the action share. The first version of the guard
+     * compared a time against the day derived from that same time, so it could
+     * never fail and a payload could file a block in any year it liked.
+     */
+    for (const day of planDays(today)) {
+      expect(withinPlanHorizon(day, today)).toBe(true);
+    }
+
+    const yesterday = new Date(today.getTime() - 86_400_000);
+    const tooFar = new Date(today.getTime() + PLAN_DAYS * 86_400_000);
+    expect(withinPlanHorizon(yesterday, today)).toBe(false);
+    expect(withinPlanHorizon(tooFar, today)).toBe(false);
+    expect(withinPlanHorizon(new Date("2031-01-01T00:00:00Z"), today)).toBe(false);
+  });
+
+  it("counts earlier today as inside the window", () => {
+    // It is noon; nine o'clock this morning is still a slot on this day, and
+    // moving a block back to it must not be refused.
+    expect(withinPlanHorizon(at(9), today)).toBe(true);
+  });
+});
+
+describe("when the clocks change", () => {
+  /*
+   * The default timezone is Europe/London, which observes daylight saving —
+   * unlike the zone the rest of the suite is pinned to. On the last Sunday in
+   * October the clocks go back and the day is 25 hours long, so a planner that
+   * assumed "a day is 86,400,000 milliseconds" would put every block an hour
+   * out for anyone in the UK.
+   */
+  const LONDON = "Europe/London";
+  // Saturday 24 October 2026; the clocks go back at 2am on Sunday the 25th.
+  const before = new Date("2026-10-24T12:00:00Z");
+
+  it("still offers seven distinct days across the change", () => {
+    const days = planDays(before, LONDON);
+    const labels = days.map((d) => fmt(d, "yyyy-MM-dd", LONDON));
+    expect(new Set(labels).size).toBe(PLAN_DAYS);
+    expect(labels[0]).toBe("2026-10-24");
+    expect(labels[1]).toBe("2026-10-25");
+    expect(labels[2]).toBe("2026-10-26");
+  });
+
+  it("makes the long day actually longer, rather than pretending", () => {
+    const days = planDays(before, LONDON);
+    // The clocks go back at 2am on Sunday, so Sunday itself is the 25-hour
+    // day: Saturday to Sunday is still a normal 24.
+    expect(days[1]!.getTime() - days[0]!.getTime()).toBe(24 * 3_600_000);
+    expect(days[2]!.getTime() - days[1]!.getTime()).toBe(25 * 3_600_000);
+  });
+
+  it("keeps nine in the morning at nine in the morning either side of it", () => {
+    // The thing a person would notice. If `atMinutes` worked in fixed
+    // milliseconds, Sunday's blocks would all render an hour off.
+    for (const day of planDays(before, LONDON)) {
+      const nine = atMinutes(day, 9 * 60, LONDON);
+      expect(fmt(nine, "H:mm", LONDON)).toBe("9:00");
+      expect(minutesFromMidnight(nine, LONDON)).toBe(540);
+    }
+  });
+
+  it("keeps the horizon honest across the change", () => {
+    const days = planDays(before, LONDON);
+    for (const day of days) {
+      expect(withinPlanHorizon(day, before, LONDON)).toBe(true);
+    }
   });
 });

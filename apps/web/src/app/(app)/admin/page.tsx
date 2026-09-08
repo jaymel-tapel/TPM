@@ -14,6 +14,9 @@ import { ROLE_LABELS } from "@meridian/ui";
 import { requireSession } from "@/lib/auth";
 import { assertCanAdminister } from "@/lib/permissions";
 import { listAdminTeams, listPeople } from "@/queries/admin";
+import { getDepartmentSettings } from "@/queries/department-settings";
+import { supportedZones } from "@/lib/zones";
+import { DepartmentForm } from "@/components/department-form";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +29,11 @@ export default async function AdminPage() {
   const { user } = await requireSession();
   await assertCanAdminister(user);
 
-  const [people, teams] = await Promise.all([listPeople(), listAdminTeams()]);
+  const [people, teams, dept] = await Promise.all([
+    listPeople(),
+    listAdminTeams(),
+    getDepartmentSettings(),
+  ]);
 
   return (
     <>
@@ -45,6 +52,16 @@ export default async function AdminPage() {
           </CommandBar>
         }
       />
+
+      <SectionHeader>Department</SectionHeader>
+      <Panel className="mb-10 p-6">
+        <DepartmentForm
+          zones={supportedZones()}
+          timezone={dept.timezone}
+          startHour={dept.workStartHour}
+          endHour={dept.workEndHour}
+        />
+      </Panel>
 
       <SectionHeader aside={`${teams.length} ${teams.length === 1 ? "team" : "teams"}`}>
         Teams
