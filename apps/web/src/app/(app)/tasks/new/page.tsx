@@ -44,6 +44,8 @@ export default async function NewTaskPage() {
           // that board's first column.
           boardId: firstBoard?.id ?? "",
           statusId: firstBoard ? (options.statusesByBoard[firstBoard.id]?.[0]?.id ?? "") : "",
+          estimate: "",
+          actual: "",
           priority: "normal",
           dueDate: format(defaultDue, "yyyy-MM-dd'T'HH:mm"),
           // The Senior Director sits outside both teams and so is not an

@@ -3,6 +3,7 @@ import { db } from "@/db";
 import {
   boardStatuses,
   boards,
+  taskActivity,
   documents,
   taskAssignees,
   taskDocuments,
@@ -49,7 +50,7 @@ export const statusId = (boardId: string, column: Column) =>
 
 export async function resetDb() {
   await db.execute(
-    sql`truncate task_documents, documents, task_tags, task_assignees, task_attachments, tasks, board_statuses, boards, tags, users, teams restart identity cascade`,
+    sql`truncate task_activity, task_documents, documents, task_tags, task_assignees, task_attachments, tasks, board_statuses, boards, tags, users, teams restart identity cascade`,
   );
 }
 
@@ -201,4 +202,34 @@ export function bodyMentioning(
       ],
     },
   ]);
+}
+
+let activitySeq = 0;
+
+/** One row on a task's stream. Ids are deterministic so a test can name one. */
+export async function addActivity(opts: {
+  taskId: string;
+  actorId: string;
+  kind: "comment" | "created" | "status_changed" | "completed" | "reopened" | "assigned" | "unassigned" | "board_changed";
+  body?: string;
+  fromLabel?: string;
+  toLabel?: string;
+  subjectName?: string;
+  /** Minutes before NOW, so ordering is explicit rather than insertion-order. */
+  minutesAgo?: number;
+}) {
+  activitySeq += 1;
+  const id = `0a000000-${String(activitySeq).padStart(4, "0")}-4000-a000-000000000000`;
+  await db.insert(taskActivity).values({
+    id,
+    taskId: opts.taskId,
+    actorId: opts.actorId,
+    kind: opts.kind,
+    body: opts.body ?? null,
+    fromLabel: opts.fromLabel ?? null,
+    toLabel: opts.toLabel ?? null,
+    subjectName: opts.subjectName ?? null,
+    createdAt: new Date(NOW.getTime() - (opts.minutesAgo ?? 0) * 60_000),
+  });
+  return id;
 }

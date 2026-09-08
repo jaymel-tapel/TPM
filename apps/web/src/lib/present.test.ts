@@ -10,6 +10,8 @@ function task(overrides: Partial<TaskCard> = {}): TaskCard {
     title: "Send client performance report",
     description: null,
     type: "client_work",
+    estimateMinutes: null,
+    actualMinutes: null,
     statusId: "c-todo",
     statusName: "To Do",
     statusKind: "open",

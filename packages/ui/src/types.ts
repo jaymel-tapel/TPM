@@ -32,6 +32,36 @@ export type Role = "team_member" | "account_director" | "senior_director";
 
 export type Person = { id: string; name: string };
 
+export type ActivityKind =
+  | "comment"
+  | "created"
+  | "status_changed"
+  | "completed"
+  | "reopened"
+  | "assigned"
+  | "unassigned"
+  | "board_changed";
+
+/**
+ * One entry on a task's stream. `when` is already-formatted text, not a date —
+ * this package has no clock, so the app resolves "2h ago" on the server the
+ * same way it resolves a task's due label.
+ */
+export type ActivityItemData = {
+  id: string;
+  kind: ActivityKind;
+  actorId: string;
+  actorName: string;
+  /** BlockNote JSON on a comment; null on an event. */
+  body: string | null;
+  fromLabel: string | null;
+  toLabel: string | null;
+  subjectName: string | null;
+  when: string;
+  /** Whether the viewer may remove this one. Decided by the app. */
+  removable: boolean;
+};
+
 /** What a task row needs. Due text and overdue are resolved by the app, which
  *  owns the clock and the timezone. */
 export type TaskRowData = {

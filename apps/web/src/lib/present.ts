@@ -1,5 +1,6 @@
 import "server-only";
 import type {
+  ActivityItemData,
   AttentionItemData,
   BoardData,
   DocBacklinkData,
@@ -11,11 +12,12 @@ import type {
   TaskRowData,
   TaskType,
 } from "@meridian/ui";
-import { dueLabel, now, startOfAppDay } from "@/lib/date";
+import { agoLabel, dueLabel, now, startOfAppDay } from "@/lib/date";
 import type { TaskCard } from "@/queries/sql";
 import type { BoardView } from "@/queries/tasks";
 import type { MemberRollup } from "@/queries/team";
 import type { AttentionItem } from "@/queries/attention";
+import type { ActivityEntry } from "@/queries/activity";
 import type {
   DocBacklink,
   DocNode,
@@ -130,5 +132,31 @@ export function toDocSummaryNode(doc: DocSummary): DocNodeData {
     title: doc.title,
     ...scopeOf(doc),
     children: [],
+  };
+}
+
+/**
+ * One activity row, ready to render. `removable` is decided here rather than in
+ * the component: whether a viewer may delete a comment is a permission, and the
+ * design system does not get to hold opinions about those.
+ */
+export function toActivityItem(
+  entry: ActivityEntry,
+  viewer: { id: string; role: string },
+  reference: Date = now(),
+): ActivityItemData {
+  return {
+    id: entry.id,
+    kind: entry.kind,
+    actorId: entry.actorId,
+    actorName: entry.actorName,
+    body: entry.body,
+    fromLabel: entry.fromLabel,
+    toLabel: entry.toLabel,
+    subjectName: entry.subjectName,
+    when: agoLabel(entry.createdAt, reference),
+    removable:
+      entry.kind === "comment" &&
+      (entry.actorId === viewer.id || viewer.role !== "team_member"),
   };
 }

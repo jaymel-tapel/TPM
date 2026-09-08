@@ -34,6 +34,7 @@ import {
   Stat,
   StatBandSkeleton,
   StatusBadge,
+  ActivityFeed,
   AttachmentList,
   DocBacklinkList,
   DocRefList,
@@ -60,6 +61,7 @@ import { TrendChart } from "@meridian/ui/chart";
 import { ErrorStateDemo } from "./error-demo";
 import {
   ATTACHMENTS,
+  ACTIVITY,
   ATTENTION,
   BOARD,
   DOC_BACKLINKS,
@@ -535,11 +537,14 @@ export default function DesignSystemPage() {
             </div>
             <div>
               <p className="mb-2 text-caption-strong uppercase tracking-[0.08em] text-gray-600">
-                A mention, in prose
+                Mentions, in prose
               </p>
               <RichTextView value={MENTION_BODY} />
               <p className="mt-2 text-caption text-gray-600">
-                The chip carries the title it was written with, so a document that has since
+                One <code className="text-gray-1000">@</code> offers both people and
+                documents — a second trigger for the other sort of thing would be one more
+                keystroke to remember for the same intention. Either chip carries the name
+                it was written with, so a person you cannot see or a document that has since
                 gone still reads as a name rather than a dead id.
               </p>
             </div>
@@ -568,6 +573,25 @@ export default function DesignSystemPage() {
               Delete
             </Command>
           </CommandBar>
+        </Block>
+
+        <Block title="Activity" note="What people said and what happened, in one stream">
+          <p className="mb-6 max-w-prose text-body text-gray-700">
+            Comments and events share a list because they share a question — what has
+            happened to this task. An event is one line and no editor; a comment renders its
+            document. The labels on an event are <strong className="text-gray-1000">snapshots</strong>:
+            a column can be renamed or deleted afterwards, and the entry still reads the way
+            it read when it was written.
+          </p>
+          <div className="grid gap-6 lg:grid-cols-2">
+            <ActivityFeed items={ACTIVITY} total={ACTIVITY.length} />
+            <div>
+              <p className="mb-2 text-caption-strong uppercase tracking-[0.08em] text-gray-600">
+                Nothing yet
+              </p>
+              <ActivityFeed items={[]} total={0} />
+            </div>
+          </div>
         </Block>
 
         <Block title="Board" note="A lens on the day, not a place work lives">

@@ -8,6 +8,8 @@ import { toPlainText } from "@meridian/ui/editor";
 import { db } from "@/db";
 import { docVisibilityEnum, documents, taskDocuments } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
+import { listAssignableUsers } from "@/queries/team";
+import type { MentionItem } from "@meridian/ui/editor";
 import {
   assertMayPlaceDoc,
   canCreateDocs,
@@ -236,4 +238,23 @@ export async function detachDocFromTask(formData: FormData) {
 export async function listMentionableDocs() {
   const viewer = await requireUser();
   return listMentionableFor(viewer);
+}
+
+/**
+ * People the `@` menu can offer, alongside documents.
+ *
+ * Everyone in the department, not just the viewer's team: a mention names
+ * somebody in a sentence, and the sentence is already visible to whoever can
+ * read the task. It links to their day, which is scoped by its own permission
+ * check — so the picker does not need to duplicate one.
+ */
+export async function listMentionablePeople(): Promise<MentionItem[]> {
+  await requireUser();
+  const people = await listAssignableUsers();
+  return people.map((person) => ({
+    id: person.id,
+    title: person.name,
+    subtitle: person.team_name ?? undefined,
+    kind: "person" as const,
+  }));
 }

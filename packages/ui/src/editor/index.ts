@@ -7,6 +7,7 @@ export {
   toBlocks,
   toPlainText,
   DOC_MENTION,
+  USER_MENTION,
   type Block,
   type DocMentionProps,
   type MentionItem,
