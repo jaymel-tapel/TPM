@@ -7,6 +7,7 @@ import {
   BarChart3,
   CalendarCheck,
   ChevronRight,
+  ShieldCheck,
   Columns3,
   FileText,
   LayoutDashboard,
@@ -29,6 +30,7 @@ const ICONS: Record<NavIcon, typeof CalendarCheck> = {
   teams: UsersRound,
   reports: BarChart3,
   overview: LayoutDashboard,
+  admin: ShieldCheck,
 };
 
 /**

@@ -30,7 +30,8 @@ export type NavIcon =
   | "team"
   | "teams"
   | "reports"
-  | "overview";
+  | "overview"
+  | "admin";
 export type NavChild = { href: string; label: string };
 export type NavItem = {
   href: string;
@@ -56,6 +57,7 @@ export function navFor(role: Role): NavItem[] {
         { href: "/teams", label: "Teams", icon: "teams" },
         { href: "/docs", label: "Docs", icon: "docs" },
         { href: "/reports", label: "Reports", icon: "reports" },
+        { href: "/admin", label: "Admin", icon: "admin" },
       ];
     case "account_director":
       return [
@@ -129,6 +131,23 @@ export async function assertCanViewUser(viewer: User, targetId: string): Promise
     return target;
   }
   notFound();
+}
+
+/**
+ * Who may change the org chart itself.
+ *
+ * The Senior Director alone, because everything else in the product is derived
+ * from it: which board a task can be filed on, who may be assigned, who may be
+ * named in a description, what a director can see. An Account Director editing
+ * their own team's membership would be editing the thing their own permissions
+ * are read from.
+ */
+export function canAdminister(viewer: User): boolean {
+  return isSenior(viewer);
+}
+
+export async function assertCanAdminister(viewer: User) {
+  if (!canAdminister(viewer)) notFound();
 }
 
 export async function assertCanViewReports(viewer: User) {
