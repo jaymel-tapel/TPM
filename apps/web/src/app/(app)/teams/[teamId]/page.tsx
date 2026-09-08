@@ -1,6 +1,7 @@
 import { requireSession } from "@/lib/auth";
 import { assertCanViewTeam } from "@/lib/permissions";
 import { TeamTodayView } from "@/components/team-today-view";
+import { parseRange } from "@/lib/range";
 
 export const dynamic = "force-dynamic";
 
@@ -16,8 +17,15 @@ export default async function TeamDetailPage({
   const { user, zone } = await requireSession();
   await assertCanViewTeam(user, teamId);
 
-  const view = (await searchParams).view === "board" ? "board" : "list";
+  const range = parseRange((await searchParams).range);
   return (
-    <TeamTodayView viewer={user} teamId={teamId} zone={zone} showTeamName />
+    <TeamTodayView
+      viewer={user}
+      teamId={teamId}
+      zone={zone}
+      showTeamName
+      range={range}
+      basePath={`/teams/${teamId}`}
+    />
   );
 }

@@ -44,19 +44,29 @@ export type TeamToday = {
  * Screen 3. Per-person rollups come through task_assignees (so a shared task
  * counts for each person), while the team totals use tasks.team_id (so it
  * counts once for the team).
+ *
+ * `days` widens the window backwards from today — 1 is today, 7 is the last
+ * seven whole days. Only *due and done* move with it. **Overdue stays anchored
+ * to today**, because overdue means carried over from an earlier day, and
+ * letting the window define it would quietly forgive everything inside the
+ * window: a task due Monday and still unfinished on Friday would stop counting
+ * the moment somebody switched to the week.
  */
 export async function getTeamToday(
   teamId: string,
   reference: Date = now(),
   zone?: Zone,
+  days = 1,
 ): Promise<TeamToday | null> {
   const { start, end } = dayRange(reference, zone);
+  // Whole days ending today, today included.
+  const from = new Date(start.getTime() - (days - 1) * 86_400_000);
 
   const teamRows = await db.execute(sql`
     select t.id, t.name, d.name as director_name,
            (select count(*) from users u where u.team_id = t.id) as headcount,
-           (select count(*) from tasks k where k.team_id = t.id and ${isLeaf} and k.due_date >= ${start} and k.due_date < ${end}) as due,
-           (select count(*) from tasks k where k.team_id = t.id and ${isLeaf} and k.due_date >= ${start} and k.due_date < ${end} and k.completed_at is not null) as done,
+           (select count(*) from tasks k where k.team_id = t.id and ${isLeaf} and k.due_date >= ${from} and k.due_date < ${end}) as due,
+           (select count(*) from tasks k where k.team_id = t.id and ${isLeaf} and k.due_date >= ${from} and k.due_date < ${end} and k.completed_at is not null) as done,
            (select count(*) from tasks k where k.team_id = t.id and ${isLeaf} and k.due_date < ${start} and k.completed_at is null) as overdue
     from teams t
     left join users d on d.id = t.account_director_id
@@ -71,8 +81,8 @@ export async function getTeamToday(
 
   const memberRows = await db.execute(sql`
     select u.id, u.name, u.role,
-           count(k.id) filter (where k.due_date >= ${start} and k.due_date < ${end}) as due,
-           count(k.id) filter (where k.due_date >= ${start} and k.due_date < ${end} and k.completed_at is not null) as done,
+           count(k.id) filter (where k.due_date >= ${from} and k.due_date < ${end}) as due,
+           count(k.id) filter (where k.due_date >= ${from} and k.due_date < ${end} and k.completed_at is not null) as done,
            count(k.id) filter (where k.due_date < ${start} and k.completed_at is null) as overdue
     from users u
     left join task_assignees a on a.user_id = u.id

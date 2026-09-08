@@ -3,6 +3,7 @@ import { requireSession } from "@/lib/auth";
 import { assertCanViewTeamWork, canViewTeam } from "@/lib/permissions";
 import { TeamTodayView } from "@/components/team-today-view";
 import { TeamAvailabilityView } from "@/components/team-availability-view";
+import { parseRange } from "@/lib/range";
 
 export const dynamic = "force-dynamic";
 
@@ -22,15 +23,27 @@ export const dynamic = "force-dynamic";
  * not links. `canViewTeam` itself is untouched, and its test still asserts it
  * refuses a team member.
  */
-export default async function TeamPage() {
+export default async function TeamPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { user, zone } = await requireSession();
+  // The window lives in the URL so it survives a reload and can be sent on.
+  const range = parseRange((await searchParams).range);
   // The Senior Director is on no team and browses via /teams.
   if (!user.teamId) notFound();
   await assertCanViewTeamWork(user, user.teamId);
 
   return canViewTeam(user, user.teamId) ? (
-    <TeamTodayView viewer={user} teamId={user.teamId} zone={zone} />
+    <TeamTodayView
+      viewer={user}
+      teamId={user.teamId}
+      zone={zone}
+      range={range}
+      basePath="/team"
+    />
   ) : (
-    <TeamAvailabilityView viewer={user} teamId={user.teamId} zone={zone} />
+    <TeamAvailabilityView viewer={user} teamId={user.teamId} zone={zone} range={range} />
   );
 }

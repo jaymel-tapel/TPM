@@ -26,6 +26,8 @@ import { addDays, dayKey } from "@/lib/leave";
 import { now } from "@/lib/date";
 import type { User } from "@/db/schema";
 import { LeaveDecision } from "@/components/leave-buttons";
+import { RangeSwitch } from "@/components/range-switch";
+import { RANGE_DAYS, RANGE_METRIC_LABEL, type TeamRange } from "@/lib/range";
 
 /** How far ahead the leave list looks. A fortnight is as far as a rota is real. */
 const LEAVE_HORIZON_DAYS = 14;
@@ -39,6 +41,8 @@ export async function TeamTodayView({
   teamId,
   zone,
   showTeamName = false,
+  range,
+  basePath,
 }: {
   /** Whose queue the Leave section shows. */
   viewer: User;
@@ -51,12 +55,16 @@ export async function TeamTodayView({
    * of several, and a page about a team should say which.
    */
   showTeamName?: boolean;
+  range: TeamRange;
+  /** Where the day/week links point — the AD's own team, or a team the Senior
+   *  Director picked. */
+  basePath: string;
 }) {
   const reference = now(zone);
   const today = dayKey(reference, zone);
 
   const [team, attention, pending, upcoming] = await Promise.all([
-    getTeamToday(teamId, undefined, zone),
+    getTeamToday(teamId, undefined, zone, RANGE_DAYS[range]),
     getNeedsAttention(teamScope(teamId), undefined, zone),
     listPendingFor(viewer),
     // Who is out today is already on the member rows, so this is only the
@@ -71,11 +79,13 @@ export async function TeamTodayView({
         <h1 className="text-title-1 text-gray-1000">{team.teamName}</h1>
       ) : null}
 
+      <RangeSwitch range={range} basePath={basePath} />
+
       <Panel className="p-8">
         <div className="flex flex-wrap items-end gap-x-12 gap-y-6">
           <Stat
             value={<Percent value={team.percent} />}
-            label="Completion today"
+            label={RANGE_METRIC_LABEL[range]}
             size="xl"
           />
           <dl className="flex flex-wrap gap-x-12 gap-y-4 sm:ml-auto">
