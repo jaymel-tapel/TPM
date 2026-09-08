@@ -255,7 +255,7 @@ function pickPriority(): Priority {
 const TAG_NAMES = [...CLIENTS, "launch", "monthly", "urgent-client", "reporting"];
 
 function emailFor(name: string) {
-  return `${name.toLowerCase().replace(/[^a-z ]/g, "").replace(/ +/g, ".")}@meridian.co`;
+  return `${name.toLowerCase().replace(/[^a-z ]/g, "").replace(/ +/g, ".")}@demo.co`;
 }
 
 type NewTask = typeof tasks.$inferInsert & { id: string };

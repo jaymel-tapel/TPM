@@ -91,7 +91,7 @@ export function PersonForm({
               type="email"
               required
               defaultValue={values.email}
-              placeholder="name@meridian.co"
+              placeholder="name@demo.co"
             />
           </div>
 

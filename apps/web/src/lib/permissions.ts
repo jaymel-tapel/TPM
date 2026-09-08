@@ -71,11 +71,13 @@ export function navFor(role: Role): NavItem[] {
     case "senior_director":
       return [
         { href: "/overview", label: "Overview", icon: "overview" },
-        { href: "/teams", label: "Teams", icon: "teams" },
         // Every team's boards, not one team's. The rail is the quickest way
         // into a client's work, and the person who spans both teams is the one
-        // who most often has to cross between them.
+        // who most often has to cross between them — so it comes before the
+        // teams themselves, which are read far less often than they are
+        // navigated past.
         { href: "/boards", label: "Boards", icon: "boards" },
+        { href: "/teams", label: "Teams", icon: "teams" },
         { href: "/docs", label: "Docs", icon: "docs" },
         { href: "/reports", label: "Reports", icon: "reports" },
         { href: "/admin", label: "Admin", icon: "admin" },
