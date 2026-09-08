@@ -143,7 +143,15 @@ export type AvailabilityData = {
 
 export type MemberRowData = {
   id: string;
-  href: string;
+  /**
+   * Null when there is nowhere to go.
+   *
+   * A team member may open their own day and nobody else's — `assertCanViewUser`
+   * refuses the rest — so most rows on their roster are not links. A row that
+   * looks clickable and 404s is the rail's old bug in miniature: advertising a
+   * door that does not open.
+   */
+  href: string | null;
   name: string;
   role: Role;
   due: number;
@@ -160,22 +168,6 @@ export type MemberRowData = {
    * and leave is not allowed to become a second one.
    */
   away?: AvailabilityData | null;
-};
-
-/**
- * A roster row for a reader who is not a director.
- *
- * It carries no numbers. A team member sees who is in, not how their
- * colleagues are doing — that is the rollup, and `canViewTeam` refuses them
- * it. `href` is nullable for the same reason: a member may open their own day
- * and nobody else's, so most of these rows are not links.
- */
-export type AvailabilityRowData = {
-  id: string;
-  name: string;
-  role: Role;
-  href: string | null;
-  away: AvailabilityData | null;
 };
 
 export type LeaveKind = "vacation" | "sick" | "personal" | "unpaid";

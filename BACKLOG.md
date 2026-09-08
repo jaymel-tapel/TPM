@@ -7,26 +7,13 @@ Each issue there carries its own reasoning and its own definition of done. This
 file is the index, plus the decisions that belong in the repo rather than on a
 board.
 
-**50 issues · 28 shipped · 22 outstanding**, labelled by epic: Foundation,
+**50 issues · 33 shipped · 17 outstanding**, labelled by epic: Foundation,
 Auth and roles, Tasks, Team Member, Account Director, Senior Director,
 Reporting, Quality.
 
 ---
 
 ## Outstanding, in the order worth doing them
-
-### Missing rather than unfinished
-
-| | | |
-|---|---|---|
-| [WEB-12](https://linear.app/jaymelworkspace/issue/WEB-12) | Test setup and first tests | Urgent |
-| [WEB-13](https://linear.app/jaymelworkspace/issue/WEB-13) | CI pipeline | Urgent |
-| [WEB-14](https://linear.app/jaymelworkspace/issue/WEB-14) | Delete confirmation on tasks | Urgent |
-| [WEB-15](https://linear.app/jaymelworkspace/issue/WEB-15) | Loading and error states | Urgent |
-
-There are zero tests, nothing stops a broken commit reaching `main`,
-`deleteTask` fires on one click with no undo, and no route has a loading or
-error boundary.
 
 ### Known debt
 
@@ -45,16 +32,21 @@ error boundary.
 |---|---|---|
 | [WEB-20](https://linear.app/jaymelworkspace/issue/WEB-20) | Filters on the team view | High |
 | [WEB-21](https://linear.app/jaymelworkspace/issue/WEB-21) | Blocked state: capture the reason | High |
-| [WEB-24](https://linear.app/jaymelworkspace/issue/WEB-24) | Password change | Medium |
-| [WEB-25](https://linear.app/jaymelworkspace/issue/WEB-25) | Admin: user and team management | Medium |
+| [WEB-24](https://linear.app/jaymelworkspace/issue/WEB-24) | Password change — *self-service half* | Medium |
 | [WEB-26](https://linear.app/jaymelworkspace/issue/WEB-26) | Date range selector on reports | Medium |
-| [WEB-27](https://linear.app/jaymelworkspace/issue/WEB-27) | Keyboard completion on My Day | Medium |
+| [WEB-27](https://linear.app/jaymelworkspace/issue/WEB-27) | Keyboard completion — *restate: My Day is now a board filter* | Medium |
 | [WEB-28](https://linear.app/jaymelworkspace/issue/WEB-28) | Optimistic task completion | Medium |
 | [WEB-29](https://linear.app/jaymelworkspace/issue/WEB-29) | Assign work from the team view | Medium |
 | [WEB-30](https://linear.app/jaymelworkspace/issue/WEB-30) | Needs Attention: mark as handled | Medium |
 | [WEB-31](https://linear.app/jaymelworkspace/issue/WEB-31) | Session expiry UX | Low |
 | [WEB-32](https://linear.app/jaymelworkspace/issue/WEB-32) | CSV export of reports | Low |
 | [WEB-35](https://linear.app/jaymelworkspace/issue/WEB-35) | Recurring tasks | Low |
+
+Two of these have moved since they were written. **WEB-24** is half done: an
+administrator can reset somebody's password from their page, and the reset ends
+their open sessions; nobody can yet change their own. **WEB-27** named a screen
+that no longer exists — My Day folded into a filter on the board — so the issue
+needs restating against the board before it can be picked up.
 
 ---
 
@@ -93,15 +85,130 @@ Real-time is a nicety, not a guarantee: with `ABLY_API_KEY` unset the rows are
 still written and still read on the next navigation. That degradation is logged,
 not silent.
 
-### A migration number to fix at merge
+### The migration numbers, and how two branches broke them
 
-This branch and the docs branch both generated an **0007**. Neon already has the
-docs pair (`0007_whole_living_mummy`, `0008_medical_yellowjacket`, the `folders`
-table), applied at timestamps later than this branch's, so `drizzle-kit migrate`
-skips `0007_thankful_drax` silently and reports success. Whoever merges second
-renumbers notifications to **0009** and regenerates its snapshot on top of
-folders. Until then Neon has no `notifications` table, and the app cannot run
-against it.
+Two branches each generated an **0007** — folders on one, notifications on the
+other. Resolved: folders kept `0007`/`0008` because Neon had already taken them,
+and notifications was **regenerated** as `0009` on top, so its snapshot knows
+folders exist. Hand-merging the two snapshots would have left a lineage neither
+branch could generate from.
+
+Worth keeping because the failure was silent, and would be again. `drizzle-kit
+migrate` applies whatever is newer than the last applied record, by the `when`
+timestamp in the journal rather than the file number. The notifications
+migration carried an *earlier* timestamp than the folders pair that had already
+run, so it was skipped and the command reported success. The `notifications`
+table simply did not exist, and nothing said so.
+
+Two branches generating migrations against one shared database is the setup
+that produces this. If it happens again: regenerate the loser on top of the
+winner rather than renumbering files, and check the table is actually there
+rather than trusting the exit code.
+
+### Leave, and the line it does not cross
+
+The brief's *Do Not Build* list carries **time tracking** and **workload
+forecasting**, and leave sits close enough to both to be worth pinning down
+before somebody assumes otherwise. Time tracking measures how long work took.
+Forecasting predicts how much a person can absorb. Leave does neither: it
+records a fact about a calendar day that somebody above them signed off, and
+shows it beside the day.
+
+**The invariant: leave says who is in, never how much they can take on.** No
+leave query touches `tasks`. Nothing enters `queries/reports.ts`. A person's
+completion percentage is *dimmed* on a day they were away rather than
+recomputed, because a figure for a day they were not working is not a fact
+about them — but it is the same figure the rollup counted, and completion keeps
+exactly one definition. The moment a screen reads "Anna is at 60% capacity this
+week because she is off Thursday", this has become forecasting.
+
+The obvious next requests are on the far side of that line. An away marker in
+the assignee picker is arguably fine; a warning when you assign work to someone
+who is off is already advice; a capacity number is the thing the brief refuses,
+and the slope between the three is short. Deferred, and named here while
+deferring them costs nothing.
+
+Three smaller decisions, so they are not re-derived:
+
+- **Approval follows the org chart, not the role.** A team member's leave is
+  their own Account Director's; an Account Director's is the Senior Director's.
+  The only rule added on top is that nobody signs off their own — which is what
+  makes a director's request resolve to exactly one person without anywhere
+  naming it as a special case. An approval nobody else makes is not an
+  approval; it is a status field with extra steps. The Senior Director has
+  nobody above them, so their leave is recorded as approved on filing with no
+  decider, which is the honest row.
+- **No notification, on purpose.** `notifications.task_id` is `NOT NULL` and
+  the whole table is task-shaped, down to `InboxItemData` requiring a task
+  title and `notify()` filtering recipients through `filterUsersWhoCanSeeTask`.
+  Making it nullable means a discriminator, a rewritten inbox join, and a new
+  recipient filter that has to agree with `canDecideLeave` the way the existing
+  one agrees with `canViewTask` — a change to the one thing this file calls
+  load-bearing, for an audience of three people. The pending count sits on the
+  Team screen a director already opens every morning instead. The honest risk:
+  an unread badge is what actually makes people act, so if approvals go stale,
+  this is why.
+- **A reason is withheld from teammates, in the SQL.** This feature is a real
+  if small privacy expansion — before it a team member saw no roster at all,
+  and after it they see their colleagues' names and dates. The dates are the
+  point; the note is not. It is redacted in the query rather than in a
+  component, because `@meridian/ui` renders what it is handed and a prop can be
+  passed again somewhere else.
+
+**Not built:** editing a filed request. Amending an approved range re-opens the
+approval question, and the honest model for that is cancel-and-refile, which
+already exists. Cancelling is allowed right up to the last day of the run and
+does not go back to the approver, because a cancellation only ever hands time
+back; leave already taken stays on the record.
+
+### A team's numbers are the team's own business
+
+Team members see each other's workload — the same per-person counts, bar and
+percentage their Account Director reads.
+
+This reverses the first cut, which showed them a roster with no numbers on it
+at all. That was an over-reading of `canViewTeam`: the predicate exists to keep
+the *management screen* to the people who manage — the completion headline the
+department is judged on, Needs Attention, the leave queue, the right to open
+somebody's day — and it was extended to mean a member should not know that the
+colleague they share a task with is carrying seven overdue items. The result
+was a row that said "In today", which the absence of an away badge said
+already. It follows the rule the board and the documents already follow: your
+own team, yes; across the org chart, no.
+
+`canViewTeam` itself did not change, and its test still asserts it refuses a
+team member. What changed is what sits behind it. A member's roster rows are
+still not links, because `assertCanViewUser` still opens exactly one person's
+day for them — their own.
+
+**This does not extend to leave notes.** "Why" stays redacted in SQL to the
+filer and whoever decides it. Dates are a rota; a reason is not.
+
+### The org chart is the Senior Director's alone
+
+Teams and people are editable now, at `/admin`, and only by the Senior
+Director. Everything else is derived from that chart — which board a task can
+be filed on, who may be assigned to it, who may be named in a description — so
+an Account Director editing their own team's membership would be editing the
+thing their own permissions are read from.
+
+Two rules are enforced there rather than left to whoever fills the form in: a
+Senior Director sits above the teams and so is on none, and everybody else is
+on exactly one; and a team's Account Director has to be an Account Director
+*on that team*, which is the pairing `canViewTeam` reads. Moving somebody off a
+team they ran clears it rather than leaving it pointing at somebody who left.
+
+**Nobody is deleted.** Nine tables reference `users.id` and most do not
+cascade — tasks they wrote, documents they authored, comments they left — so a
+delete would either take that work with it or fail at the database. Moving
+somebody off a team is how they stop being given more, and the screen says so
+rather than offering a button that errors. Real offboarding is a
+`deactivated_at` column and a pass over every query; worth doing deliberately,
+not smuggled in.
+
+Passwords are generated, never chosen: minted server-side, returned in the
+response that creates or resets the person rather than through a redirect, so
+they are shown once and never reach a URL or a log. Only the hash is stored.
 
 ### Not building
 
@@ -191,6 +298,19 @@ says not to make Kanban the default interface.
   save; the attach button owns its own. Neither can undo the other — otherwise
   deleting a sentence would detach a document somebody chose, and detaching one
   would be quietly undone by the next save.
+- **Leave is displayed, never subtracted.** Completion is `completed_at`
+  against `due_date`, and being on holiday does not remove a task from the
+  denominator or change a team's percentage. The row quietens the number; it
+  never recomputes it.
+- **Reading a task and changing one are the same permission.** They used to
+  differ — its author, an assignee or the team's director could edit, everyone
+  else on the team got a read-only panel — so a teammate looking at work in
+  front of them had no way to correct a date they could see was wrong. A team's
+  work belongs to the team, the same rule that team's documents follow.
+  `canViewTask` still gates the page, so another team's task is still a 404.
+  The consequence to know about: deleting follows the same rule, so any
+  teammate can delete their team's task. It confirms first and names who else
+  is on it, which is the check that matters there.
 - **A board column is capped, never scrolled.** Done holds seventy cards on a
   fifteen-person team. The count in the header is the real answer; the list
   view is where you read all of them.
