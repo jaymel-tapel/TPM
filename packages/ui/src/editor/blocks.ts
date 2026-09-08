@@ -18,13 +18,29 @@ export type Block = { type?: string; content?: unknown; children?: Block[] };
  * documents without ever loading an editor.
  */
 export const DOC_MENTION = "docMention";
+export const USER_MENTION = "userMention";
 
 /** The props a mention carries. `title` is remembered so a document that has
  * since been deleted still reads as a name rather than a dead id. */
 export type DocMentionProps = { docId: string; title: string };
 
-/** One row in the `@` picker, as the app hands it to the editor. */
-export type MentionItem = { id: string; title: string; subtitle?: string };
+/** The props a person mention carries. Same bargain as a document's title:
+ *  the name is remembered so the sentence still reads if the reader cannot see
+ *  that person, or the row is gone. */
+export type UserMentionProps = { userId: string; name: string };
+
+/**
+ * One row in the `@` picker. `kind` decides which chip gets inserted — people
+ * and documents share one menu because they share one trigger, and asking
+ * someone to remember two keystrokes for "point at a thing" is a worse idea
+ * than one list with two sorts of row in it.
+ */
+export type MentionItem = {
+  id: string;
+  title: string;
+  subtitle?: string;
+  kind: "doc" | "person";
+};
 
 export function paragraph(text: string): Block {
   return {
@@ -62,7 +78,9 @@ function textOf(content: unknown): string {
       // both the preview and the search index would lose the only word that
       // mattered.
       const mention = asMention(node);
-      return mention ? mention.title : "";
+      if (mention) return mention.title;
+      const person = asPerson(node);
+      return person ? person.name : "";
     })
     .join("");
 }
@@ -96,6 +114,15 @@ function asMention(node: unknown): DocMentionProps | null {
   const { docId, title } = props as { docId?: unknown; title?: unknown };
   if (typeof docId !== "string" || !docId) return null;
   return { docId, title: typeof title === "string" ? title : "" };
+}
+
+function asPerson(node: unknown): UserMentionProps | null {
+  if (!node || typeof node !== "object") return null;
+  const { type, props } = node as { type?: unknown; props?: unknown };
+  if (type !== USER_MENTION || !props || typeof props !== "object") return null;
+  const { userId, name } = props as { userId?: unknown; name?: unknown };
+  if (typeof userId !== "string" || !userId) return null;
+  return { userId, name: typeof name === "string" ? name : "" };
 }
 
 /**

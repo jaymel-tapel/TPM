@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ActivityFeed, type ActivityItemData } from "@meridian/ui";
 import { addComment, deleteComment } from "@/actions/activity";
+import { useMentionSource } from "@/components/doc-mention";
 
 /**
  * The feed, bound to its actions. Commenting needs only view access, so the
@@ -27,6 +28,7 @@ export function TaskActivity({
   moreHref?: string;
 }) {
   const router = useRouter();
+  const mentionSource = useMentionSource();
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -51,6 +53,7 @@ export function TaskActivity({
       moreHref={moreHref}
       pending={pending}
       error={error}
+      mentionSource={mentionSource}
       onDelete={deleteComment}
       onComment={post}
     />

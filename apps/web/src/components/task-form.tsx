@@ -20,7 +20,7 @@ import { RichTextEditor } from "@meridian/ui/editor";
 import { formatDuration, parseDuration } from "@/lib/duration";
 import type { FormState } from "@/actions/tasks";
 import { uploadAttachment } from "@/components/task-attachments";
-import { useDocMentionSource } from "@/components/doc-mention";
+import { useMentionSource } from "@/components/doc-mention";
 
 export type AssignableUser = { id: string; name: string; team_name: string | null };
 export type BoardOption = { id: string; name: string };
@@ -90,7 +90,7 @@ export function TaskForm({
   const [statusId, setStatusId] = useState(values.statusId);
   const [estimate, setEstimate] = useState(values.estimate);
   const [actual, setActual] = useState(values.actual);
-  const mentionSource = useDocMentionSource();
+  const mentionSource = useMentionSource();
 
   const columns = statusesByBoard[boardId] ?? [];
 

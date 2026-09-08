@@ -14,7 +14,7 @@ import {
 import { ButtonLink } from "@meridian/ui";
 import { RichTextEditor } from "@meridian/ui/editor";
 import type { FormState } from "@/actions/docs";
-import { useDocMentionSource } from "@/components/doc-mention";
+import { useMentionSource } from "@/components/doc-mention";
 
 export type DocFormValues = {
   id?: string;
@@ -49,7 +49,7 @@ export function DocForm({
   const [visibility, setVisibility] = useState(values.visibility);
   const [teamId, setTeamId] = useState(values.teamId);
   const [parentId, setParentId] = useState(values.parentId);
-  const mentionSource = useDocMentionSource();
+  const mentionSource = useMentionSource();
 
   // Where a document sits decides who reads it, so a filed document takes its
   // parent's scope and the choice stops being a choice.

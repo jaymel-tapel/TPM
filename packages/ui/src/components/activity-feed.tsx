@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowRight, CheckCircle2, MessageSquare, RotateCcw, UserMinus, UserPlus } from "lucide-react";
 import { Button } from "../primitives/button";
 import { cn } from "../lib/utils";
-import { RichTextEditor, RichTextView } from "../editor";
+import { RichTextEditor, RichTextView, type MentionItem } from "../editor";
 import { UserAvatar } from "./user-avatar";
 import type { ActivityItemData, ActivityKind } from "../types";
 
@@ -109,6 +109,7 @@ export function ActivityFeed({
   moreHref,
   onComment,
   onDelete,
+  mentionSource,
   pending,
   error,
 }: {
@@ -123,6 +124,8 @@ export function ActivityFeed({
    */
   onComment?: (formData: FormData) => Promise<boolean>;
   onDelete?: (formData: FormData) => void | Promise<void>;
+  /** Backs `@` in the composer — the same picker the description uses. */
+  mentionSource?: (query: string) => Promise<MentionItem[]>;
   pending?: boolean;
   error?: string | null;
 }) {
@@ -165,17 +168,26 @@ export function ActivityFeed({
         </ul>
       )}
 
-      {onComment ? <Composer onComment={onComment} pending={pending} error={error} /> : null}
+      {onComment ? (
+        <Composer
+          onComment={onComment}
+          mentionSource={mentionSource}
+          pending={pending}
+          error={error}
+        />
+      ) : null}
     </div>
   );
 }
 
 function Composer({
   onComment,
+  mentionSource,
   pending,
   error,
 }: {
   onComment: (formData: FormData) => Promise<boolean>;
+  mentionSource?: (query: string) => Promise<MentionItem[]>;
   pending?: boolean;
   error?: string | null;
 }) {
@@ -193,7 +205,8 @@ function Composer({
       <RichTextEditor
         key={round}
         name="body"
-        placeholder="Write a comment…"
+        mentionSource={mentionSource}
+        placeholder="Write a comment… @ to mention someone or link a doc"
         className={cn(pending && "opacity-60")}
       />
       {error ? (

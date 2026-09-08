@@ -23,7 +23,14 @@ describe("keyFor", () => {
   it("drops an extension it cannot vouch for", () => {
     expect(keyFor(TASK, "archive.tar.gz")).toMatch(/\.gz$/);
     expect(keyFor(TASK, "noextension")).toMatch(new RegExp(`^tasks/${TASK}/[0-9a-f-]{36}$`));
-    expect(keyFor(TASK, "weird.a/b")).not.toContain("/b");
+
+    /*
+     * A separator in the filename must not become a separator in the key.
+     * Asserting the shape rather than the absence of a substring: the earlier
+     * version checked the key did not contain "/b", which failed roughly one
+     * run in sixteen — whenever the random UUID happened to start with a "b".
+     */
+    expect(keyFor(TASK, "weird.a/b").split("/")).toHaveLength(3);
   });
 });
 

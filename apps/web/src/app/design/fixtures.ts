@@ -269,7 +269,8 @@ export const MENTION_BODY = JSON.stringify([
   {
     type: "paragraph",
     content: [
-      { type: "text", text: "If this stalls, follow ", styles: {} },
+      { type: "userMention", props: { userId: "u-james", name: "James Cruz" } },
+      { type: "text", text: " — if this stalls, follow ", styles: {} },
       { type: "docMention", props: { docId: "d2", title: "Escalation", stale: false } },
       { type: "text", text: " before pinging the client.", styles: {} },
     ],
@@ -306,7 +307,15 @@ export const ACTIVITY: ActivityItemData[] = [
     kind: "comment",
     actorId: "u-anna",
     actorName: "Anna Santos",
-    body: "Client pushed the deadline. Deck needs a rebuild before Thursday.",
+    body: JSON.stringify([
+      {
+        type: "paragraph",
+        content: [
+          { type: "userMention", props: { userId: "u-james", name: "James Cruz" } },
+          { type: "text", text: " client pushed the deadline — deck by Thursday.", styles: {} },
+        ],
+      },
+    ]),
     fromLabel: null,
     toLabel: null,
     subjectName: null,

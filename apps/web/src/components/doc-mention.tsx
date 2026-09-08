@@ -2,39 +2,45 @@
 
 import { useCallback, useRef } from "react";
 import type { MentionItem } from "@meridian/ui/editor";
-import { listMentionableDocs } from "@/actions/docs";
+import { listMentionableDocs, listMentionablePeople } from "@/actions/docs";
 
 /**
- * Backs the `@` picker in a description.
+ * Backs the `@` picker: people and documents in one list.
  *
- * One fetch, then matching in the browser. BlockNote calls `getItems` on every
- * keystroke with no debounce of its own, so a request per character is a
+ * One trigger, because `@` already means "point at a thing" and asking anyone
+ * to remember a second keystroke for the other sort of thing would be a worse
+ * idea than a mixed list. People come first — a name is the more common reach
+ * in a comment, and a document is usually looked for by title.
+ *
+ * One fetch each, then matching in the browser. BlockNote calls `getItems` on
+ * every keystroke with no debounce of its own, so a request per character is a
  * request storm; and this is name completion, not search — the field on /docs
- * is where the bodies get looked through. The list of documents one person can
- * read is small enough to hold.
+ * is where the bodies get looked through.
  *
  * The identity has to be stable: BlockNote lists `getItems` as a `useEffect`
  * dependency, so a fresh function each render re-queries in a loop. Hence
- * `useCallback` with no dependencies, and the cache in a ref.
- *
- * The cost is that a document written in another tab is not offered until this
- * form is reloaded, which for a form you are in the middle of filling in is the
- * right trade.
+ * `useCallback` with no dependencies, and the caches in refs.
  */
-export function useDocMentionSource(): (query: string) => Promise<MentionItem[]> {
-  const index = useRef<Promise<MentionItem[]> | null>(null);
+export function useMentionSource(): (query: string) => Promise<MentionItem[]> {
+  const docs = useRef<Promise<MentionItem[]> | null>(null);
+  const people = useRef<Promise<MentionItem[]> | null>(null);
 
   return useCallback(async (query: string) => {
-    index.current ??= listMentionableDocs().catch(() => []);
-    const docs = await index.current;
+    docs.current ??= listMentionableDocs()
+      .then((rows) => rows.map((row) => ({ ...row, kind: "doc" as const })))
+      .catch(() => []);
+    people.current ??= listMentionablePeople().catch(() => []);
+
+    const [documents, persons] = await Promise.all([docs.current, people.current]);
 
     const q = query.trim().toLowerCase();
-    const matched = q
-      ? docs.filter(
-          (d) =>
-            d.title.toLowerCase().includes(q) || d.subtitle?.toLowerCase().includes(q),
-        )
-      : docs;
-    return matched.slice(0, 10);
+    const matches = (item: MentionItem) =>
+      !q ||
+      item.title.toLowerCase().includes(q) ||
+      (item.subtitle?.toLowerCase().includes(q) ?? false);
+
+    // People first, then documents — each capped, so one long list cannot
+    // crowd the other out of the menu.
+    return [...persons.filter(matches).slice(0, 6), ...documents.filter(matches).slice(0, 6)];
   }, []);
 }

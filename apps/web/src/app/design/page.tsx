@@ -537,11 +537,14 @@ export default function DesignSystemPage() {
             </div>
             <div>
               <p className="mb-2 text-caption-strong uppercase tracking-[0.08em] text-gray-600">
-                A mention, in prose
+                Mentions, in prose
               </p>
               <RichTextView value={MENTION_BODY} />
               <p className="mt-2 text-caption text-gray-600">
-                The chip carries the title it was written with, so a document that has since
+                One <code className="text-gray-1000">@</code> offers both people and
+                documents — a second trigger for the other sort of thing would be one more
+                keystroke to remember for the same intention. Either chip carries the name
+                it was written with, so a person you cannot see or a document that has since
                 gone still reads as a name rather than a dead id.
               </p>
             </div>

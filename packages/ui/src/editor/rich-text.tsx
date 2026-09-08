@@ -10,7 +10,7 @@ import { SuggestionMenuController, useCreateBlockNote } from "@blocknote/react";
 import "@blocknote/ariakit/style.css";
 import "./blocknote.css";
 import { cn } from "../lib/utils";
-import { type Block, DOC_MENTION, type MentionItem, toBlocks } from "./blocks";
+import { type Block, DOC_MENTION, USER_MENTION, type MentionItem, toBlocks } from "./blocks";
 import { editorSchema } from "./schema";
 
 /**
@@ -85,15 +85,20 @@ export function RichTextEditor({
 
   const getMentionItems = useCallback(
     async (query: string) => {
-      const docs = (await search.current?.(query)) ?? [];
-      return docs.map((doc) => ({
-        title: doc.title,
-        subtext: doc.subtitle,
+      const items = (await search.current?.(query)) ?? [];
+      return items.map((item) => ({
+        title: item.title,
+        subtext: item.subtitle,
+        // People and documents share the `@` menu, so the row decides which
+        // chip it leaves behind. Asking anyone to remember two triggers for
+        // "point at a thing" would be a worse idea than one mixed list.
         onItemClick: () =>
           // The trailing space is what lets you carry on typing after the chip
           // rather than landing inside it.
           editor.insertInlineContent([
-            { type: DOC_MENTION, props: { docId: doc.id, title: doc.title, stale: false } },
+            item.kind === "person"
+              ? { type: USER_MENTION, props: { userId: item.id, name: item.title } }
+              : { type: DOC_MENTION, props: { docId: item.id, title: item.title, stale: false } },
             " ",
           ]),
       }));
