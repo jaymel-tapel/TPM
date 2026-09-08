@@ -20,6 +20,7 @@ import {
   HeroPanel,
   HighlightMetric,
   MemberList,
+  MemberListSkeleton,
   MemberRow,
   NeedsAttention,
   PageHeader,
@@ -28,7 +29,9 @@ import {
   PriorityLabel,
   SectionHeader,
   Stat,
+  StatBandSkeleton,
   StatusBadge,
+  TaskListSkeleton,
   TeamCompare,
   TASK_TYPES_ORDER,
   TASK_TYPE_LABELS,
@@ -41,6 +44,7 @@ import {
   TrendStrip,
 } from "@meridian/ui";
 import { TrendChart } from "@meridian/ui/chart";
+import { ErrorStateDemo } from "./error-demo";
 import { ATTENTION, MEMBERS, TASKS, TEAMS, TREND } from "./fixtures";
 
 export const metadata = { title: "Meridian — Design System" };
@@ -498,6 +502,24 @@ export default function DesignSystemPage() {
               <NeedsAttention items={ATTENTION.slice(0, 2)} tone="dark" />
             </div>
           </HeroPanel>
+        </Block>
+
+        <Block title="Loading" note="Built from the components they stand in for">
+          <p className="mb-6 max-w-prose text-copy-13 text-gray-700">
+            Each skeleton mirrors the layout of the screen it covers, so the page does not
+            jump when the real content arrives. Every route has one, plus a shared error
+            boundary — before this, a slow query showed a blank page and a failed one showed
+            a raw Next.js error.
+          </p>
+          <div className="space-y-6">
+            <TaskListSkeleton rows={2} />
+            <MemberListSkeleton rows={3} />
+            <StatBandSkeleton />
+          </div>
+        </Block>
+
+        <Block title="Error state" note="Says what failed and offers the one useful action">
+          <ErrorStateDemo />
         </Block>
 
         <Block title="Chart" note="One series. The only chart in the product.">
