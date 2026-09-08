@@ -174,11 +174,13 @@ export function BoardSettings({
           </form>
           <Error state={addState} />
           <p className="mt-3 max-w-prose text-caption text-gray-600">
-            A column&rsquo;s <strong className="text-gray-1000">kind</strong> is what every
-            report reads. Anything marked <em>Done</em> counts as completed work, whatever it
-            is called — so a column named &ldquo;Shipped&rdquo; and one named &ldquo;Done&rdquo;
-            mean the same thing to the completion rate. Changing a kind updates the work
-            already sitting in that column.
+            Columns are the stages work moves through, and you can have as many
+            as the job needs. The one marked <em>Done</em> is the board&rsquo;s
+            finish line: dropping a card there marks the task complete, whatever
+            the column is called. Moving it onward, or back, leaves it complete
+            — finishing is the task&rsquo;s own fact, and only marking it
+            unfinished undoes it. Changing a kind decides what happens to cards
+            dropped there next; it never rewrites work already done.
           </p>
         </Panel>
       </section>

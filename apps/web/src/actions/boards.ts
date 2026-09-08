@@ -150,30 +150,22 @@ export async function updateColumn(
   });
   if (!parsed.success) return { error: parsed.error.issues[0]!.message };
 
-  const column = await loadColumn(viewer, statusId);
+  // Loaded for the permission check it performs, not for its value.
+  await loadColumn(viewer, statusId);
 
   /*
-   * Changing a column's kind changes what every report thinks of the work
-   * sitting in it, so `completed_at` is brought into line in the same
-   * statement. Without this, moving a column to `done` would leave finished
-   * work uncounted, and moving it away would leave it counted forever.
+   * Renaming or reclassifying a column says nothing about work already
+   * finished.
+   *
+   * This used to rewrite `completed_at` for every task in the column — and
+   * stamp `new Date()`, so reclassifying a column moved work completed a month
+   * ago to today. A column's kind decides what happens to cards dropped there
+   * *next*; completion is the task's own fact and is set by finishing it.
    */
-  await db.transaction(async (tx) => {
-    await tx
-      .update(boardStatuses)
-      .set({ name: parsed.data.name, kind: parsed.data.kind })
-      .where(eq(boardStatuses.id, statusId));
-
-    if (parsed.data.kind !== column.kind) {
-      await tx
-        .update(tasks)
-        .set({
-          completedAt: parsed.data.kind === "done" ? new Date() : null,
-          updatedAt: new Date(),
-        })
-        .where(eq(tasks.statusId, statusId));
-    }
-  });
+  await db
+    .update(boardStatuses)
+    .set({ name: parsed.data.name, kind: parsed.data.kind })
+    .where(eq(boardStatuses.id, statusId));
 
   revalidatePath("/", "layout");
   return null;

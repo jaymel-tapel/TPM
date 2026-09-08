@@ -7,9 +7,7 @@ import type { StatusKind } from "@/db/schema";
  * Statuses are per-board and user-named, so anything shared has to key off
  * `kind`. `s` is the `board_statuses` row every task query joins.
  */
-export const isDone = sql`s.kind = 'done'`;
 export const isBlocked = sql`s.kind = 'blocked'`;
-export const isOpen = sql`s.kind = 'open'`;
 
 /**
  * Every query in the app is scoped one of three ways. Keeping the scope as a
