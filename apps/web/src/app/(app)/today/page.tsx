@@ -61,7 +61,7 @@ export default async function TodayPage() {
         </header>
 
         {day.overdue.length > 0 ? (
-          <TaskList title="Carried over" tone="danger">
+          <TaskList title="Overdue" tone="danger">
             {day.overdue.map((task) => (
               <TaskRow
                 key={task.id}
@@ -115,7 +115,7 @@ export default async function TodayPage() {
 
         {day.overdue.length > 0 ? (
           <div className="rounded-xl border border-red-300 bg-red-100 p-6">
-            <p className="text-caption-strong uppercase tracking-[0.08em] text-red-700">Carried over</p>
+            <p className="text-caption-strong uppercase tracking-[0.08em] text-red-700">Overdue</p>
             <p className="tabular mt-3 text-title-1 text-red-700">{day.overdue.length}</p>
             <p className="mt-1 text-caption text-red-900">
               {day.overdue.length === 1 ? "task from" : "tasks from"} earlier days
