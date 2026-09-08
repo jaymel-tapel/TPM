@@ -5,7 +5,6 @@ import type {
   MemberRowData,
   Priority,
   TaskRowData,
-  TaskStatus,
   TaskType,
 } from "@meridian/ui";
 import { dueLabel, now, startOfAppDay } from "@/lib/date";
@@ -28,7 +27,7 @@ export function toTaskRow(task: TaskCard, reference: Date = now()): TaskRowData 
     href: `/tasks/${task.id}`,
     title: task.title,
     type: task.type as TaskType,
-    status: task.status as TaskStatus,
+    status: { id: task.statusId, name: task.statusName, kind: task.statusKind },
     priority: task.priority as Priority,
     dueText: dueLabel(task.dueDate, reference),
     // Overdue means carried over from an earlier day, not simply past its
@@ -48,13 +47,14 @@ export function toAttentionItem(item: AttentionItem): AttentionItemData {
   return item;
 }
 
-/** Groups of TaskCards become groups of TaskRowData, one adapter per task. */
+/** A board's columns become columns of TaskRowData, one adapter per task. */
 export function toBoard(board: BoardView, reference: Date = now()): BoardData {
-  const map = (list: TaskCard[]) => list.map((t) => toTaskRow(t, reference));
   return {
-    todo: map(board.todo),
-    in_progress: map(board.in_progress),
-    done: map(board.done),
-    blocked: map(board.blocked),
+    columns: board.columns.map((c) => ({
+      id: c.id,
+      name: c.name,
+      kind: c.kind,
+      tasks: c.tasks.map((t) => toTaskRow(t, reference)),
+    })),
   };
 }

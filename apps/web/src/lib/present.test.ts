@@ -10,7 +10,11 @@ function task(overrides: Partial<TaskCard> = {}): TaskCard {
     title: "Send client performance report",
     description: null,
     type: "client_work",
-    status: "todo",
+    statusId: "c-todo",
+    statusName: "To Do",
+    statusKind: "open",
+    boardId: "b-1",
+    boardName: "Team A",
     priority: "normal",
     dueDate: new Date("2026-09-07T06:00:00Z"), // 2pm today
     completedAt: null,
@@ -47,7 +51,9 @@ describe("toTaskRow overdue", () => {
     const done = task({
       dueDate: new Date("2026-09-01T06:00:00Z"),
       completedAt: new Date("2026-09-05T06:00:00Z"),
-      status: "done",
+      statusId: "c-done",
+      statusName: "Done",
+      statusKind: "done",
     });
     const row = toTaskRow(done, reference);
     expect(row.overdue).toBe(false);

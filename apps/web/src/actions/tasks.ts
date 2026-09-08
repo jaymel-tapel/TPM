@@ -2,20 +2,22 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import {
+  boardStatuses,
+  boards,
   priorityEnum,
   taskAssignees,
-  taskStatusEnum,
   taskTags,
   taskTypeEnum,
   tags,
   tasks,
+  type StatusKind,
 } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
-import { assertCanViewUser, loadEditableTask } from "@/lib/permissions";
+import { assertCanViewTeam, assertCanViewUser, loadEditableTask } from "@/lib/permissions";
 
 const taskInput = z.object({
   title: z.string().trim().min(1, "Give the task a title").max(200),
@@ -25,7 +27,9 @@ const taskInput = z.object({
   description: z.string().trim().max(200_000).optional().nullable(),
   type: z.enum(taskTypeEnum.enumValues),
   priority: z.enum(priorityEnum.enumValues),
-  status: z.enum(taskStatusEnum.enumValues),
+  /** A `board_statuses` row. Validated against the board below, not here. */
+  statusId: z.string().uuid("Pick a status"),
+  boardId: z.string().uuid("Pick a board"),
   /** datetime-local value, read in the browser's own zone. */
   dueDate: z.string().min(1, "Pick a due date"),
   assignees: z.array(z.string().uuid()).min(1, "Assign the task to someone"),
@@ -38,7 +42,8 @@ function parse(formData: FormData) {
     description: formData.get("description") || null,
     type: formData.get("type"),
     priority: formData.get("priority"),
-    status: formData.get("status") ?? "todo",
+    statusId: formData.get("statusId"),
+    boardId: formData.get("boardId"),
     dueDate: formData.get("dueDate"),
     assignees: formData.getAll("assignees").map(String),
     tags: formData
@@ -85,10 +90,18 @@ export async function createTask(_prev: FormState, formData: FormData): Promise<
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Check the form" };
   const input = parsed.data;
 
-  // The task belongs to the team the work is being done by.
-  const first = await assertCanViewUser(viewer, input.assignees[0]);
-  const teamId = first.teamId ?? viewer.teamId;
-  if (!teamId) return { error: "Assign the task to someone on a team." };
+  const status = await statusOnBoard(input.statusId, input.boardId);
+  if (!status) return { error: "That status is not on that board." };
+
+  // The task belongs to the team that owns the board it is filed on, so the
+  // denormalised copy can never disagree with it.
+  const [board] = await db
+    .select({ teamId: boards.teamId })
+    .from(boards)
+    .where(eq(boards.id, input.boardId));
+  if (!board) return { error: "Pick a board." };
+  await assertCanViewTeam(viewer, board.teamId);
+  await assertCanViewUser(viewer, input.assignees[0]);
 
   const [task] = await db
     .insert(tasks)
@@ -97,11 +110,12 @@ export async function createTask(_prev: FormState, formData: FormData): Promise<
       description: input.description ?? null,
       type: input.type,
       priority: input.priority,
-      status: input.status,
+      boardId: input.boardId,
+      statusId: status.id,
       dueDate: new Date(input.dueDate),
-      completedAt: input.status === "done" ? new Date() : null,
+      completedAt: completionStamp(status.kind, null),
       createdBy: viewer.id,
-      teamId,
+      teamId: board.teamId,
     })
     .returning();
 
@@ -123,6 +137,16 @@ export async function updateTask(_prev: FormState, formData: FormData): Promise<
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Check the form" };
   const input = parsed.data;
 
+  const status = await statusOnBoard(input.statusId, input.boardId);
+  if (!status) return { error: "That status is not on that board." };
+
+  const [board] = await db
+    .select({ teamId: boards.teamId })
+    .from(boards)
+    .where(eq(boards.id, input.boardId));
+  if (!board) return { error: "Pick a board." };
+  await assertCanViewTeam(viewer, board.teamId);
+
   await db
     .update(tasks)
     .set({
@@ -130,9 +154,11 @@ export async function updateTask(_prev: FormState, formData: FormData): Promise<
       description: input.description ?? null,
       type: input.type,
       priority: input.priority,
-      status: input.status,
+      boardId: input.boardId,
+      statusId: status.id,
+      teamId: board.teamId,
       dueDate: new Date(input.dueDate),
-      completedAt: completionStamp(input.status, existing.completedAt),
+      completedAt: completionStamp(status.kind, existing.completedAt),
       updatedAt: new Date(),
     })
     .where(eq(tasks.id, taskId));
@@ -149,11 +175,36 @@ export async function updateTask(_prev: FormState, formData: FormData): Promise<
 
 /**
  * `completed_at` is what every report reads, so it is stamped on the way into
- * "done" and cleared on the way out — never left stale.
+ * a `done` column and cleared on the way out — never left stale. A board owner
+ * can rename or reorder columns freely; only `kind` decides this.
  */
-function completionStamp(status: string, current: Date | null): Date | null {
-  if (status === "done") return current ?? new Date();
-  return null;
+function completionStamp(kind: StatusKind, current: Date | null): Date | null {
+  return kind === "done" ? (current ?? new Date()) : null;
+}
+
+/**
+ * Resolves a status to the board it is on, which is the only place that
+ * pairing is trusted. Returns null when the status does not belong to the
+ * board the caller claims — the composite foreign key would refuse the write
+ * anyway, but a form should not have to learn that from a database error.
+ */
+async function statusOnBoard(statusId: string, boardId: string) {
+  const [row] = await db
+    .select({ id: boardStatuses.id, kind: boardStatuses.kind, boardId: boardStatuses.boardId })
+    .from(boardStatuses)
+    .where(and(eq(boardStatuses.id, statusId), eq(boardStatuses.boardId, boardId)));
+  return row ?? null;
+}
+
+/** The column a board sends work to, by kind and then by its own order. */
+async function firstStatusOfKind(boardId: string, kind: StatusKind) {
+  const [row] = await db
+    .select({ id: boardStatuses.id, kind: boardStatuses.kind })
+    .from(boardStatuses)
+    .where(and(eq(boardStatuses.boardId, boardId), eq(boardStatuses.kind, kind)))
+    .orderBy(boardStatuses.position, boardStatuses.name)
+    .limit(1);
+  return row ?? null;
 }
 
 /** The one-click affordance on every task row. */
@@ -162,12 +213,21 @@ export async function toggleTaskDone(formData: FormData) {
   const taskId = String(formData.get("taskId") ?? "");
   const task = await loadEditableTask(viewer, taskId);
 
-  const done = task.status === "done";
+  /*
+   * Ticking a task moves it into its board's `done` column, rather than only
+   * stamping `completed_at`. If it just stamped, a finished task would sit in
+   * a column that says otherwise, and the board would have to second-guess
+   * every card. Untick sends it back to the first open column.
+   */
+  const done = task.completedAt !== null;
+  const target = await firstStatusOfKind(task.boardId, done ? "open" : "done");
+  if (!target) throw new Error(`Board has no ${done ? "open" : "done"} column`);
+
   await db
     .update(tasks)
     .set({
-      status: done ? "todo" : "done",
-      completedAt: done ? null : new Date(),
+      statusId: target.id,
+      completedAt: completionStamp(target.kind, done ? null : task.completedAt),
       updatedAt: new Date(),
     })
     .where(eq(tasks.id, taskId));
@@ -178,14 +238,19 @@ export async function toggleTaskDone(formData: FormData) {
 export async function setTaskStatus(formData: FormData) {
   const viewer = await requireUser();
   const taskId = String(formData.get("taskId") ?? "");
-  const status = z.enum(taskStatusEnum.enumValues).parse(formData.get("status"));
+  const statusId = z.string().uuid().parse(formData.get("statusId"));
   const task = await loadEditableTask(viewer, taskId);
+
+  // Only columns on the task's own board. Dragging cannot smuggle a task onto
+  // someone else's board, and the composite key would refuse it if it tried.
+  const status = await statusOnBoard(statusId, task.boardId);
+  if (!status) throw new Error("That status is not on this task's board");
 
   await db
     .update(tasks)
     .set({
-      status,
-      completedAt: completionStamp(status, task.completedAt),
+      statusId: status.id,
+      completedAt: completionStamp(status.kind, task.completedAt),
       updatedAt: new Date(),
     })
     .where(eq(tasks.id, taskId));

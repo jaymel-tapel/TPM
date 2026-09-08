@@ -387,10 +387,15 @@ export default function DesignSystemPage() {
 
         <Block title="Task vocabulary" note="State reads without colour">
           <Row label="Status">
-            <StatusBadge status="todo" />
-            <StatusBadge status="in_progress" />
-            <StatusBadge status="done" />
-            <StatusBadge status="blocked" />
+            {/*
+              Columns are named by whoever made the board; the mark comes from
+              the kind. "Shipped" and "Done" are the same thing to every query
+              in the system, and look it.
+            */}
+            <StatusBadge status={{ id: "c1", name: "To Do", kind: "open" }} />
+            <StatusBadge status={{ id: "c2", name: "In Review", kind: "open" }} />
+            <StatusBadge status={{ id: "c3", name: "Shipped", kind: "done" }} />
+            <StatusBadge status={{ id: "c4", name: "Blocked", kind: "blocked" }} />
           </Row>
           <Row label="Task type">
             {TASK_TYPES_ORDER.map((t) => (

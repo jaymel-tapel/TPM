@@ -8,7 +8,6 @@ import {
   PageHeader,
   Panel,
   StatusBadge,
-  TASK_STATUSES,
   cn,
 } from "@meridian/ui";
 import { requireSession } from "@/lib/auth";
@@ -17,6 +16,7 @@ import { db } from "@/db";
 import { tasks as tasksTable } from "@/db/schema";
 import { getTaskCard, listAllTags } from "@/queries/tasks";
 import { getAttachments } from "@/queries/attachments";
+import { listBoardOptions, listBoardStatuses } from "@/queries/boards";
 import { listAssignableUsers } from "@/queries/team";
 import { setTaskStatus, updateTask } from "@/actions/tasks";
 import { DeleteTaskButton } from "@/components/delete-task-button";
@@ -39,11 +39,13 @@ export default async function TaskDetailPage({
   if (!record || !(await canViewTask(user, record))) notFound();
   const editable = await canEditTask(user, record);
 
-  const [task, people, tags, attachments] = await Promise.all([
+  const [task, people, tags, attachments, columns, options] = await Promise.all([
     getTaskCard(id),
     listAssignableUsers(),
     listAllTags(),
     getAttachments(id),
+    listBoardStatuses(record.boardId),
+    listBoardOptions(user),
   ]);
   if (!task) notFound();
 
@@ -69,17 +71,18 @@ export default async function TaskDetailPage({
         }
       />
 
+      {/* The columns of this task's own board, in the board's order. */}
       <div className="mb-6 flex flex-wrap items-center gap-2">
-        {TASK_STATUSES.map((status) => (
-          <form key={status} action={setTaskStatus}>
+        {columns.map((status) => (
+          <form key={status.id} action={setTaskStatus}>
             <input type="hidden" name="taskId" value={task.id} />
-            <input type="hidden" name="status" value={status} />
+            <input type="hidden" name="statusId" value={status.id} />
             <button
               type="submit"
               disabled={!editable}
               className={cn(
                 "flex cursor-pointer items-center rounded-md border px-3 py-1.5 text-body-strong transition-colors disabled:cursor-not-allowed disabled:opacity-50",
-                task.status === status
+                task.statusId === status.id
                   ? "border-blue-700 bg-blue-100 text-blue-900"
                   : "border-gray-400 bg-background-100 text-gray-700 hover:border-gray-500 hover:text-gray-1000",
               )}
@@ -96,12 +99,15 @@ export default async function TaskDetailPage({
           submitLabel="Save changes"
           people={people}
           allTags={tags}
+          boards={options.boards}
+          statusesByBoard={options.statusesByBoard}
           values={{
             id: task.id,
             title: task.title,
             description: task.description ?? "",
+            boardId: task.boardId,
+            statusId: task.statusId,
             type: task.type,
-            status: task.status,
             priority: task.priority,
             dueDate: format(task.dueDate, "yyyy-MM-dd'T'HH:mm"),
             assignees: task.assignees.map((a) => a.id),

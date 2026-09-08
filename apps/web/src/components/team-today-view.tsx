@@ -30,50 +30,39 @@ import { fmtLongDate, now } from "@/lib/date";
  */
 export async function TeamTodayView({
   teamId,
-  view = "list",
-  basePath,
 }: {
   teamId: string;
-  view?: "list" | "board";
-  /** Where the List / Board toggle should point. */
-  basePath: string;
 }) {
-  const [team, attention, board] = await Promise.all([
+  const [team, attention] = await Promise.all([
     getTeamToday(teamId),
     getNeedsAttention(teamScope(teamId)),
-    view === "board" ? getBoardView(teamScope(teamId)) : Promise.resolve(null),
   ]);
   if (!team) notFound();
 
   return (
     <div className="space-y-10">
       <div className="flex flex-wrap items-end justify-between gap-6">
-        <div>
-          <p className="text-caption-strong uppercase tracking-[0.08em] text-gray-600">
-            {fmtLongDate(now())}
-          </p>
-          <h1 className="mt-3 text-title-1 text-gray-1000">{team.teamName}</h1>
-          {team.directorName ? (
-            <div className="mt-3 flex items-center gap-2">
-              <UserAvatar name={team.directorName} size="sm" />
-              <p className="text-body text-gray-700">
-                <span className="text-gray-1000">{team.directorName}</span> · Account Director
-              </p>
-            </div>
-          ) : null}
+          <div>
+            <p className="text-caption-strong uppercase tracking-[0.08em] text-gray-600">
+              {fmtLongDate(now())}
+            </p>
+            <h1 className="mt-3 text-title-1 text-gray-1000">{team.teamName}</h1>
+            {team.directorName ? (
+              <div className="mt-3 flex items-center gap-2">
+                <UserAvatar name={team.directorName} size="sm" />
+                <p className="text-body text-gray-700">
+                  <span className="text-gray-1000">{team.directorName}</span> · Account Director
+                </p>
+              </div>
+            ) : null}
+          </div>
         </div>
-      </div>
 
+      {/* Bleeds to the gutters so the sticky background covers the full width
+          as the board scrolls under it. */}
       <CommandBar>
         <Command icon={Plus} href="/tasks/new" tone="primary">
           New Task
-        </Command>
-        <CommandDivider />
-        <Command icon={List} href={basePath} active={view === "list"}>
-          List
-        </Command>
-        <Command icon={Columns3} href={`${basePath}?view=board`} active={view === "board"}>
-          Board
         </Command>
         <CommandDivider />
         <Command icon={BarChart3} href="/reports">
@@ -81,7 +70,7 @@ export async function TeamTodayView({
         </Command>
       </CommandBar>
 
-      <Panel className="p-8">
+            <Panel className="p-8">
         <div className="flex flex-wrap items-end gap-x-12 gap-y-6">
           <Stat
             value={<Percent value={team.percent} />}
@@ -103,23 +92,14 @@ export async function TeamTodayView({
         <Progress value={team.percent} className="mt-8 h-1.5" />
       </Panel>
 
-      {board ? (
-        <section>
-          <SectionHeader aside="Drag a card to move it, or open it to change anything else">
-            Board
-          </SectionHeader>
-          <TaskBoard board={toBoard(board)} onMove={setTaskStatus} moreHref={basePath} />
-        </section>
-      ) : (
-        <section>
+      <section>
           <SectionHeader aside="Click a person to open their day">Team Members</SectionHeader>
           <MemberList>
             {team.members.map((member) => (
               <MemberRow key={member.id} member={toMemberRow(member)} />
             ))}
           </MemberList>
-        </section>
-      )}
+      </section>
 
       <section>
         <SectionHeader>Needs Attention</SectionHeader>

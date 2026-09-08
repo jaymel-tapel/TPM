@@ -2,6 +2,8 @@ import "./load-env";
 import bcrypt from "bcryptjs";
 import { pool, db } from "./index";
 import {
+  boardStatuses,
+  boards,
   tags,
   taskAssignees,
   taskTags,
@@ -9,12 +11,24 @@ import {
   teams,
   users,
   type Priority,
-  type TaskStatus,
   type TaskType,
 } from "./schema";
 import { eq } from "drizzle-orm";
 import { DEMO_PASSWORD } from "../lib/constants";
 import { lastNDays, now, startOfAppDay } from "../lib/date";
+
+/**
+ * The seed still thinks in the four original statuses, because that is what
+ * the scenario in the brief is written in. This maps them onto the columns of
+ * the board it creates.
+ */
+type SeedStatus = "todo" | "in_progress" | "done" | "blocked";
+const COLUMN_FOR: Record<SeedStatus, string> = {
+  todo: "To Do",
+  in_progress: "In Progress",
+  done: "Done",
+  blocked: "Blocked",
+};
 
 /**
  * Deterministic seed. Every run produces the same org, the same task mix and
@@ -260,6 +274,8 @@ async function main() {
   await db.delete(taskAssignees);
   await db.delete(tasks);
   await db.delete(tags);
+  await db.delete(boardStatuses);
+  await db.delete(boards);
   await db.update(teams).set({ accountDirectorId: null });
   await db.delete(users);
   await db.delete(teams);
@@ -297,6 +313,38 @@ async function main() {
     .set({ accountDirectorId: idOf("Michael Ortega") })
     .where(eq(teams.id, teamB.id));
 
+  /*
+   * One board per team, with the four columns that used to be the status
+   * enum. Boards are now where work lives, so the seed has to create them
+   * before it can create a task.
+   */
+  const boardRows = await db
+    .insert(boards)
+    .values([
+      { teamId: teamA.id, name: "Team A", position: 0, createdBy: idOf("Sarah Lim") },
+      { teamId: teamB.id, name: "Team B", position: 0, createdBy: idOf("Michael Ortega") },
+    ])
+    .returning();
+  const boardOf = { A: boardRows[0]!, B: boardRows[1]! } as const;
+
+  const DEFAULT_COLUMNS = [
+    { name: "To Do", kind: "open" as const, position: 0 },
+    { name: "In Progress", kind: "open" as const, position: 1 },
+    { name: "Done", kind: "done" as const, position: 2 },
+    { name: "Blocked", kind: "blocked" as const, position: 3 },
+  ];
+
+  const statusRows = await db
+    .insert(boardStatuses)
+    .values(
+      boardRows.flatMap((b) => DEFAULT_COLUMNS.map((c) => ({ ...c, boardId: b.id }))),
+    )
+    .returning();
+
+  /** Board + legacy status name -> the status row to file work under. */
+  const statusOf = (team: "A" | "B", name: string) =>
+    statusRows.find((r) => r.boardId === boardOf[team].id && r.name === name)!;
+
   const tagRows = await db
     .insert(tags)
     .values(TAG_NAMES.map((name) => ({ name })))
@@ -329,7 +377,7 @@ async function main() {
     team: "A" | "B";
     createdBy: string;
     assignees: string[];
-    status: TaskStatus;
+    status: SeedStatus;
     completedAt: Date | null;
     description?: string | null;
   }) {
@@ -339,8 +387,9 @@ async function main() {
       title: opts.title,
       description: opts.description ?? null,
       type: opts.type,
-      status: opts.status,
       priority: opts.priority,
+      boardId: boardOf[opts.team].id,
+      statusId: statusOf(opts.team, COLUMN_FOR[opts.status]).id,
       dueDate: opts.due,
       createdBy: opts.createdBy,
       teamId: teamId[opts.team],
@@ -373,7 +422,7 @@ async function main() {
     due: Date,
     dayStart: Date,
     daysAgo: number,
-  ): { status: TaskStatus; completedAt: Date | null } {
+  ): { status: SeedStatus; completedAt: Date | null } {
     const boost = person.team === "A" ? 1.03 : 1;
     const rate = Math.min(
       0.98,

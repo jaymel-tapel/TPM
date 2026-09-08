@@ -7,8 +7,6 @@ export {
   PRIORITIES,
   ROLE_BADGES,
   ROLE_LABELS,
-  STATUS_LABELS,
-  TASK_STATUSES,
   TASK_TYPE_LABELS,
   TASK_TYPES,
 } from "@meridian/ui";

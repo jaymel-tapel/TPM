@@ -9,12 +9,11 @@ import {
   ButtonLink,
   cn,
   PRIORITY_LABELS,
-  STATUS_LABELS,
+  StatusBadge,
   TASK_TYPE_LABELS,
   TypeLabel,
   UserAvatar,
   type Priority,
-  type TaskStatus,
   type TaskType,
 } from "@meridian/ui";
 import { RichTextEditor } from "@meridian/ui/editor";
@@ -22,13 +21,16 @@ import type { FormState } from "@/actions/tasks";
 import { uploadAttachment } from "@/components/task-attachments";
 
 export type AssignableUser = { id: string; name: string; team_name: string | null };
+export type BoardOption = { id: string; name: string };
+export type StatusOption = { id: string; name: string; kind: "open" | "done" | "blocked" };
 
 export type TaskFormValues = {
   id?: string;
   title: string;
   description: string;
   type: string;
-  status: string;
+  boardId: string;
+  statusId: string;
   priority: string;
   /** `datetime-local` string. */
   dueDate: string;
@@ -48,12 +50,18 @@ export function TaskForm({
   people,
   allTags,
   submitLabel,
+  boards,
+  statusesByBoard,
 }: {
   action: (prev: FormState, formData: FormData) => Promise<FormState>;
   values: TaskFormValues;
   people: AssignableUser[];
   allTags: string[];
   submitLabel: string;
+  /** Boards the viewer may file work on. */
+  boards: BoardOption[];
+  /** Columns per board id — the status list changes with the board. */
+  statusesByBoard: Record<string, StatusOption[]>;
 }) {
   const [state, formAction, pending] = useActionState(action, null);
   const [selected, setSelected] = useState<string[]>(values.assignees);
@@ -61,7 +69,21 @@ export function TaskForm({
   const [search, setSearch] = useState("");
   const [type, setType] = useState(values.type);
   const [priority, setPriority] = useState(values.priority);
-  const [status, setStatus] = useState(values.status);
+  const [boardId, setBoardId] = useState(values.boardId);
+  const [statusId, setStatusId] = useState(values.statusId);
+
+  const columns = statusesByBoard[boardId] ?? [];
+
+  /*
+   * Statuses belong to a board, so changing the board invalidates the chosen
+   * column. Landing on the board's first column is the only safe default —
+   * the server refuses a status that is not on the board anyway.
+   */
+  function chooseBoard(next: string) {
+    setBoardId(next);
+    const first = statusesByBoard[next]?.[0];
+    if (first) setStatusId(first.id);
+  }
 
   const grouped = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -91,7 +113,8 @@ export function TaskForm({
       ))}
       <input type="hidden" name="type" value={type} />
       <input type="hidden" name="priority" value={priority} />
-      <input type="hidden" name="status" value={status} />
+      <input type="hidden" name="boardId" value={boardId} />
+      <input type="hidden" name="statusId" value={statusId} />
 
       <div className="space-y-6 rounded-xl border border-gray-400 bg-background-100 p-6">
         <div>
@@ -177,15 +200,34 @@ export function TaskForm({
             </Select>
           </div>
           <div>
-            <Label className={label}>Status</Label>
-            <Select value={status} onValueChange={(v) => v && setStatus(v)}>
+            <Label className={label}>Board</Label>
+            <Select value={boardId} onValueChange={(v) => v && chooseBoard(v)}>
               <SelectTrigger className="w-full">
-                <SelectValue>{(v) => STATUS_LABELS[v as TaskStatus]}</SelectValue>
+                <SelectValue>
+                  {(v) => boards.find((b) => b.id === v)?.name ?? "Pick a board"}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {(Object.keys(STATUS_LABELS) as TaskStatus[]).map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {STATUS_LABELS[s]}
+                {boards.map((b) => (
+                  <SelectItem key={b.id} value={b.id}>
+                    {b.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className={label}>Status</Label>
+            <Select value={statusId} onValueChange={(v) => v && setStatusId(v)}>
+              <SelectTrigger className="w-full">
+                <SelectValue>
+                  {(v) => columns.find((c) => c.id === v)?.name ?? "Pick a status"}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {columns.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    <StatusBadge status={c} />
                   </SelectItem>
                 ))}
               </SelectContent>

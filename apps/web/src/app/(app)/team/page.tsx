@@ -16,5 +16,5 @@ export default async function TeamPage({
   await assertCanViewTeam(user, user.teamId);
 
   const view = (await searchParams).view === "board" ? "board" : "list";
-  return <TeamTodayView teamId={user.teamId} view={view} basePath="/team" />;
+  return <TeamTodayView teamId={user.teamId} />;
 }

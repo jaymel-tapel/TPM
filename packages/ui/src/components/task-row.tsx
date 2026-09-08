@@ -43,7 +43,7 @@ export function TaskRow({
       aria-label={task.done ? `Reopen ${task.title}` : `Complete ${task.title}`}
       className="cursor-pointer rounded-full transition-transform active:scale-90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-default"
     >
-      <StatusMark status={task.status} />
+      <StatusMark kind={task.status.kind} label={task.status.name} />
     </button>
   );
 

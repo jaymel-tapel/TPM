@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from "vitest";
-import { getBoardView } from "./tasks";
+import { getBoardView, type BoardView } from "./tasks";
 import { getCompletionTrend, getReportMetrics } from "./reports";
 import { departmentScope, teamScope, userScope } from "./sql";
 import { IDS, NOW, addTask, resetDb, seedOrg } from "../../test/fixture";
@@ -128,32 +128,39 @@ describe("board grouping", () => {
     await addTask({ team: IDS.teamA, assignees: [IDS.james], dueDay: -6, completedDay: -6 });
   });
 
+  const column = (board: BoardView, name: string) =>
+    board.columns.find((c) => c.name === name)!;
+
   it("shows today's work plus what carried over, and nothing older", async () => {
-    const board = await getBoardView(teamScope(IDS.teamA), NOW);
+    const board = await getBoardView(IDS.boardA, NOW);
     // Four due today, one carried over. The task closed last week is excluded,
     // or the Done column would grow without bound and become a backlog.
-    expect(board.total).toBe(5);
+    expect(board!.total).toBe(5);
   });
 
-  it("groups by status", async () => {
-    const board = await getBoardView(teamScope(IDS.teamA), NOW);
-    expect(board.todo).toHaveLength(2); // one due today, one carried over
-    expect(board.in_progress).toHaveLength(1);
-    expect(board.blocked).toHaveLength(1);
-    expect(board.done).toHaveLength(1);
+  it("uses the board's own columns, in the board's own order", async () => {
+    const board = await getBoardView(IDS.boardA, NOW);
+    expect(board!.columns.map((c) => c.name)).toEqual([
+      "To Do",
+      "In Progress",
+      "Done",
+      "Blocked",
+    ]);
+    expect(column(board!, "To Do").tasks).toHaveLength(2); // one due today, one carried over
+    expect(column(board!, "In Progress").tasks).toHaveLength(1);
+    expect(column(board!, "Blocked").tasks).toHaveLength(1);
+    expect(column(board!, "Done").tasks).toHaveLength(1);
   });
 
-  it("puts a completed task in Done whatever status column it was left in", async () => {
-    // completed_at is the source of truth everywhere else, so it is here too.
-    await addTask({
-      team: IDS.teamA,
-      assignees: [IDS.anna],
-      dueDay: 0,
-      status: "in_progress",
-      completedDay: 0,
-    });
-    const board = await getBoardView(teamScope(IDS.teamA), NOW);
-    expect(board.done).toHaveLength(2);
-    expect(board.in_progress).toHaveLength(1);
+  it("carries the kind, so reporting never reads a column's name", async () => {
+    const board = await getBoardView(IDS.boardA, NOW);
+    // A board owner may rename any of these; `kind` is the contract.
+    expect(column(board!, "Done").kind).toBe("done");
+    expect(column(board!, "Blocked").kind).toBe("blocked");
+    expect(column(board!, "To Do").kind).toBe("open");
+  });
+
+  it("returns nothing for a board that does not exist", async () => {
+    expect(await getBoardView(IDS.boardB.replace("2", "9"), NOW)).toBeNull();
   });
 });

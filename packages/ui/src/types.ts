@@ -7,7 +7,19 @@
  * its Drizzle rows onto these shapes.
  */
 
-export type TaskStatus = "todo" | "in_progress" | "done" | "blocked";
+/**
+ * What a status means. Boards name their own columns, so this is the only part
+ * of a status the design system is allowed to style or reason about — a column
+ * called "Shipped" and one called "Done" both render as `done`.
+ */
+export type StatusKind = "open" | "done" | "blocked";
+
+/** A column on a board, as the UI needs it. */
+export type StatusRef = {
+  id: string;
+  name: string;
+  kind: StatusKind;
+};
 export type TaskType =
   | "client_work"
   | "internal"
@@ -27,7 +39,7 @@ export type TaskRowData = {
   href: string;
   title: string;
   type: TaskType;
-  status: TaskStatus;
+  status: StatusRef;
   priority: Priority;
   dueText: string;
   overdue: boolean;
@@ -73,9 +85,12 @@ export const TASK_TYPE_LABELS: Record<TaskType, string> = {
   creative: "Creative",
 };
 
-export const STATUS_LABELS: Record<TaskStatus, string> = {
-  todo: "To Do",
-  in_progress: "In Progress",
+/**
+ * Kinds, not statuses. Column names come from the board and are shown as
+ * written; these are only for the places that describe a kind in prose.
+ */
+export const STATUS_KIND_LABELS: Record<StatusKind, string> = {
+  open: "Open",
   done: "Done",
   blocked: "Blocked",
 };
@@ -100,5 +115,5 @@ export const ROLE_BADGES: Record<Role, string> = {
 };
 
 export const TASK_TYPES = Object.keys(TASK_TYPE_LABELS) as TaskType[];
-export const TASK_STATUSES = Object.keys(STATUS_LABELS) as TaskStatus[];
+export const STATUS_KINDS = Object.keys(STATUS_KIND_LABELS) as StatusKind[];
 export const PRIORITIES = Object.keys(PRIORITY_LABELS) as Priority[];

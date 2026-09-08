@@ -24,7 +24,7 @@ export const TASKS: Record<string, TaskRowData> = {
     id: "t1",
     title: "Send client performance report",
     type: "client_work",
-    status: "todo",
+    status: { id: "c-todo", name: "To Do", kind: "open" },
     priority: "normal",
     dueText: "Today, 2:00 PM",
     assignees: [anna],
@@ -35,7 +35,7 @@ export const TASKS: Record<string, TaskRowData> = {
     id: "t2",
     title: "Review campaign launch assets",
     type: "review",
-    status: "in_progress",
+    status: { id: "c-doing", name: "In Progress", kind: "open" },
     priority: "normal",
     dueText: "Today, 4:00 PM",
     assignees: [anna, james, sofia],
@@ -45,7 +45,7 @@ export const TASKS: Record<string, TaskRowData> = {
     id: "t3",
     title: "Update ad budget",
     type: "admin",
-    status: "todo",
+    status: { id: "c-todo", name: "To Do", kind: "open" },
     priority: "high",
     dueText: "Today, 5:00 PM",
     assignees: [anna],
@@ -55,7 +55,7 @@ export const TASKS: Record<string, TaskRowData> = {
     id: "t5",
     title: "QA tracking setup",
     type: "internal",
-    status: "blocked",
+    status: { id: "c-blocked", name: "Blocked", kind: "blocked" },
     priority: "normal",
     dueText: "Today, 3:00 PM",
     assignees: [anna],
@@ -65,7 +65,7 @@ export const TASKS: Record<string, TaskRowData> = {
     id: "t4",
     title: "Reconcile Northline spend",
     type: "client_work",
-    status: "todo",
+    status: { id: "c-todo", name: "To Do", kind: "open" },
     priority: "urgent",
     dueText: "Sep 4, 11:00 AM",
     overdue: true,
@@ -77,7 +77,7 @@ export const TASKS: Record<string, TaskRowData> = {
     id: "t6",
     title: "Weekly meeting notes",
     type: "meeting",
-    status: "done",
+    status: { id: "c-done", name: "Done", kind: "done" },
     priority: "normal",
     dueText: "Today, 10:00 AM",
     done: true,
@@ -131,10 +131,12 @@ export const TEAMS: TeamCompareData[] = [
 ];
 
 export const BOARD: BoardData = {
-  todo: [TASKS.plain, TASKS.highPriority],
-  in_progress: [TASKS.inProgress],
-  done: [TASKS.done],
-  blocked: [TASKS.blocked],
+  columns: [
+    { id: "c-todo", name: "To Do", kind: "open", tasks: [TASKS.plain, TASKS.highPriority] },
+    { id: "c-doing", name: "In Progress", kind: "open", tasks: [TASKS.inProgress] },
+    { id: "c-done", name: "Done", kind: "done", tasks: [TASKS.done] },
+    { id: "c-blocked", name: "Blocked", kind: "blocked", tasks: [TASKS.blocked] },
+  ],
 };
 
 export const ATTACHMENTS: AttachmentData[] = [

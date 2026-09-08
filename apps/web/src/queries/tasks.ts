@@ -1,10 +1,13 @@
 import "server-only";
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db } from "@/db";
+import { boardStatuses, boards, teams, type StatusKind } from "@/db/schema";
 import { dayRange, now, pct } from "@/lib/date";
 import {
+  boardScopeSql,
   overdueSql,
   scopeSql,
+  taskCardFrom,
   taskCardSelect,
   taskOrder,
   userScope,
@@ -14,7 +17,7 @@ import {
 
 async function runTaskQuery(where: ReturnType<typeof sql>, limit = 300) {
   const result = await db.execute(
-    sql`select ${taskCardSelect} from tasks k where ${where} order by ${taskOrder} limit ${limit}`,
+    sql`select ${taskCardSelect} ${taskCardFrom} where ${where} order by ${taskOrder} limit ${limit}`,
   );
   return result.rows as unknown as TaskCard[];
 }
@@ -117,11 +120,17 @@ export async function listAllTags(): Promise<string[]> {
   return (result.rows as { name: string }[]).map((r) => r.name);
 }
 
+export type BoardColumn = {
+  id: string;
+  name: string;
+  kind: StatusKind;
+  tasks: TaskCard[];
+};
+
 export type BoardView = {
-  todo: TaskCard[];
-  in_progress: TaskCard[];
-  done: TaskCard[];
-  blocked: TaskCard[];
+  boardId: string;
+  boardName: string;
+  columns: BoardColumn[];
   total: number;
 };
 
@@ -133,15 +142,32 @@ export type BoardView = {
  * Showing every task ever would make the Done column grow without bound and
  * turn the board into a backlog, which is the thing the brief is a reaction
  * against.
+ *
+ * Columns come from the board itself, in the order its owner arranged them.
+ * Grouping is by `status_id` alone: nothing has to second-guess a task's
+ * column, because moving into a `done` column is the only thing that stamps
+ * `completed_at` and moving out is the only thing that clears it.
  */
 export async function getBoardView(
-  scope: Scope,
+  boardId: string,
   reference: Date = now(),
-): Promise<BoardView> {
+): Promise<BoardView | null> {
   const { start, end } = dayRange(reference);
 
+  const [board] = await db
+    .select({ id: boards.id, name: boards.name })
+    .from(boards)
+    .where(eq(boards.id, boardId));
+  if (!board) return null;
+
+  const columns = await db
+    .select({ id: boardStatuses.id, name: boardStatuses.name, kind: boardStatuses.kind })
+    .from(boardStatuses)
+    .where(eq(boardStatuses.boardId, boardId))
+    .orderBy(boardStatuses.position, boardStatuses.name);
+
   const rows = await runTaskQuery(
-    sql`${scopeSql(scope)} and (
+    sql`${boardScopeSql(boardId)} and (
       (k.due_date >= ${start} and k.due_date < ${end})
       or ${overdueSql(start)}
       or (k.completed_at >= ${start} and k.completed_at < ${end})
@@ -149,14 +175,38 @@ export async function getBoardView(
     400,
   );
 
-  const board: BoardView = { todo: [], in_progress: [], done: [], blocked: [], total: rows.length };
-  for (const task of rows) {
-    // A completed task belongs in Done regardless of the status column it was
-    // left in — completed_at is the source of truth everywhere else too.
-    const key = task.completedAt ? "done" : (task.status as keyof BoardView);
-    if (key in board && Array.isArray(board[key])) {
-      (board[key] as TaskCard[]).push(task);
-    }
-  }
-  return board;
+  const byStatus = new Map<string, TaskCard[]>(columns.map((c) => [c.id, []]));
+  for (const task of rows) byStatus.get(task.statusId)?.push(task);
+
+  return {
+    boardId: board.id,
+    boardName: board.name,
+    columns: columns.map((c) => ({ ...c, tasks: byStatus.get(c.id) ?? [] })),
+    total: rows.length,
+  };
+}
+
+/** Boards a person can open, newest team first. Drives the sidebar. */
+export async function listBoardsForUser(user: {
+  role: string;
+  teamId: string | null;
+}): Promise<{ id: string; name: string; teamId: string; teamName: string }[]> {
+  const where =
+    user.role === "senior_director"
+      ? undefined
+      : user.teamId
+        ? eq(boards.teamId, user.teamId)
+        : sql`false`;
+
+  return db
+    .select({
+      id: boards.id,
+      name: boards.name,
+      teamId: boards.teamId,
+      teamName: teams.name,
+    })
+    .from(boards)
+    .innerJoin(teams, eq(teams.id, boards.teamId))
+    .where(where)
+    .orderBy(teams.name, boards.position, boards.name);
 }

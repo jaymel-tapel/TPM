@@ -9,10 +9,11 @@ import {
 import { cn } from "../lib/utils";
 import {
   PRIORITY_LABELS,
-  STATUS_LABELS,
+  STATUS_KIND_LABELS,
   TASK_TYPE_LABELS,
   type Priority,
-  type TaskStatus,
+  type StatusKind,
+  type StatusRef,
   type TaskType,
 } from "../types";
 
@@ -62,16 +63,20 @@ export function TagBadge({ children }: { children: React.ReactNode }) {
   );
 }
 
-const STATUS_STYLES: Record<TaskStatus, string> = {
-  todo: "border-gray-500 text-transparent group-hover/check:border-blue-700 group-hover/check:text-blue-300",
-  in_progress: "border-blue-700 text-blue-700",
+/*
+ * Keyed by kind, because a board may call its columns anything. Three marks
+ * rather than four: "started" was never a distinct state to the system, only a
+ * distinct column, and the system does not get to guess which of a board's
+ * open columns means in-progress.
+ */
+const STATUS_STYLES: Record<StatusKind, string> = {
+  open: "border-gray-500 text-transparent group-hover/check:border-blue-700 group-hover/check:text-blue-300",
   done: "border-green-700 bg-green-700 text-white",
   blocked: "border-red-700 bg-red-100 text-red-700",
 };
 
-const MARK: Record<TaskStatus, string> = {
-  todo: "✓",
-  in_progress: "◐",
+const MARK: Record<StatusKind, string> = {
+  open: "✓",
   done: "✓",
   blocked: "!",
 };
@@ -81,27 +86,36 @@ const MARK: Record<TaskStatus, string> = {
  * reinforces it. An unchecked circle ghosts the tick in on hover, so the click
  * target explains itself.
  */
-export function StatusMark({ status, className }: { status: TaskStatus; className?: string }) {
+export function StatusMark({
+  kind,
+  label,
+  className,
+}: {
+  kind: StatusKind;
+  /** The column's own name, when there is one to announce. */
+  label?: string;
+  className?: string;
+}) {
   return (
     <span
-      aria-label={STATUS_LABELS[status]}
+      aria-label={label ?? STATUS_KIND_LABELS[kind]}
       className={cn(
         "inline-flex size-5 shrink-0 items-center justify-center rounded-full border text-caption font-medium leading-none transition-colors",
-        STATUS_STYLES[status],
+        STATUS_STYLES[kind],
         className,
       )}
     >
-      {MARK[status]}
+      {MARK[kind]}
     </span>
   );
 }
 
 /** The same marker with its label, for the task detail status picker. */
-export function StatusBadge({ status }: { status: TaskStatus }) {
+export function StatusBadge({ status }: { status: StatusRef }) {
   return (
     <span className="inline-flex items-center gap-2">
-      <StatusMark status={status} />
-      {STATUS_LABELS[status]}
+      <StatusMark kind={status.kind} label={status.name} />
+      {status.name}
     </span>
   );
 }

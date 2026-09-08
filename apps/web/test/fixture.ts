@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
-import { taskAssignees, tasks, teams, users } from "@/db/schema";
+import { boardStatuses, boards, taskAssignees, tasks, teams, users } from "@/db/schema";
 import { startOfAppDay } from "@/lib/date";
 
 export const HOUR = 3_600_000;
@@ -18,11 +18,28 @@ export const IDS = {
   sarah: "aaaaaaaa-3333-4333-a333-333333333333",
   mika: "bbbbbbbb-1111-4111-a111-111111111111",
   elena: "cccccccc-1111-4111-a111-111111111111",
+  boardA: "eeeeeeee-1111-4111-a111-111111111111",
+  boardB: "eeeeeeee-2222-4222-a222-222222222222",
 };
+
+/** The four columns each fixture board gets, keyed the way tests name them. */
+export const COLUMNS = ["todo", "in_progress", "done", "blocked"] as const;
+export type Column = (typeof COLUMNS)[number];
+
+const COLUMN_SPEC: Record<Column, { name: string; kind: "open" | "done" | "blocked"; position: number }> = {
+  todo: { name: "To Do", kind: "open", position: 0 },
+  in_progress: { name: "In Progress", kind: "open", position: 1 },
+  done: { name: "Done", kind: "done", position: 2 },
+  blocked: { name: "Blocked", kind: "blocked", position: 3 },
+};
+
+/** Deterministic so a test can name a status without looking it up. */
+export const statusId = (boardId: string, column: Column) =>
+  `ffffffff-${COLUMNS.indexOf(column)}000-4000-a000-${boardId.slice(-12)}`;
 
 export async function resetDb() {
   await db.execute(
-    sql`truncate task_tags, task_assignees, tasks, tags, users, teams restart identity cascade`,
+    sql`truncate task_tags, task_assignees, task_attachments, tasks, board_statuses, boards, tags, users, teams restart identity cascade`,
   );
 }
 
@@ -43,7 +60,22 @@ export async function seedOrg() {
   ]);
 
   await db.update(teams).set({ accountDirectorId: IDS.sarah }).where(sql`id = ${IDS.teamA}`);
+
+  await db.insert(boards).values([
+    { id: IDS.boardA, teamId: IDS.teamA, name: "Team A", createdBy: IDS.sarah },
+    { id: IDS.boardB, teamId: IDS.teamB, name: "Team B", createdBy: IDS.elena },
+  ]);
+
+  await db.insert(boardStatuses).values(
+    [IDS.boardA, IDS.boardB].flatMap((boardId) =>
+      COLUMNS.map((c) => ({ id: statusId(boardId, c), boardId, ...COLUMN_SPEC[c] })),
+    ),
+  );
 }
+
+/** The board a team's work lands on in the fixture. */
+export const boardFor = (teamId: string) =>
+  teamId === IDS.teamA ? IDS.boardA : IDS.boardB;
 
 let n = 0;
 
@@ -59,7 +91,7 @@ export async function addTask(opts: {
   dueHour?: number;
   completedDay?: number | null;
   completedHour?: number;
-  status?: "todo" | "in_progress" | "done" | "blocked";
+  status?: Column;
   type?: "client_work" | "internal" | "admin" | "review" | "meeting" | "creative";
 }) {
   n += 1;
@@ -70,11 +102,13 @@ export async function addTask(opts: {
       ? null
       : new Date(TODAY.getTime() + opts.completedDay * DAY + (opts.completedHour ?? 14) * HOUR);
 
+  const boardId = boardFor(opts.team);
   await db.insert(tasks).values({
     id,
     title: `Task ${n}`,
     type: opts.type ?? "client_work",
-    status: opts.status ?? (completedAt ? "done" : "todo"),
+    boardId,
+    statusId: statusId(boardId, opts.status ?? (completedAt ? "done" : "todo")),
     priority: "normal",
     dueDate: due,
     completedAt,

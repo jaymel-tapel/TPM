@@ -5,15 +5,20 @@ import Link from "next/link";
 import { cn } from "../lib/utils";
 import { AvatarStack } from "./user-avatar";
 import { PriorityLabel, StatusMark, TypeLabel } from "./task-meta";
-import { STATUS_LABELS, type TaskRowData, type TaskStatus } from "../types";
-
-/** The four fixed statuses, in the order work moves through them. */
-const COLUMNS: TaskStatus[] = ["todo", "in_progress", "done", "blocked"];
+import { type StatusKind, type TaskRowData } from "../types";
 
 /** Cards shown per column before deferring to the list. See the note below. */
 const COLUMN_LIMIT = 12;
 
-export type BoardData = Record<TaskStatus, TaskRowData[]>;
+export type BoardColumnData = {
+  id: string;
+  name: string;
+  kind: StatusKind;
+  tasks: TaskRowData[];
+};
+
+/** Columns arrive in the order the board's owner arranged them. */
+export type BoardData = { columns: BoardColumnData[] };
 
 function BoardCard({
   task,
@@ -106,9 +111,9 @@ export function TaskBoard({
   moreHref?: string;
 }) {
   const [dragging, setDragging] = useState<string | null>(null);
-  const [over, setOver] = useState<TaskStatus | null>(null);
+  const [over, setOver] = useState<string | null>(null);
 
-  async function drop(status: TaskStatus) {
+  async function drop(statusId: string) {
     const id = dragging;
     setDragging(null);
     setOver(null);
@@ -116,33 +121,33 @@ export function TaskBoard({
 
     const data = new FormData();
     data.set("taskId", id);
-    data.set("status", status);
+    data.set("statusId", statusId);
     await onMove(data);
   }
 
   return (
     <div className="grid items-start gap-6 md:grid-cols-2 lg:grid-cols-4">
-      {COLUMNS.map((status) => {
-        const tasks = board[status] ?? [];
+      {board.columns.map((column) => {
+        const { tasks } = column;
         const shown = tasks.slice(0, COLUMN_LIMIT);
         const hidden = tasks.length - shown.length;
         return (
           <section
-            key={status}
+            key={column.id}
             onDragOver={(e) => {
               if (!onMove || !dragging) return;
               e.preventDefault();
-              setOver(status);
+              setOver(column.id);
             }}
-            onDragLeave={() => setOver((s) => (s === status ? null : s))}
+            onDragLeave={() => setOver((s) => (s === column.id ? null : s))}
             onDrop={(e) => {
               e.preventDefault();
-              void drop(status);
+              void drop(column.id);
             }}
           >
             <header className="mb-3 flex items-center gap-2 border-b border-gray-400 pb-2">
-              <StatusMark status={status} />
-              <h3 className="text-body-strong text-gray-1000">{STATUS_LABELS[status]}</h3>
+              <StatusMark kind={column.kind} />
+              <h3 className="truncate text-body-strong text-gray-1000">{column.name}</h3>
               <span className="tabular ml-auto text-caption text-gray-600">
                 {tasks.length}
               </span>
@@ -158,7 +163,7 @@ export function TaskBoard({
             <div
               className={cn(
                 "flex flex-col gap-2 rounded-xl border border-dashed p-1 transition-colors",
-                over === status
+                over === column.id
                   ? "border-blue-700 bg-blue-100"
                   : "border-transparent",
               )}

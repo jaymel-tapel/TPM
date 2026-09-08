@@ -1,22 +1,21 @@
-import { Columns3, List, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import {
   Command,
   CommandBar,
-  CommandDivider,
   EmptyState,
-  TaskBoard,
   PageHeader,
   PRIORITY_LABELS,
-  STATUS_LABELS,
+  STATUS_KINDS,
+  STATUS_KIND_LABELS,
   TASK_TYPE_LABELS,
   TaskList,
   TaskRow,
 } from "@meridian/ui";
 import { requireSession } from "@/lib/auth";
-import { getBoardView, listAllTags, listTasks, type TaskFilters } from "@/queries/tasks";
+import { listAllTags, listTasks, type TaskFilters } from "@/queries/tasks";
 import { userScope } from "@/queries/sql";
-import { toBoard, toTaskRow } from "@/lib/present";
-import { setTaskStatus, toggleTaskDone } from "@/actions/tasks";
+import { toTaskRow } from "@/lib/present";
+import { toggleTaskDone } from "@/actions/tasks";
 import { FilterChips } from "@/components/filter-chips";
 
 export const dynamic = "force-dynamic";
@@ -44,12 +43,14 @@ export default async function MyTasksPage({
     range: one("range") as TaskFilters["range"],
   };
 
-  const view = one("view") === "board" ? "board" : "list";
-
-  const [tasks, tags, board] = await Promise.all([
+  /*
+   * No board view here. My Tasks spans every board a person is on, and a board
+   * is now a place rather than a lens — there is no single board to show. The
+   * boards themselves are in the rail.
+   */
+  const [tasks, tags] = await Promise.all([
     listTasks(userScope(user.id), filters),
     listAllTags(),
-    view === "board" ? getBoardView(userScope(user.id)) : Promise.resolve(null),
   ]);
 
   const open = tasks.filter((t) => t.completedAt === null);
@@ -65,26 +66,23 @@ export default async function MyTasksPage({
             <Command icon={Plus} href="/tasks/new" tone="primary">
               New Task
             </Command>
-            <CommandDivider />
-            <Command icon={List} href="/my-tasks" active={view === "list"}>
-              List
-            </Command>
-            <Command icon={Columns3} href="/my-tasks?view=board" active={view === "board"}>
-              Board
-            </Command>
           </CommandBar>
         }
       />
 
-      {board ? null : (
       <div className="mb-6">
         <FilterChips
           groups={[
             { param: "range", label: "Date", options: RANGES },
             {
               param: "status",
-              label: "Status",
-              options: Object.entries(STATUS_LABELS).map(([value, label]) => ({ value, label })),
+              label: "State",
+              // Kinds, not columns: this list spans every board a person is on,
+              // and two boards can call the same thing different names.
+              options: STATUS_KINDS.map((kind) => ({
+                value: kind,
+                label: STATUS_KIND_LABELS[kind],
+              })),
             },
             {
               param: "type",
@@ -100,16 +98,7 @@ export default async function MyTasksPage({
           ]}
         />
       </div>
-      )}
 
-      {board ? (
-        <TaskBoard
-          board={toBoard(board)}
-          viewer={user.id}
-          onMove={setTaskStatus}
-          moreHref="/my-tasks"
-        />
-      ) : (
       <div className="space-y-8">
         {open.length === 0 && done.length === 0 ? (
           <EmptyState>No tasks match those filters.</EmptyState>
@@ -142,7 +131,6 @@ export default async function MyTasksPage({
           </TaskList>
         ) : null}
       </div>
-      )}
     </>
   );
 }

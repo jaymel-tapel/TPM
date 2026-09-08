@@ -15,6 +15,13 @@
       "when": 1788861695438,
       "tag": "0001_windy_captain_universe",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788865675899,
+      "tag": "0002_volatile_next_avengers",
+      "breakpoints": true
     }
   ]
 }

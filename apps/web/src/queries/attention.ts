@@ -2,7 +2,7 @@ import "server-only";
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
 import { dayRange, now, pct } from "@/lib/date";
-import { onTime, overdueSql, scopeSql, type Scope } from "./sql";
+import { isBlocked, isOpen, onTime, overdueSql, scopeSql, type Scope } from "./sql";
 import { TASK_TYPE_LABELS } from "@/lib/constants";
 import type { TaskType } from "@/db/schema";
 
@@ -49,9 +49,16 @@ export async function getNeedsAttention(
   }
 
   // 2. Work landing in the next two hours that has not been started.
+  // "Not started" is the first open column on its board, whatever it is
+  // called — a board that renames To Do to "Backlog" still counts here.
   const soon = await db.execute(sql`
     select count(*) as n from tasks k
-    where ${where} and k.status = 'todo' and k.completed_at is null
+    join board_statuses s on s.id = k.status_id
+    where ${where} and ${isOpen} and k.completed_at is null
+      and s.position = (
+        select min(s2.position) from board_statuses s2
+        where s2.board_id = k.board_id and s2.kind = 'open'
+      )
       and k.due_date between now() and now() + interval '2 hours'
   `);
   const soonCount = Number((soon.rows[0] as { n: string }).n);
@@ -78,9 +85,12 @@ export async function getNeedsAttention(
     });
   }
 
-  // 4. Blocked work needs a person, not a chart.
+  // 4. Blocked work needs a person, not a chart. A board may call the column
+  // anything; `kind` is what makes it blocked.
   const blocked = await db.execute(sql`
-    select count(*) as n from tasks k where ${where} and k.status = 'blocked'
+    select count(*) as n from tasks k
+    join board_statuses s on s.id = k.status_id
+    where ${where} and ${isBlocked}
   `);
   const blockedCount = Number((blocked.rows[0] as { n: string }).n);
   if (blockedCount > 0) {

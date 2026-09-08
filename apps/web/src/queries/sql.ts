@@ -1,6 +1,15 @@
 import "server-only";
 import { sql, type SQL } from "drizzle-orm";
 import { APP_TIMEZONE } from "@/lib/date";
+import type { StatusKind } from "@/db/schema";
+
+/**
+ * Statuses are per-board and user-named, so anything shared has to key off
+ * `kind`. `s` is the `board_statuses` row every task query joins.
+ */
+export const isDone = sql`s.kind = 'done'`;
+export const isBlocked = sql`s.kind = 'blocked'`;
+export const isOpen = sql`s.kind = 'open'`;
 
 /**
  * Every query in the app is scoped one of three ways. Keeping the scope as a
@@ -49,21 +58,35 @@ export type TaskCard = {
   title: string;
   description: string | null;
   type: string;
-  status: string;
   priority: string;
   dueDate: Date;
   completedAt: Date | null;
   teamId: string;
+  boardId: string;
+  boardName: string;
   createdBy: string;
+  /**
+   * The column this task is in. `name` is whatever the board's owner called
+   * it; `kind` is the only part any query is allowed to reason about.
+   */
+  statusId: string;
+  statusName: string;
+  statusKind: StatusKind;
   assignees: { id: string; name: string }[];
   tags: string[];
 };
 
-/** Shared projection so every list screen renders identical task shapes. */
+/**
+ * Shared projection so every list screen renders identical task shapes.
+ * Assumes `tasks k join board_statuses s ... join boards b ...` — see
+ * `taskCardFrom`.
+ */
 export const taskCardSelect = sql`
-  k.id, k.title, k.description, k.type, k.status, k.priority,
+  k.id, k.title, k.description, k.type, k.priority,
   k.due_date as "dueDate", k.completed_at as "completedAt",
   k.team_id as "teamId", k.created_by as "createdBy",
+  k.board_id as "boardId", b.name as "boardName",
+  k.status_id as "statusId", s.name as "statusName", s.kind as "statusKind",
   coalesce(
     (select jsonb_agg(jsonb_build_object('id', u.id, 'name', u.name) order by u.name)
      from task_assignees a join users u on u.id = a.user_id where a.task_id = k.id),
@@ -81,3 +104,13 @@ export const taskOrder = sql`
   case k.priority when 'urgent' then 0 when 'high' then 1 else 2 end,
   k.due_date asc
 `;
+
+/** The joins `taskCardSelect` depends on. Kept next to it so they cannot drift. */
+export const taskCardFrom = sql`
+  from tasks k
+  join board_statuses s on s.id = k.status_id
+  join boards b on b.id = k.board_id
+`;
+
+/** Applied to a `tasks` row aliased as `k`. */
+export const boardScopeSql = (boardId: string): SQL => sql`k.board_id = ${boardId}`;

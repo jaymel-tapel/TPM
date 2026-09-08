@@ -17,6 +17,23 @@ export const roleEnum = pgEnum("role", [
   "senior_director",
 ]);
 
+/**
+ * What a status *means* to the rest of the system, as opposed to what it is
+ * called. An Account Director can name a column anything; these three kinds
+ * are the only thing any query is allowed to reason about.
+ *
+ * This is what keeps custom statuses from breaking reporting. Completion is
+ * `completed_at` and always was — a status marked `done` is what stamps it.
+ * Without a declared kind, "how did last Tuesday go?" would have as many
+ * answers as there are boards.
+ */
+export const statusKindEnum = pgEnum("status_kind", ["open", "done", "blocked"]);
+
+/**
+ * Retired. Still declared so the migration that introduces `status_kind` is
+ * unambiguous — dropped on its own in the migration right after, once nothing
+ * references it. Do not use.
+ */
 export const taskStatusEnum = pgEnum("task_status", [
   "todo",
   "in_progress",
@@ -64,6 +81,54 @@ export const users = pgTable(
   (t) => [index("users_team_idx").on(t.teamId)],
 );
 
+/**
+ * A board belongs to a team and is created by its Account Director. It is a
+ * container, not a view: work lives on exactly one board.
+ */
+export const boards = pgTable(
+  "boards",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    teamId: uuid("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    position: integer("position").notNull().default(0),
+    createdBy: uuid("created_by")
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("boards_team_idx").on(t.teamId),
+    unique("boards_team_name_key").on(t.teamId, t.name),
+    // Lets `tasks` carry a composite key proving its team matches its board's.
+    unique("boards_id_team_key").on(t.id, t.teamId),
+  ],
+);
+
+/** A column on a board. Named by whoever made it, typed by `kind`. */
+export const boardStatuses = pgTable(
+  "board_statuses",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    boardId: uuid("board_id")
+      .notNull()
+      .references(() => boards.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    kind: statusKindEnum("kind").notNull().default("open"),
+    position: integer("position").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("board_statuses_board_idx").on(t.boardId),
+    unique("board_statuses_board_name_key").on(t.boardId, t.name),
+    // Lets `tasks` carry a composite key proving the status is on its board.
+    unique("board_statuses_id_board_key").on(t.id, t.boardId),
+  ],
+);
+
 export const tasks = pgTable(
   "tasks",
   {
@@ -71,8 +136,15 @@ export const tasks = pgTable(
     title: text("title").notNull(),
     description: text("description"),
     type: taskTypeEnum("type").notNull().default("internal"),
-    status: taskStatusEnum("status").notNull().default("todo"),
     priority: priorityEnum("priority").notNull().default("normal"),
+    /** Retired alongside `taskStatusEnum` in the next migration. Do not use. */
+    status: taskStatusEnum("status").notNull().default("todo"),
+    boardId: uuid("board_id")
+      .notNull()
+      .references(() => boards.id),
+    statusId: uuid("status_id")
+      .notNull()
+      .references(() => boardStatuses.id),
     dueDate: timestamp("due_date", { withTimezone: true }).notNull(),
     createdBy: uuid("created_by")
       .notNull()
@@ -94,6 +166,23 @@ export const tasks = pgTable(
     index("tasks_due_idx").on(t.dueDate),
     index("tasks_team_due_idx").on(t.teamId, t.dueDate),
     index("tasks_completed_idx").on(t.completedAt),
+    index("tasks_board_idx").on(t.boardId),
+    /*
+     * Two composite keys the database enforces so nothing else has to:
+     * a task's team always matches its board's team, and its status always
+     * belongs to its own board. `team_id` stays denormalised because every
+     * report scopes on it, and this is what keeps that copy honest.
+     */
+    foreignKey({
+      columns: [t.boardId, t.teamId],
+      foreignColumns: [boards.id, boards.teamId],
+      name: "tasks_board_team_fk",
+    }),
+    foreignKey({
+      columns: [t.statusId, t.boardId],
+      foreignColumns: [boardStatuses.id, boardStatuses.boardId],
+      name: "tasks_status_board_fk",
+    }),
   ],
 );
 
@@ -160,7 +249,7 @@ export const taskTags = pgTable(
 );
 
 export type Role = (typeof roleEnum.enumValues)[number];
-export type TaskStatus = (typeof taskStatusEnum.enumValues)[number];
+export type StatusKind = (typeof statusKindEnum.enumValues)[number];
 export type Priority = (typeof priorityEnum.enumValues)[number];
 export type TaskType = (typeof taskTypeEnum.enumValues)[number];
 
