@@ -1,4 +1,4 @@
-import "dotenv/config";
+import "./load-env";
 import { pool } from "./index";
 
 /** Drops everything so `db:reset` can rebuild from migrations. */

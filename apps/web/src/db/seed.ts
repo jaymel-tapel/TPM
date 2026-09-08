@@ -1,4 +1,4 @@
-import "dotenv/config";
+import "./load-env";
 import bcrypt from "bcryptjs";
 import { pool, db } from "./index";
 import {
