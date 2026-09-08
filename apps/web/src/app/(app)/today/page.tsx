@@ -3,11 +3,14 @@ import {
   Command,
   CommandBar,
   CommandDivider,
-  CompletionMeter,
   EmptyState,
+  Panel,
+  Percent,
+  Stat,
   TaskList,
   TaskRow,
 } from "@meridian/ui";
+import { Progress } from "@meridian/ui/primitives/progress";
 import { requireSession } from "@/lib/auth";
 import { getDayView } from "@/queries/tasks";
 import { toTaskRow } from "@/lib/present";
@@ -26,8 +29,10 @@ export default async function TodayPage() {
   const day = await getDayView(user.id, today);
   const row = (t: Parameters<typeof toTaskRow>[0]) => toTaskRow(t, today);
 
+  const pending = day.today.length;
+
   return (
-    <div className="grid gap-x-12 gap-y-8 lg:grid-cols-[minmax(0,1fr)_240px] lg:items-start">
+    <div className="space-y-8">
       <div className="min-w-0 space-y-8">
         <header>
           <p className="text-caption-strong uppercase tracking-[0.08em] text-gray-600">
@@ -36,18 +41,11 @@ export default async function TodayPage() {
           <h1 className="mt-3 text-title-1 text-gray-1000">
             {greeting(today)}, {user.name.split(" ")[0]}
           </h1>
-          <p className="mt-2 text-body text-gray-700">
-            {day.due === 0 ? (
-              "Nothing scheduled for today."
-            ) : (
-              <>
-                <span className="text-gray-1000">
-                  {day.done} of {day.due}
-                </span>{" "}
-                tasks completed today
-              </>
-            )}
-          </p>
+          {/* The panel below counts the day; saying it twice in two shapes
+              just makes the reader check whether they agree. */}
+          {day.due === 0 ? (
+            <p className="mt-2 text-body text-gray-700">Nothing scheduled for today.</p>
+          ) : null}
 
           <CommandBar className="mt-4">
             <Command icon={Plus} href="/tasks/new" tone="primary">
@@ -59,6 +57,52 @@ export default async function TodayPage() {
             </Command>
           </CommandBar>
         </header>
+
+        {/*
+          The same rollup the team screen uses, so a person and their manager
+          read one shape of summary rather than two. Overdue, pending and
+          completed account for every task the day holds — they add up, which
+          a percentage on its own never let you check.
+
+          With nothing due, the percentage is dropped rather than shown as the
+          100% that `pct` returns for 0/0. That answer is right for a person
+          who has finished, and absurd next to four zeros; overdue work leads
+          instead, because that is the only number left that means anything.
+        */}
+        {day.due > 0 || day.overdue.length > 0 ? (
+          <Panel className="p-6">
+            <div className="flex flex-wrap items-end gap-x-12 gap-y-6">
+              {day.due > 0 ? (
+                <Stat
+                  value={<Percent value={day.percent} />}
+                  label="Completion today"
+                  size="xl"
+                />
+              ) : (
+                <Stat
+                  value={day.overdue.length}
+                  label={day.overdue.length === 1 ? "Overdue task" : "Overdue tasks"}
+                  size="xl"
+                  tone="danger"
+                />
+              )}
+              <dl className="flex flex-wrap gap-x-12 gap-y-4">
+                {day.due > 0 ? (
+                  <Stat
+                    value={day.overdue.length}
+                    label="Overdue"
+                    size="sm"
+                    tone={day.overdue.length > 0 ? "danger" : "default"}
+                  />
+                ) : null}
+                <Stat value={pending} label="Pending" size="sm" />
+                <Stat value={day.done} label="Completed" size="sm" />
+                <Stat value={day.due} label="Due today" size="sm" />
+              </dl>
+            </div>
+            {day.due > 0 ? <Progress value={day.percent} className="mt-8 h-1.5" /> : null}
+          </Panel>
+        ) : null}
 
         {day.overdue.length > 0 ? (
           <TaskList title="Overdue" tone="danger">
@@ -107,22 +151,6 @@ export default async function TodayPage() {
           </TaskList>
         ) : null}
       </div>
-
-      <aside className="space-y-4 lg:sticky lg:top-24">
-        <div className="rounded-xl border border-gray-400 bg-background-100 p-6">
-          <CompletionMeter done={day.done} due={day.due} percent={day.percent} />
-        </div>
-
-        {day.overdue.length > 0 ? (
-          <div className="rounded-xl border border-red-300 bg-red-100 p-6">
-            <p className="text-caption-strong uppercase tracking-[0.08em] text-red-700">Overdue</p>
-            <p className="tabular mt-3 text-title-1 text-red-700">{day.overdue.length}</p>
-            <p className="mt-1 text-caption text-red-900">
-              {day.overdue.length === 1 ? "task from" : "tasks from"} earlier days
-            </p>
-          </div>
-        ) : null}
-      </aside>
     </div>
   );
 }
