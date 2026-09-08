@@ -77,7 +77,7 @@ export async function TeamTodayView({
             label="Completion today"
             size="xl"
           />
-          <dl className="flex flex-wrap gap-x-12 gap-y-4">
+          <dl className="flex flex-wrap gap-x-12 gap-y-4 sm:ml-auto">
             <Stat value={team.headcount} label="People" size="sm" />
             <Stat value={team.due} label="Tasks due" size="sm" />
             <Stat value={team.done} label="Completed" size="sm" />

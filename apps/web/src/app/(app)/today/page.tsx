@@ -86,7 +86,7 @@ export default async function TodayPage() {
                   tone="danger"
                 />
               )}
-              <dl className="flex flex-wrap gap-x-12 gap-y-4">
+              <dl className="flex flex-wrap gap-x-12 gap-y-4 sm:ml-auto">
                 {day.due > 0 ? (
                   <Stat
                     value={day.overdue.length}
