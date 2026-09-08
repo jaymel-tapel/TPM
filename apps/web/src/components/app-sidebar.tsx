@@ -61,6 +61,12 @@ function ActiveBar() {
  * read rather than scan; a third level would be the nested spaces the brief
  * refuses.
  */
+/** Whether the page you are on is this group, or anything inside it. */
+function holdsPath(child: NavChild, pathname: string): boolean {
+  if (child.href === pathname) return true;
+  return (child.children ?? []).some((c) => holdsPath(c, pathname));
+}
+
 function NavChildRow({
   child,
   pathname,
@@ -72,8 +78,20 @@ function NavChildRow({
 }) {
   const active = pathname === child.href;
   const hasChildren = Boolean(child.children?.length);
-  // Groups start open: the point of nesting the boards is to see them.
-  const [open, setOpen] = useState(true);
+  /*
+   * Groups start closed, and open themselves around wherever you are.
+   *
+   * The Senior Director is the only person who gets this second level, and
+   * every team open at once buried Docs and Reports below the fold — the rail
+   * became a list of every board in the department. Closed, it is a list of
+   * teams, which is how that person thinks about it.
+   *
+   * Null until it is touched, so until then the answer comes from the path:
+   * following a link to a board from anywhere else opens the team holding it
+   * rather than leaving the current page hidden inside a shut group.
+   */
+  const [open, setOpen] = useState<boolean | null>(null);
+  const expanded = open ?? holdsPath(child, pathname);
 
   // pl-10 at the first level lines up under the parent's label rather than its
   // icon; each level after that steps in by one more.
@@ -111,18 +129,18 @@ function NavChildRow({
     <div>
       <button
         type="button"
-        onClick={() => setOpen(!open)}
-        aria-expanded={open}
+        onClick={() => setOpen(!expanded)}
+        aria-expanded={expanded}
         className={cn(shell, "flex w-full items-center gap-2 text-left")}
       >
         <ChevronRight
-          className={cn("size-3.5 shrink-0 transition-transform", open && "rotate-90")}
+          className={cn("size-3.5 shrink-0 transition-transform", expanded && "rotate-90")}
           strokeWidth={2}
         />
         <span className="min-w-0 flex-1 truncate">{child.label}</span>
       </button>
 
-      {open ? (
+      {expanded ? (
         <div className="mt-0.5 space-y-0.5">
           {child.children!.map((grandchild) => (
             <NavChildRow
