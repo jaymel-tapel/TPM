@@ -106,8 +106,14 @@ export function AvatarStack({
 
   return (
     <span className="flex items-center -space-x-1" title={title}>
-      {shown.map((name) => (
-        <UserAvatar key={name} name={name} size={size} ring />
+      {/*
+        Position, not name. A thirty-person department can hold two people
+        called the same thing, and keying by name would render one of them and
+        drop the other. The list is a fixed, ordered slice that never reorders
+        in place, which is exactly when an index is the honest key.
+      */}
+      {shown.map((name, i) => (
+        <UserAvatar key={i} name={name} size={size} ring />
       ))}
       {extra > 0 ? (
         <span

@@ -2,7 +2,13 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { tasks, users, type User } from "@/db/schema";
-import { canEditTask, canViewTask, canViewTeam, canViewTeamWork } from "./permissions";
+import {
+  canDecideLeave,
+  canEditTask,
+  canViewTask,
+  canViewTeam,
+  canViewTeamWork,
+} from "./permissions";
 import { listBoardsForUser } from "@/queries/tasks";
 import { IDS, addTask, resetDb, seedOrg } from "../../test/fixture";
 
@@ -68,6 +74,43 @@ describe("managing a team is a narrower question", () => {
     expect(canViewTeam(await load(IDS.anna), IDS.teamA)).toBe(false);
     expect(canViewTeam(await load(IDS.sarah), IDS.teamA)).toBe(true);
     expect(canViewTeam(await load(IDS.elena), IDS.teamA)).toBe(true);
+  });
+});
+
+describe("who signs off leave", () => {
+  it("gives a team member's request to their own Account Director", async () => {
+    const [sarah, anna] = [await load(IDS.sarah), await load(IDS.anna)];
+    expect(canDecideLeave(sarah, anna)).toBe(true);
+  });
+
+  it("keeps it away from the other team's director", async () => {
+    const [sarah, mika] = [await load(IDS.sarah), await load(IDS.mika)];
+    expect(canDecideLeave(sarah, mika)).toBe(false);
+  });
+
+  it("gives an Account Director's own request to the Senior Director", async () => {
+    // Nothing anywhere names this as a special case. The chart runs out above
+    // Sarah, and the only rule that has to be added is the next one.
+    const [elena, sarah] = [await load(IDS.elena), await load(IDS.sarah)];
+    expect(canDecideLeave(elena, sarah)).toBe(true);
+  });
+
+  it("lets nobody sign off their own, at any level", async () => {
+    const [sarah, elena, anna] = [
+      await load(IDS.sarah),
+      await load(IDS.elena),
+      await load(IDS.anna),
+    ];
+    // An approval nobody else makes is not an approval; it is a status field
+    // with extra steps.
+    expect(canDecideLeave(sarah, sarah)).toBe(false);
+    expect(canDecideLeave(elena, elena)).toBe(false);
+    expect(canDecideLeave(anna, anna)).toBe(false);
+  });
+
+  it("lets no team member decide anything", async () => {
+    const [anna, james] = [await load(IDS.anna), await load(IDS.james)];
+    expect(canDecideLeave(anna, james)).toBe(false);
   });
 });
 

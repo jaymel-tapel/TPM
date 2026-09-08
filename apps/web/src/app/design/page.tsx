@@ -21,13 +21,12 @@ import {
   Eyebrow,
   HeroPanel,
   HighlightMetric,
-  AvailabilityList,
-  AvailabilityRow,
   LeaveRequestList,
   LeaveRequestRow,
   MemberList,
   MemberListSkeleton,
   MemberRow,
+  WorkBar,
   NeedsAttention,
   PageHeader,
   Panel,
@@ -87,8 +86,8 @@ import {
   DAY_CHIPS,
   SUBTASKS,
   DAY_PLAN_HOURS,
-  AVAILABILITY,
   LEAVE_REQUESTS,
+  WORK_BARS,
 } from "./fixtures";
 import { DocRefListDemo } from "./doc-refs-demo";
 
@@ -727,20 +726,28 @@ export default function DesignSystemPage() {
           </Row>
         </Block>
 
-        <Block title="Team roster" note="The whole row is the click target">
+        <Block title="Work bar" note="Done and overdue are painted; what is left is the gap">
+          <div className="space-y-4">
+            {WORK_BARS.map((b) => (
+              <div key={b.label} className="grid gap-2 sm:grid-cols-[200px_minmax(0,1fr)] sm:items-center sm:gap-6">
+                <div className="text-caption text-gray-600">{b.label}</div>
+                <WorkBar
+                  done={b.done}
+                  remaining={b.remaining}
+                  overdue={b.overdue}
+                  muted={b.muted}
+                />
+              </div>
+            ))}
+          </div>
+        </Block>
+
+        <Block title="Team roster" note="A row is a link only where there is somewhere to go">
           <MemberList>
             {MEMBERS.map((m) => (
               <MemberRow key={m.id} member={m} />
             ))}
           </MemberList>
-        </Block>
-
-        <Block title="Availability" note="Being off is a state, not a warning, so it is grey">
-          <AvailabilityList>
-            {AVAILABILITY.map((p) => (
-              <AvailabilityRow key={p.id} person={p} />
-            ))}
-          </AvailabilityList>
         </Block>
 
         <Block title="Leave requests" note="Every state, including the two nobody wants">
