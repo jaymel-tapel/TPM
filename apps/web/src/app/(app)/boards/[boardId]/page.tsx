@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { BarChart3, Columns3, List, Plus, Settings2 } from "lucide-react";
+import { Columns3, List, Plus, Settings2 } from "lucide-react";
 import {
   Command,
   CommandBar,
@@ -65,14 +65,12 @@ export default async function BoardPage({
           What you do to the board sits at the far end, away from what you use
           to read it. New Task is the one thing everyone here does, so it takes
           the corner; shaping the board is the Account Director's job and sits
-          beside it.
+          beside it. Reports is not a board action and is already in the rail
+          for everyone who can reach it.
         */}
         <div className="ml-auto flex items-center gap-1">
           {isDirector(user) ? (
             <>
-              <Command icon={BarChart3} href="/reports">
-                Reports
-              </Command>
               <Command icon={Settings2} href={`/boards/${boardId}/settings`}>
                 Board settings
               </Command>
