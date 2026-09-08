@@ -5,10 +5,10 @@ import { cn } from "../lib/utils";
  * widget. Sizes are steps off the Geist heading ramp.
  */
 const SIZES = {
-  sm: "text-heading-24",
-  md: "text-heading-32",
-  lg: "text-heading-48",
-  xl: "text-heading-64",
+  sm: "text-title-3",
+  md: "text-title-1",
+  lg: "text-large-title",
+  xl: "text-display",
 } as const;
 
 export function Stat({
@@ -36,7 +36,7 @@ export function Stat({
   return (
     <div className={className}>
       <div className={cn("tabular", SIZES[size], color)}>{value}</div>
-      <div className={cn("mt-1 text-copy-13", labelColor)}>{label}</div>
+      <div className={cn("mt-1 text-caption", labelColor)}>{label}</div>
     </div>
   );
 }

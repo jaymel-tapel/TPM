@@ -1,9 +1,11 @@
 import { notFound } from "next/navigation";
+import { BarChart3, Columns3, List, Plus } from "lucide-react";
 import {
-  ButtonLink,
+  Command,
+  CommandBar,
+  CommandDivider,
   MemberList,
   TaskBoard,
-  ViewToggle,
   MemberRow,
   NeedsAttention,
   Percent,
@@ -47,28 +49,37 @@ export async function TeamTodayView({
     <div className="space-y-10">
       <div className="flex flex-wrap items-end justify-between gap-6">
         <div>
-          <p className="text-label-12 uppercase tracking-[0.08em] text-gray-600">
+          <p className="text-caption-strong uppercase tracking-[0.08em] text-gray-600">
             {fmtLongDate(now())}
           </p>
-          <h1 className="mt-3 text-heading-32 text-gray-1000">{team.teamName}</h1>
+          <h1 className="mt-3 text-title-1 text-gray-1000">{team.teamName}</h1>
           {team.directorName ? (
             <div className="mt-3 flex items-center gap-2">
               <UserAvatar name={team.directorName} size="sm" />
-              <p className="text-copy-14 text-gray-700">
+              <p className="text-body text-gray-700">
                 <span className="text-gray-1000">{team.directorName}</span> · Account Director
               </p>
             </div>
           ) : null}
         </div>
-        <div className="flex items-center gap-3">
-          <ViewToggle
-            listHref={basePath}
-            boardHref={`${basePath}?view=board`}
-            active={view}
-          />
-          <ButtonLink href="/tasks/new">New Task</ButtonLink>
-        </div>
       </div>
+
+      <CommandBar>
+        <Command icon={Plus} href="/tasks/new" tone="primary">
+          New Task
+        </Command>
+        <CommandDivider />
+        <Command icon={List} href={basePath} active={view === "list"}>
+          List
+        </Command>
+        <Command icon={Columns3} href={`${basePath}?view=board`} active={view === "board"}>
+          Board
+        </Command>
+        <CommandDivider />
+        <Command icon={BarChart3} href="/reports">
+          Reports
+        </Command>
+      </CommandBar>
 
       <Panel className="p-8">
         <div className="flex flex-wrap items-end gap-x-12 gap-y-6">

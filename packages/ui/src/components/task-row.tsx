@@ -66,14 +66,14 @@ export function TaskRow({
       </div>
 
       <Link href={task.href} className="min-w-0 flex-1">
-        <div className={cn("text-label-14", quiet ? "text-gray-600" : "text-gray-1000")}>
+        <div className={cn("text-body-strong", quiet ? "text-gray-600" : "text-gray-1000")}>
           {task.title}
         </div>
 
         {/* Finished work keeps its title legible but drops the metadata — it is
             a record of what happened, not something to act on. */}
         {quiet ? null : (
-          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-copy-13 text-gray-700">
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-caption text-gray-700">
             <TypeLabel type={task.type} />
 
             {shared ? (
@@ -107,7 +107,7 @@ export function TaskRow({
 
       <div
         className={cn(
-          "tabular shrink-0 pt-0.5 text-right text-copy-13",
+          "tabular shrink-0 pt-0.5 text-right text-caption",
           task.overdue ? "font-medium text-red-700" : "text-gray-600",
         )}
       >
@@ -145,7 +145,7 @@ export function TaskList({
       ) : null}
       <div
         className={cn(
-          "divide-y divide-gray-300 overflow-hidden rounded-12 border bg-background-100",
+          "divide-y divide-gray-300 overflow-hidden rounded-xl border bg-background-100",
           border,
         )}
       >
@@ -157,8 +157,8 @@ export function TaskList({
 
 export function EmptyState({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-12 border border-dashed border-gray-400 px-4 py-12 text-center">
-      <p className="text-copy-14 text-gray-600">{children}</p>
+    <div className="rounded-xl border border-dashed border-gray-400 px-4 py-12 text-center">
+      <p className="text-body text-gray-600">{children}</p>
     </div>
   );
 }
@@ -178,11 +178,11 @@ export function CompletionMeter({
   return (
     <div>
       <Eyebrow>{label}</Eyebrow>
-      <p className="tabular mt-3 text-heading-48 text-gray-1000">
+      <p className="tabular mt-3 text-large-title text-gray-1000">
         <Percent value={percent} />
       </p>
       <Progress value={percent} className="mt-4 h-1.5" />
-      <p className="tabular mt-3 text-copy-13 text-gray-700">
+      <p className="tabular mt-3 text-caption text-gray-700">
         {done} / {due} completed
       </p>
     </div>

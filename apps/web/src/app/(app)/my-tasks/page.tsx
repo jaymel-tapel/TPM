@@ -1,8 +1,10 @@
+import { Columns3, List, Plus } from "lucide-react";
 import {
-  ButtonLink,
+  Command,
+  CommandBar,
+  CommandDivider,
   EmptyState,
   TaskBoard,
-  ViewToggle,
   PageHeader,
   PRIORITY_LABELS,
   STATUS_LABELS,
@@ -58,11 +60,19 @@ export default async function MyTasksPage({
       <PageHeader
         title="My Tasks"
         subtitle={`${open.length} open · ${done.length} completed today`}
-        aside={
-          <div className="flex items-center gap-3">
-            <ViewToggle listHref="/my-tasks" boardHref="/my-tasks?view=board" active={view} />
-            <ButtonLink href="/tasks/new">New Task</ButtonLink>
-          </div>
+        commands={
+          <CommandBar>
+            <Command icon={Plus} href="/tasks/new" tone="primary">
+              New Task
+            </Command>
+            <CommandDivider />
+            <Command icon={List} href="/my-tasks" active={view === "list"}>
+              List
+            </Command>
+            <Command icon={Columns3} href="/my-tasks?view=board" active={view === "board"}>
+              Board
+            </Command>
+          </CommandBar>
         }
       />
 

@@ -7,7 +7,7 @@ export default function Loading() {
       <PageHeaderSkeleton />
       <div className="mb-6 flex gap-2">
         {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-9 w-28 rounded-6" />
+          <Skeleton key={i} className="h-9 w-28 rounded-md" />
         ))}
       </div>
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-start">

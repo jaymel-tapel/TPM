@@ -14,7 +14,7 @@ export function HeroPanel({
   className?: string;
 }) {
   return (
-    <section className={cn("rounded-12 bg-navy px-8 py-8 text-white shadow-navy", className)}>
+    <section className={cn("rounded-xl bg-navy px-8 py-8 text-white shadow-navy", className)}>
       {children}
     </section>
   );
@@ -32,10 +32,10 @@ export function HighlightMetric({
 }) {
   return (
     <div className="min-w-48">
-      <p className="tabular text-heading-72 text-amber-500">
+      <p className="tabular text-display text-amber-500">
         <Percent value={value} muted={false} />
       </p>
-      <p className="mt-2 text-copy-14 text-white/70">{label}</p>
+      <p className="mt-2 text-body text-white/70">{label}</p>
       {progress !== undefined ? (
         <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-white/15">
           <div

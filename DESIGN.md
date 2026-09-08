@@ -1,26 +1,33 @@
 # Design system
 
-This product follows **[Geist](https://vercel.com/geist)**, Vercel's design system.
-Geist is chosen for its restraint: flat surfaces, 1px borders, a fixed type ramp
-and a 4pt grid. That suits a tool people keep open all day better than a
-decorative system would.
+This product follows **[Fluent 2](https://fluent2.microsoft.design/)**,
+Microsoft's design system — the one Azure DevOps is built on. Fluent is chosen
+because this is a tool people keep open all day and read far more than they
+admire: a compact type ramp with no decorative tracking, a left rail that puts
+navigation in the same place on every screen, and rows dense enough that a
+fifteen-person team fits on one.
+
+It replaces Geist, which the first version followed. Geist is a display system —
+its ramp tracks tight and runs to 72px, and it earns that on a marketing page.
+Here it made a task list look like a landing page.
 
 **The rule: every value cites a token below. No arbitrary values — no
 `text-[12.5px]`, no `gap-x-14`, no one-off hex codes.**
 
 ---
 
-## What we take from Geist, and what we change
+## What we take from Fluent, and what we change
 
 | | |
 |---|---|
-| **Typeface** | **Substituted.** Instrument Sans replaces Geist Sans. Same brief — a neutral grotesque built for interfaces — but with terminals and a lowercase `g` that give a page title some voice at display sizes, where Geist read as anonymous. Geist Mono is kept for the rare monospaced run. |
-| **Type ramp** | Geist's `copy` / `label` / `heading` / `button` steps, verbatim. |
-| **Grid** | Geist's 4pt grid. |
-| **Colour structure** | Geist's 10-step scales with Geist's role-per-step semantics. |
-| **Colour values** | **Substituted.** The client's brand (blue `#5B88F7`, yellow `#FFC72C`) replaces Geist's own accent hues. The scale *structure* and step *roles* are unchanged, so components still read `blue-700` for a solid and `gray-400` for a border. |
+| **Typeface** | **Substituted.** Fluent specifies Segoe UI, which is a Microsoft licence and a Windows-only face in practice. Instrument Sans stands in: the same brief — a neutral grotesque built for interfaces — at the same sizes and weights. Geist Mono is kept for the rare monospaced run. |
+| **Type ramp** | Fluent's ramp, verbatim: caption / body / subtitle / title / display. Letter-spacing is zero at every size and headings are semibold, not bold. |
+| **Grid** | Fluent's 4pt grid. |
+| **Colour structure** | 10-step scales with a role per step, carried over from the first version — Fluent's own ramps are a different shape, but the discipline of picking a step by its job rather than by eye is the part worth keeping. |
+| **Colour values** | **Split.** The neutrals are Fluent's, which are a true grey rather than the blue-tinted grey a display system tends to use. The accents stay the client's brand (blue `#5B88F7`, yellow `#FFC72C`) rather than Fluent's communication blue `#0078D4` — the brief specifies the palette, and one token changes it if that is ever wrong. |
 | **Third-party UI** | **One import.** BlockNote provides the description editor. It arrives with its own greys, radii and font; `packages/ui/src/editor/blocknote.css` re-points every one of them at a token here. The Ariakit build, not the default Mantine one — `@mantine/hooks@9` calls React&rsquo;s `useEffectEvent`, which React 19.2 does not have. |
-| **Surfaces** | **One addition.** Geist has no dark editorial surface; the brief requires navy for leadership summaries. `navy` is a documented exception, used only for the Senior Director hero. |
+| **Icons** | **Substituted.** Fluent specifies Fluent UI System Icons; we use Lucide at `1.75` stroke, which is the same weight and metric and was already in the tree. Every icon is paired with its word — a bar of glyphs alone is a guessing game. |
+| **Surfaces** | **One addition.** Fluent has no dark editorial surface; the brief requires navy for leadership summaries. `navy` is a documented exception, used only for the Senior Director hero. |
 
 ---
 
@@ -45,10 +52,11 @@ Ten steps per scale. Each step has one job — pick by role, never by eye.
 
 ```
 background-100  #FFFFFF   the working surface
-background-200  #FAFBFC   the app shell
+background-200  #FAF9F8   the app shell
 
-gray      100 #F4F5F7  200 #EBECF0  300 #E1E3E9  400 #D2D5DE  500 #B4B8C4
-          600 #8B90A0  700 #6F7482  800 #4E5361  900 #363B49  1000 #202335
+gray      100 #F5F5F5  200 #EBEBEB  300 #E0E0E0  400 #D1D1D1  500 #B3B3B3
+          600 #8A8A8A  700 #707070  800 #575757  900 #3D3D3D  1000 #242424
+          ^ Fluent's neutrals: a true grey, no blue in it
 
 blue      100 #F1F5FE  200 #E4ECFD  300 #D0DEFC  400 #B6CCFB  500 #93B2F9
           600 #7099F8  700 #5B88F7  800 #4F79E8  900 #3A63C9  1000 #24407F
@@ -71,46 +79,51 @@ green     100 #EDF7F2  200 #D8EFE3  300 #B9E2CE  400 #8FD0B2  500 #63BC93
 - **Navy** (`#2D3148`) is the leadership hero only. Nowhere else.
 - **Amber** is the single most important number on a screen, and nothing else. Usually one per page.
 - **Red / green** report state, never decoration.
+- **Avatars** are the one place a colour is chosen by algorithm rather than by
+  meaning: a solid `900`-step disc with white initials, hashed from the name.
+  Solid rather than tinted because at 24px a filled disc is legible as a colour
+  before it is legible as letters, and every step used clears 5:1 against white.
 - Everything else is gray.
 
 ---
 
 ## Type
 
-Geist's ramp. Size, line-height, weight and tracking are fixed together —
-never mix a size from one step with the leading of another.
+Fluent's ramp. Size, line-height and weight are fixed together — never mix a
+size from one step with the leading of another.
+
+Two things separate it from the display ramp it replaced, and both are the
+point: **letter-spacing is zero at every size**, and **headings are semibold,
+not bold**. Nothing is tracked tight to look designed. A 32px title is a 32px
+title.
 
 ```
-copy-13     13 / 18   400   -0.24px    dense secondary text
-copy-14     14 / 20   400   -0.16px    body
-copy-16     16 / 24   400   -0.32px    lead paragraph
+caption          12 / 16   400   metadata, secondary detail
+caption-strong   12 / 16   600   eyebrows, column headers
 
-label-12    12 / 16   500   -0.02px    eyebrows, metadata
-label-14    14 / 20   500   -0.16px    table headers, form labels
-label-16    16 / 24   500   -0.32px    row titles
-label-18    18 / 24   500   -0.40px
-label-20    20 / 26   500   -0.44px
+body             14 / 20   400   the default
+body-strong      14 / 20   600   row titles, form labels, commands
+body-lg          16 / 22   400   lead paragraph
 
-heading-16  16 / 24   600   -0.32px
-heading-20  20 / 26   600   -0.40px    section titles
-heading-24  24 / 32   600   -0.58px    card titles
-heading-32  32 / 40   600   -1.28px    page titles
-heading-40  40 / 48   600   -1.60px
-heading-48  48 / 56   600   -2.16px    hero
-heading-64  64 / 72   600   -3.20px    the metric
-heading-72  72 / 80   600   -4.32px    the department number
+subtitle-2       16 / 22   600   card titles
+subtitle-1       20 / 26   600   section titles
 
-button-14   14 / 20   500   -0.16px
+title-3          24 / 32   600
+title-2          28 / 36   600
+title-1          32 / 40   600   page titles
 
-avatar-xs    9 / 1    500              initials in a 16px avatar
-avatar-sm   10 / 1    500              initials in a 24px avatar
+large-title      40 / 52   600   hero
+display          68 / 92   600   the department number
+
+avatar-xs         9 / 16   600   initials in a 16px avatar
+avatar-sm        11 / 24   600   initials in a 24px avatar
 ```
 
-`avatar-xs` and `avatar-sm` sit below Geist's smallest step. They exist because
-avatar initials at 16px and 24px genuinely need it, and they are named tokens so
-the rule holds: no value is picked by eye at a call site.
+`avatar-xs` and `avatar-sm` sit below Fluent's smallest step. They exist
+because avatar initials at 16px and 24px genuinely need it, and they are named
+tokens so the rule holds: no value is picked by eye at a call site.
 
-Weights stop at 600. Geist does not shout.
+Weights stop at 600. Fluent does not shout.
 
 Numbers in metrics use `tabular-nums` so they do not jitter as they change.
 
@@ -131,10 +144,14 @@ In Tailwind: `1 2 3 4 6 8 12 16 24`. Half steps (`1.5`, `3.5`), `5`, `7`, `9`,
 
 ## Radius
 
+Fluent's four steps. Squarer than a consumer system, which is what keeps a
+dense screen from reading as a toy.
+
 ```
-radius-6    6px    inputs, badges, small controls
-radius-8    8px    buttons, rows
-radius-12  12px    cards, panels
+radius-sm   2px    the smallest chips and marks
+radius-md   4px    inputs, buttons, commands, nav items
+radius-lg   6px    rows, cards
+radius-xl   8px    panels, dialogs
 rounded-full       avatars, pills, progress tracks
 ```
 
@@ -145,11 +162,14 @@ rounded-full       avatars, pills, progress tracks
 **Border first.** A 1px `gray-400` border is the default way to separate a
 surface. Shadow is for things that genuinely float above the page.
 
+Fluent pairs an ambient ring with a directional drop, so a raised surface
+reads as raised from any angle rather than only from above.
+
 ```
-flat      1px border, no shadow          cards, lists, panels
-shadow-small     0 1px 2px rgba(0,0,0,.04)   raised card, hover state
-shadow-medium    0 4px 8px rgba(0,0,0,.06)   popovers
-shadow-large     0 12px 24px rgba(0,0,0,.10) dialogs, dropdowns
+flat             1px border, no shadow                        cards, lists, panels
+shadow-small     0 1px 2px rgba(0,0,0,.14), 0 0 2px .12       raised card, hover
+shadow-medium    0 4px 8px rgba(0,0,0,.14), 0 0 2px .12       popovers
+shadow-large     0 8px 16px rgba(0,0,0,.14), 0 0 2px .12      dialogs, dropdowns
 ```
 
 The navy hero is the one surface allowed a coloured shadow.
@@ -158,6 +178,19 @@ The navy hero is the one surface allowed a coloured shadow.
 
 ## Components
 
-Built on shadcn/ui (Radix primitives), themed through the tokens above.
-Domain components live in `src/components/app/` and are shown, in every state,
-at **`/design`**. If a component is not on that page, it does not exist yet.
+Built on shadcn/ui over **Base UI** (not Radix — Base UI composes with a
+`render` prop where Radix uses `asChild`), themed through the tokens above.
+Domain components live in `packages/ui/src/components` and are shown, in every
+state, at **`/design`**. If a component is not on that page, it does not exist
+yet.
+
+### Layout
+
+Navigation is a **left rail**, not a top bar: the set is small, role-derived and
+never grows, so it can sit in the same place on every screen and hand the
+working area the full width of the window. The active item carries a leading
+bar as well as a tint, so it survives being read without colour.
+
+Page-level verbs go in a **command bar** under the title — icon plus word,
+divided into groups. A page has exactly one primary button, and it is never in
+there.

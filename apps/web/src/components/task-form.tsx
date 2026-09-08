@@ -36,7 +36,7 @@ export type TaskFormValues = {
   tags: string[];
 };
 
-const label = "mb-2 block text-label-12 uppercase tracking-[0.08em] text-gray-600";
+const label = "mb-2 block text-caption-strong uppercase tracking-[0.08em] text-gray-600";
 
 /**
  * Screen 2, kept deliberately thin: the eight fields the brief lists and
@@ -93,7 +93,7 @@ export function TaskForm({
       <input type="hidden" name="priority" value={priority} />
       <input type="hidden" name="status" value={status} />
 
-      <div className="space-y-6 rounded-12 border border-gray-400 bg-background-100 p-6">
+      <div className="space-y-6 rounded-xl border border-gray-400 bg-background-100 p-6">
         <div>
           <Label htmlFor="title" className={label}>
             Task title
@@ -104,7 +104,7 @@ export function TaskForm({
             required
             defaultValue={values.title}
             placeholder="What needs to happen?"
-            className="text-label-16"
+            className="text-subtitle-2"
           />
         </div>
 
@@ -126,7 +126,7 @@ export function TaskForm({
                 : undefined
             }
           />
-          <p className="mt-2 text-copy-13 text-gray-600">
+          <p className="mt-2 text-caption text-gray-600">
             {values.id
               ? "Drop an image or file into the description to attach it."
               : "Save the task first to attach files."}
@@ -206,7 +206,7 @@ export function TaskForm({
                     setTags((prev) => (on ? prev.filter((t) => t !== tag) : [...prev, tag]))
                   }
                   className={cn(
-                    "cursor-pointer rounded-6 border px-2 py-1 text-label-14 transition-colors",
+                    "cursor-pointer rounded-md border px-2 py-1 text-body-strong transition-colors",
                     on
                       ? "border-blue-700 bg-blue-100 text-blue-900"
                       : "border-gray-400 bg-background-100 text-gray-700 hover:border-gray-500 hover:text-gray-1000",
@@ -220,7 +220,7 @@ export function TaskForm({
         </div>
 
         {state?.error ? (
-          <p className="rounded-6 bg-red-100 px-3 py-2 text-copy-14 text-red-900">{state.error}</p>
+          <p className="rounded-md bg-red-100 px-3 py-2 text-body text-red-900">{state.error}</p>
         ) : null}
 
         <div className="flex items-center gap-4 border-t border-gray-300 pt-4">
@@ -233,9 +233,9 @@ export function TaskForm({
         </div>
       </div>
 
-      <aside className="rounded-12 border border-gray-400 bg-background-100 p-6 lg:sticky lg:top-24">
+      <aside className="rounded-xl border border-gray-400 bg-background-100 p-6 lg:sticky lg:top-24">
         <span className={label}>Assignees</span>
-        <p className="mb-3 text-copy-13 text-gray-700">
+        <p className="mb-3 text-caption text-gray-700">
           Pick more than one for shared work — completing it completes it for everyone.
         </p>
         <Input
@@ -247,14 +247,14 @@ export function TaskForm({
         <div className="max-h-96 space-y-4 overflow-y-auto pr-1">
           {grouped.map(([team, members]) => (
             <div key={team}>
-              <p className="mb-1.5 text-label-12 uppercase tracking-[0.08em] text-gray-600">
+              <p className="mb-1.5 text-caption-strong uppercase tracking-[0.08em] text-gray-600">
                 {team}
               </p>
               {members.map((p) => (
                 <label
                   key={p.id}
                   className={cn(
-                    "flex cursor-pointer items-center gap-2 rounded-6 px-2 py-1.5 text-copy-14 transition-colors",
+                    "flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-body transition-colors",
                     selected.includes(p.id) ? "bg-blue-100" : "hover:bg-gray-100",
                   )}
                 >
@@ -272,7 +272,7 @@ export function TaskForm({
           ))}
         </div>
         {selected.length > 1 ? (
-          <p className="mt-4 rounded-6 bg-blue-100 px-3 py-2 text-label-14 text-blue-900">
+          <p className="mt-4 rounded-md bg-blue-100 px-3 py-2 text-body-strong text-blue-900">
             Collaborative · {selected.length} people
           </p>
         ) : null}

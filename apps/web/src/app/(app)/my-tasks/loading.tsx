@@ -7,7 +7,7 @@ export default function Loading() {
       <PageHeaderSkeleton />
       <div className="mb-6 flex gap-2">
         {Array.from({ length: 5 }).map((_, i) => (
-          <Skeleton key={i} className="h-8 w-24 rounded-6" />
+          <Skeleton key={i} className="h-8 w-24 rounded-md" />
         ))}
       </div>
       <TaskListSkeleton rows={5} />

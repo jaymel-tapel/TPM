@@ -25,7 +25,7 @@ export type TeamCompareData = {
  */
 export function TeamCompare({ teams }: { teams: TeamCompareData[] }) {
   return (
-    <div className="divide-y divide-gray-300 overflow-hidden rounded-12 border border-gray-400 bg-background-100">
+    <div className="divide-y divide-gray-300 overflow-hidden rounded-xl border border-gray-400 bg-background-100">
       {teams.map((team) => (
         <Link
           key={team.id}
@@ -33,10 +33,10 @@ export function TeamCompare({ teams }: { teams: TeamCompareData[] }) {
           className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-6 gap-y-3 px-6 py-4 transition-colors hover:bg-gray-100 lg:grid-cols-[168px_minmax(0,34rem)_96px_minmax(192px,1fr)]"
         >
           <div className="min-w-0">
-            <div className="text-label-16 text-gray-1000">{team.name}</div>
+            <div className="text-subtitle-2 text-gray-1000">{team.name}</div>
             <div className="mt-1 flex items-center gap-2">
               {team.directorName ? <UserAvatar name={team.directorName} size="xs" /> : null}
-              <span className="truncate text-copy-13 text-gray-600">
+              <span className="truncate text-caption text-gray-600">
                 {team.directorName ?? "No director"}
               </span>
             </div>
@@ -44,12 +44,12 @@ export function TeamCompare({ teams }: { teams: TeamCompareData[] }) {
 
           <div className="col-span-2 flex items-center gap-4 lg:col-span-1">
             <Progress value={team.percent} className="h-2 min-w-0 flex-1" />
-            <span className="tabular w-12 shrink-0 text-right text-heading-20 text-gray-1000">
+            <span className="tabular w-12 shrink-0 text-right text-subtitle-1 text-gray-1000">
               {team.percent}%
             </span>
           </div>
 
-          <div className="tabular text-right text-copy-13 text-gray-600">
+          <div className="tabular text-right text-caption text-gray-600">
             <span className={team.overdue > 0 ? "text-red-700" : undefined}>{team.overdue}</span>{" "}
             overdue
           </div>

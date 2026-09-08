@@ -84,7 +84,7 @@ export function RichTextEditor({
         onChange={() => setValue(JSON.stringify(editor.document))}
       />
       {uploadError ? (
-        <p role="alert" className="mt-2 text-copy-13 text-red-700">
+        <p role="alert" className="mt-2 text-caption text-red-700">
           {uploadError}
         </p>
       ) : null}

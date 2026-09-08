@@ -2,16 +2,22 @@ import { Avatar, AvatarFallback } from "../primitives/avatar";
 import { cn } from "../lib/utils";
 
 /**
- * Tint chosen deterministically from the name, drawn from the scales in
+ * Fill chosen deterministically from the name, drawn from the scales in
  * DESIGN.md. People in a list of fifteen should be recognisable at a glance,
  * not a column of identical rows.
+ *
+ * Solid with white initials, not a pale tint with dark ones. A tint at 24px
+ * leaves the glyphs doing all the work of telling people apart, and it is the
+ * glyphs that are hardest to read at that size; a filled disc is legible as a
+ * colour before it is legible as letters. Every step here clears 5:1 against
+ * white, which the lighter solids in each scale do not.
  */
-const TINTS = [
-  "bg-blue-200 text-blue-1000",
-  "bg-amber-200 text-amber-1000",
-  "bg-green-200 text-green-1000",
-  "bg-red-200 text-red-1000",
-  "bg-gray-200 text-gray-1000",
+const FILLS = [
+  "bg-blue-900 text-white",
+  "bg-amber-900 text-white",
+  "bg-green-900 text-white",
+  "bg-red-900 text-white",
+  "bg-gray-800 text-white",
 ];
 
 /**
@@ -19,7 +25,7 @@ const TINTS = [
  * congruent to 1 mod 5, so the multiply never reaches the low bits and every
  * name of similar length lands on the same tint.
  */
-function tintFor(name: string) {
+function fillFor(name: string) {
   let hash = 2166136261;
   for (const ch of name) {
     hash ^= ch.charCodeAt(0);
@@ -28,7 +34,7 @@ function tintFor(name: string) {
   hash ^= hash >>> 15;
   hash = Math.imul(hash, 2246822507);
   hash ^= hash >>> 13;
-  return TINTS[(hash >>> 0) % TINTS.length];
+  return FILLS[(hash >>> 0) % FILLS.length];
 }
 
 export function initials(name: string): string {
@@ -36,13 +42,16 @@ export function initials(name: string): string {
   return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase();
 }
 
-/** Sizes come off the 4pt grid: 16 / 24 / 32 / 40 / 64. */
+/**
+ * Sizes come off the 4pt grid: 16 / 24 / 32 / 40 / 64, each paired with its own
+ * avatar step so the initials keep the same proportion at every size.
+ */
 const SIZES = {
   xs: "size-4 text-avatar-xs",
   sm: "size-6 text-avatar-sm",
-  md: "size-8 text-label-12",
-  lg: "size-10 text-label-14",
-  xl: "size-16 text-label-20",
+  md: "size-8 text-avatar-md",
+  lg: "size-10 text-avatar-lg",
+  xl: "size-16 text-avatar-xl",
 } as const;
 
 export type AvatarSize = keyof typeof SIZES;
@@ -64,7 +73,9 @@ export function UserAvatar({
       className={cn(SIZES[size], ring && "ring-2 ring-background-100", className)}
       title={name}
     >
-      <AvatarFallback className={cn("font-medium", tintFor(name))}>
+      {/* `tracking-tight` because two wide capitals in a small disc need the
+          pair kerned in, not the type shrunk further. */}
+      <AvatarFallback className={cn("tracking-tight", fillFor(name))}>
         {initials(name)}
       </AvatarFallback>
     </Avatar>
@@ -95,7 +106,8 @@ export function AvatarStack({
       {extra > 0 ? (
         <span
           className={cn(
-            "inline-grid place-items-center rounded-full bg-gray-200 font-medium text-gray-700 ring-2 ring-background-100",
+            // No initials, so it reads as a count rather than a person.
+            "inline-grid place-items-center rounded-full bg-gray-600 text-white ring-2 ring-background-100",
             SIZES[size],
           )}
         >

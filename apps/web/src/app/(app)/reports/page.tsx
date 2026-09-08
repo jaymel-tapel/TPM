@@ -100,9 +100,9 @@ export default async function ReportsPage() {
                   key={row.type}
                   className="grid grid-cols-[minmax(0,1fr)_96px_48px] items-center gap-4 py-3"
                 >
-                  <TypeLabel type={row.type} className="truncate text-label-14 text-gray-1000" />
+                  <TypeLabel type={row.type} className="truncate text-body-strong text-gray-1000" />
                   <Progress value={row.percent} className="h-1.5" />
-                  <span className="tabular text-right text-label-14 text-gray-1000">
+                  <span className="tabular text-right text-body-strong text-gray-1000">
                     {row.percent}%
                   </span>
                 </div>
@@ -119,16 +119,16 @@ export default async function ReportsPage() {
                   className="grid grid-cols-[auto_minmax(0,1fr)_auto_48px] items-center gap-3 py-2.5"
                 >
                   <UserAvatar name={row.name} size="sm" />
-                  <span className="min-w-0 truncate text-label-14 text-gray-1000">
+                  <span className="min-w-0 truncate text-body-strong text-gray-1000">
                     {row.name}
                     {senior ? (
-                      <span className="ml-2 text-copy-13 text-gray-600">{row.teamName}</span>
+                      <span className="ml-2 text-caption text-gray-600">{row.teamName}</span>
                     ) : null}
                   </span>
-                  <span className="tabular whitespace-nowrap text-copy-13 text-gray-600">
+                  <span className="tabular whitespace-nowrap text-caption text-gray-600">
                     {row.done} / {row.due}
                   </span>
-                  <span className="tabular text-right text-label-14 text-gray-1000">
+                  <span className="tabular text-right text-body-strong text-gray-1000">
                     {row.percent}%
                   </span>
                 </div>

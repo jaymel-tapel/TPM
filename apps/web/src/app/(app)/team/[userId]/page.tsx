@@ -43,16 +43,16 @@ export default async function PersonPage({
         <div className="flex items-center gap-4">
           <UserAvatar name={person.name} size="xl" />
           <div>
-            <p className="text-label-12 uppercase tracking-[0.08em] text-gray-600">
+            <p className="text-caption-strong uppercase tracking-[0.08em] text-gray-600">
               {ROLE_LABELS[person.role]}
             </p>
-            <h1 className="mt-2 text-heading-32 text-gray-1000">{person.name}</h1>
-            <p className="mt-1 text-copy-14 text-gray-700">{fmtLongDate(now())}</p>
+            <h1 className="mt-2 text-title-1 text-gray-1000">{person.name}</h1>
+            <p className="mt-1 text-body text-gray-700">{fmtLongDate(now())}</p>
           </div>
         </div>
         <Link
           href={viewer.role === "senior_director" ? "/teams" : "/team"}
-          className="text-label-14 text-blue-700 hover:text-blue-800"
+          className="text-body-strong text-blue-700 hover:text-blue-800"
         >
           ← Back to team
         </Link>
@@ -95,7 +95,7 @@ export default async function PersonPage({
 
       {day.today.length === 0 ? (
         <section>
-          <p className="mb-3 text-label-12 uppercase tracking-[0.08em] text-gray-600">Today</p>
+          <p className="mb-3 text-caption-strong uppercase tracking-[0.08em] text-gray-600">Today</p>
           <EmptyState>Nothing left for today.</EmptyState>
         </section>
       ) : (

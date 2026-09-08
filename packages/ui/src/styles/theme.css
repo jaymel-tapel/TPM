@@ -13,10 +13,11 @@
 
 /*
  * ─────────────────────────────────────────────────────────────────────────
- * Geist design system — see DESIGN.md
+ * Fluent 2 — see DESIGN.md
  *
- * Ten steps per scale, one job per step. The client's brand replaces Geist's
- * own accent hues; the structure and the role of each step are Geist's.
+ * Ten steps per scale, one job per step. The client's brand replaces Fluent's
+ * communication blue; the neutrals are Fluent's own, which are a true grey
+ * rather than the blue-tinted one a display-led system tends to use.
  *
  *   100 subtle bg · 200 subtle bg hover · 300 muted bg · 400 BORDER
  *   500 border hover / disabled · 600 placeholder · 700 SOLID / secondary text
@@ -28,18 +29,18 @@
  */
 @theme static {
   --color-background-100: #ffffff;
-  --color-background-200: #fafbfc;
+  --color-background-200: #faf9f8;
 
-  --color-gray-100: #f4f5f7;
-  --color-gray-200: #ebecf0;
-  --color-gray-300: #e1e3e9;
-  --color-gray-400: #d2d5de;
-  --color-gray-500: #b4b8c4;
-  --color-gray-600: #8b90a0;
-  --color-gray-700: #6f7482;
-  --color-gray-800: #4e5361;
-  --color-gray-900: #363b49;
-  --color-gray-1000: #202335;
+  --color-gray-100: #f5f5f5;
+  --color-gray-200: #ebebeb;
+  --color-gray-300: #e0e0e0;
+  --color-gray-400: #d1d1d1;
+  --color-gray-500: #b3b3b3;
+  --color-gray-600: #8a8a8a;
+  --color-gray-700: #707070;
+  --color-gray-800: #575757;
+  --color-gray-900: #3d3d3d;
+  --color-gray-1000: #242424;
 
   --color-blue-100: #f1f5fe;
   --color-blue-200: #e4ecfd;
@@ -90,95 +91,95 @@
   --color-navy: #2d3148;
   --color-navy-800: #373c55;
 
-  /* ── Type ramp. Size, leading, weight and tracking travel together. ── */
-  --text-copy-13: 13px;
-  --text-copy-13--line-height: 18px;
-  --text-copy-13--letter-spacing: -0.24px;
-  --text-copy-14: 14px;
-  --text-copy-14--line-height: 20px;
-  --text-copy-14--letter-spacing: -0.16px;
-  --text-copy-16: 16px;
-  --text-copy-16--line-height: 24px;
-  --text-copy-16--letter-spacing: -0.32px;
+  /*
+   * ── Type ramp: Fluent 2, verbatim. ──
+   *
+   * Two things separate it from a display-led ramp, and both matter for a
+   * tool people read all day: letter-spacing is zero at every size, and
+   * headings are semibold rather than bold. Nothing here is tracked tight to
+   * look designed — a 32px title is just a 32px title.
+   */
+  --text-caption: 12px;
+  --text-caption--line-height: 16px;
+  --text-caption--font-weight: 400;
+  --text-caption-strong: 12px;
+  --text-caption-strong--line-height: 16px;
+  --text-caption-strong--font-weight: 600;
 
-  --text-label-12: 12px;
-  --text-label-12--line-height: 16px;
-  --text-label-12--letter-spacing: -0.02px;
-  --text-label-12--font-weight: 500;
-  --text-label-14: 14px;
-  --text-label-14--line-height: 20px;
-  --text-label-14--letter-spacing: -0.16px;
-  --text-label-14--font-weight: 500;
-  --text-label-16: 16px;
-  --text-label-16--line-height: 24px;
-  --text-label-16--letter-spacing: -0.32px;
-  --text-label-16--font-weight: 500;
-  --text-label-18: 18px;
-  --text-label-18--line-height: 24px;
-  --text-label-18--letter-spacing: -0.4px;
-  --text-label-18--font-weight: 500;
-  --text-label-20: 20px;
-  --text-label-20--line-height: 26px;
-  --text-label-20--letter-spacing: -0.44px;
-  --text-label-20--font-weight: 500;
+  --text-body: 14px;
+  --text-body--line-height: 20px;
+  --text-body--font-weight: 400;
+  --text-body-strong: 14px;
+  --text-body-strong--line-height: 20px;
+  --text-body-strong--font-weight: 600;
 
-  --text-heading-16: 16px;
-  --text-heading-16--line-height: 24px;
-  --text-heading-16--letter-spacing: -0.32px;
-  --text-heading-16--font-weight: 600;
-  --text-heading-20: 20px;
-  --text-heading-20--line-height: 26px;
-  --text-heading-20--letter-spacing: -0.4px;
-  --text-heading-20--font-weight: 600;
-  --text-heading-24: 24px;
-  --text-heading-24--line-height: 32px;
-  --text-heading-24--letter-spacing: -0.58px;
-  --text-heading-24--font-weight: 600;
-  --text-heading-32: 32px;
-  --text-heading-32--line-height: 40px;
-  --text-heading-32--letter-spacing: -1.28px;
-  --text-heading-32--font-weight: 600;
-  --text-heading-40: 40px;
-  --text-heading-40--line-height: 48px;
-  --text-heading-40--letter-spacing: -1.6px;
-  --text-heading-40--font-weight: 600;
-  --text-heading-48: 48px;
-  --text-heading-48--line-height: 56px;
-  --text-heading-48--letter-spacing: -2.16px;
-  --text-heading-48--font-weight: 600;
-  --text-heading-64: 64px;
-  --text-heading-64--line-height: 72px;
-  --text-heading-64--letter-spacing: -3.2px;
-  --text-heading-64--font-weight: 600;
-  --text-heading-72: 72px;
-  --text-heading-72--line-height: 80px;
-  --text-heading-72--letter-spacing: -4.32px;
-  --text-heading-72--font-weight: 600;
+  --text-body-lg: 16px;
+  --text-body-lg--line-height: 22px;
+  --text-body-lg--font-weight: 400;
 
-  /* Avatar initials at 16px and 24px sit below the ramp's smallest step.
-     Named here rather than left as arbitrary values at the call site. */
-  --text-avatar-xs: 9px;
+  --text-subtitle-2: 16px;
+  --text-subtitle-2--line-height: 22px;
+  --text-subtitle-2--font-weight: 600;
+  --text-subtitle-1: 20px;
+  --text-subtitle-1--line-height: 26px;
+  --text-subtitle-1--font-weight: 600;
+
+  --text-title-3: 24px;
+  --text-title-3--line-height: 32px;
+  --text-title-3--font-weight: 600;
+  --text-title-2: 28px;
+  --text-title-2--line-height: 36px;
+  --text-title-2--font-weight: 600;
+  --text-title-1: 32px;
+  --text-title-1--line-height: 40px;
+  --text-title-1--font-weight: 600;
+
+  --text-large-title: 40px;
+  --text-large-title--line-height: 52px;
+  --text-large-title--font-weight: 600;
+  --text-display: 68px;
+  --text-display--line-height: 92px;
+  --text-display--font-weight: 600;
+
+  /*
+   * Avatar initials sit below the ramp's smallest step, so they get their own
+   * named steps rather than arbitrary values at the call site.
+   *
+   * Every one is 37.5% of its circle, so a 24px avatar and a 64px avatar look
+   * like the same avatar at two sizes. They did not: `sm` was set by eye at
+   * 46%, which is why two wide capitals touched the edge of the ring while the
+   * larger sizes sat comfortably inside it. The 16px step is the exception —
+   * 6px is not readable, so it takes the floor at 8px.
+   */
+  --text-avatar-xs: 8px;
   --text-avatar-xs--line-height: 1;
-  --text-avatar-xs--font-weight: 500;
-  --text-avatar-sm: 10px;
+  --text-avatar-xs--font-weight: 600;
+  --text-avatar-sm: 9px;
   --text-avatar-sm--line-height: 1;
-  --text-avatar-sm--font-weight: 500;
+  --text-avatar-sm--font-weight: 600;
+  --text-avatar-md: 12px;
+  --text-avatar-md--line-height: 1;
+  --text-avatar-md--font-weight: 600;
+  --text-avatar-lg: 15px;
+  --text-avatar-lg--line-height: 1;
+  --text-avatar-lg--font-weight: 600;
+  --text-avatar-xl: 24px;
+  --text-avatar-xl--line-height: 1;
+  --text-avatar-xl--font-weight: 600;
 
-  --text-button-14: 14px;
-  --text-button-14--line-height: 20px;
-  --text-button-14--letter-spacing: -0.16px;
-  --text-button-14--font-weight: 500;
+  /* ── Radius: Fluent's four steps. Squarer than a consumer system, which
+       is what keeps a dense screen from looking like a toy. ── */
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 6px;
+  --radius-xl: 8px;
 
-  /* ── Radius: three steps. ── */
-  --radius-6: 6px;
-  --radius-8: 8px;
-  --radius-12: 12px;
-
-  /* ── Elevation: border first. Shadow only for what truly floats. ── */
-  --shadow-small: 0 1px 2px rgba(32, 35, 53, 0.04);
-  --shadow-medium: 0 4px 8px rgba(32, 35, 53, 0.06);
-  --shadow-large: 0 12px 24px rgba(32, 35, 53, 0.1);
-  --shadow-navy: 0 12px 32px -8px rgba(45, 49, 72, 0.32);
+  /* ── Elevation: Fluent's shadow pairs — an ambient ring plus a directional
+       drop, so a raised surface reads as raised from any angle. ── */
+  --shadow-small: 0 1px 2px rgba(0, 0, 0, 0.14), 0 0 2px rgba(0, 0, 0, 0.12);
+  --shadow-medium: 0 4px 8px rgba(0, 0, 0, 0.14), 0 0 2px rgba(0, 0, 0, 0.12);
+  --shadow-large: 0 8px 16px rgba(0, 0, 0, 0.14), 0 0 2px rgba(0, 0, 0, 0.12);
+  --shadow-navy: 0 8px 16px rgba(36, 36, 36, 0.24), 0 0 2px rgba(36, 36, 36, 0.12);
 }
 
 /*
@@ -186,7 +187,7 @@
  * component inherits the system instead of being re-skinned one at a time.
  */
 :root {
-  --radius: 8px;
+  --radius: var(--radius-md);
 
   --background: var(--color-background-200);
   --foreground: var(--color-gray-1000);
@@ -273,7 +274,7 @@
     @apply border-border outline-ring/40;
   }
   body {
-    @apply bg-background text-foreground text-copy-14;
+    @apply bg-background text-foreground text-body;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }

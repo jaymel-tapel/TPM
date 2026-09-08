@@ -15,7 +15,7 @@ export default function Loading() {
       </div>
       <aside className="space-y-4">
         <Skeleton className="h-9 w-full" />
-        <Skeleton className="h-44 w-full rounded-12" />
+        <Skeleton className="h-44 w-full rounded-xl" />
       </aside>
     </div>
   );

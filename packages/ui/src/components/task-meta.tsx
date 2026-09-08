@@ -1,3 +1,11 @@
+import {
+  Briefcase,
+  ClipboardList,
+  Eye,
+  Palette,
+  Settings2,
+  Users,
+} from "lucide-react";
 import { cn } from "../lib/utils";
 import {
   PRIORITY_LABELS,
@@ -9,24 +17,34 @@ import {
 } from "../types";
 
 /**
- * Task types are told apart by a dot drawn from the scales, not by a filled
- * badge — a list of tasks should never turn into a colour chart.
+ * A work-item glyph per type, tinted from the scales. An icon is recognisable
+ * before it is read, which is what makes a long list scannable; the colour is
+ * the same one the dot used, so nothing about the palette changed — only the
+ * shape carrying it. The label always stays: six glyphs are six things to
+ * learn, and nobody should have to.
  */
-const TYPE_DOT: Record<TaskType, string> = {
-  client_work: "bg-blue-700",
-  review: "bg-blue-400",
-  creative: "bg-red-500",
-  meeting: "bg-green-600",
-  internal: "bg-gray-500",
-  admin: "bg-amber-500",
+const TYPE_ICON: Record<TaskType, { icon: typeof Briefcase; tone: string }> = {
+  client_work: { icon: Briefcase, tone: "text-blue-700" },
+  review: { icon: Eye, tone: "text-blue-500" },
+  creative: { icon: Palette, tone: "text-red-600" },
+  meeting: { icon: Users, tone: "text-green-700" },
+  internal: { icon: ClipboardList, tone: "text-gray-600" },
+  admin: { icon: Settings2, tone: "text-amber-600" },
 };
 
-export const TASK_TYPES_ORDER = Object.keys(TYPE_DOT) as TaskType[];
+export const TASK_TYPES_ORDER = Object.keys(TYPE_ICON) as TaskType[];
+
+export function TypeIcon({ type, className }: { type: TaskType; className?: string }) {
+  const { icon: Icon, tone } = TYPE_ICON[type];
+  return (
+    <Icon aria-hidden className={cn("size-3.5 shrink-0", tone, className)} strokeWidth={1.75} />
+  );
+}
 
 export function TypeLabel({ type, className }: { type: TaskType; className?: string }) {
   return (
-    <span className={cn("inline-flex items-center gap-2", className)}>
-      <span aria-hidden className={cn("size-1.5 shrink-0 rounded-full", TYPE_DOT[type])} />
+    <span className={cn("inline-flex items-center gap-1.5", className)}>
+      <TypeIcon type={type} />
       {TASK_TYPE_LABELS[type]}
     </span>
   );
@@ -40,7 +58,7 @@ export function PriorityLabel({ priority }: { priority: Priority }) {
 
 export function TagBadge({ children }: { children: React.ReactNode }) {
   return (
-    <span className="rounded-6 bg-gray-100 px-1.5 text-label-12 text-gray-700">{children}</span>
+    <span className="rounded-md bg-gray-100 px-1.5 text-caption-strong text-gray-700">{children}</span>
   );
 }
 
@@ -68,7 +86,7 @@ export function StatusMark({ status, className }: { status: TaskStatus; classNam
     <span
       aria-label={STATUS_LABELS[status]}
       className={cn(
-        "inline-flex size-5 shrink-0 items-center justify-center rounded-full border text-copy-13 font-medium leading-none transition-colors",
+        "inline-flex size-5 shrink-0 items-center justify-center rounded-full border text-caption font-medium leading-none transition-colors",
         STATUS_STYLES[status],
         className,
       )}

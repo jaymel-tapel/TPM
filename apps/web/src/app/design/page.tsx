@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsList, TabsTrigger } from "@meridian/ui/primitives/tabs";
 import { Textarea } from "@meridian/ui/primitives/textarea";
 import { RichTextEditor, RichTextView } from "@meridian/ui/editor";
+import { Columns3, List, Plus, Trash2 } from "lucide-react";
 import {
   AvatarStack,
   CompletionMeter,
@@ -33,6 +34,9 @@ import {
   StatBandSkeleton,
   StatusBadge,
   AttachmentList,
+  Command,
+  CommandBar,
+  CommandDivider,
   TaskBoard,
   TaskListSkeleton,
   TeamCompare,
@@ -43,7 +47,6 @@ import {
   TaskRow,
   TypeLabel,
   UserAvatar,
-  ViewToggle,
   type TaskType,
   TrendStrip,
 } from "@meridian/ui";
@@ -75,7 +78,7 @@ function Block({
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="grid gap-3 border-b border-gray-300 py-4 first:pt-0 last:border-b-0 last:pb-0 sm:grid-cols-[160px_minmax(0,1fr)] sm:items-center sm:gap-6">
-      <div className="text-copy-13 text-gray-600">{label}</div>
+      <div className="text-caption text-gray-600">{label}</div>
       <div className="flex flex-wrap items-center gap-3">{children}</div>
     </div>
   );
@@ -99,8 +102,8 @@ function Scale({ name, prefix }: { name: string; prefix: string }) {
   const steps = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000];
   return (
     <div>
-      <div className="mb-2 text-label-14 text-gray-1000">{name}</div>
-      <div className="flex overflow-hidden rounded-8 border border-gray-400">
+      <div className="mb-2 text-body-strong text-gray-1000">{name}</div>
+      <div className="flex overflow-hidden rounded-lg border border-gray-400">
         {steps.map((s) => (
           // Referenced through the CSS variable rather than a built class name,
           // so Tailwind never has to guess at a dynamic string.
@@ -113,7 +116,7 @@ function Scale({ name, prefix }: { name: string; prefix: string }) {
       </div>
       <div className="mt-1 flex">
         {steps.map((s) => (
-          <div key={s} className="flex-1 text-center text-label-12 text-gray-600">
+          <div key={s} className="flex-1 text-center text-caption-strong text-gray-600">
             {s}
           </div>
         ))}
@@ -129,13 +132,13 @@ export default function DesignSystemPage() {
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-30 border-b border-gray-400 bg-background-100">
         <div className="mx-auto flex h-16 max-w-5xl items-center gap-3 px-6">
-          <span className="grid size-6 place-items-center rounded-6 bg-blue-700 text-label-12 text-white">
+          <span className="grid size-6 place-items-center rounded-md bg-blue-700 text-caption-strong text-white">
             M
           </span>
-          <span className="text-label-14 text-gray-1000">Meridian</span>
+          <span className="text-body-strong text-gray-1000">Meridian</span>
           <Badge variant="secondary">Design system</Badge>
-          <span className="ml-auto text-copy-13 text-gray-600">
-            Following Geist · see DESIGN.md
+          <span className="ml-auto text-caption text-gray-600">
+            Following Fluent 2 · see DESIGN.md
           </span>
         </div>
       </header>
@@ -146,11 +149,13 @@ export default function DesignSystemPage() {
           title="The system before the screens"
           subtitle={
             <>
-              This product follows <strong className="text-gray-1000">Geist</strong>, Vercel&rsquo;s
-              design system: flat surfaces, 1px borders, a fixed type ramp and a 4pt grid. The
-              client&rsquo;s brand replaces Geist&rsquo;s accent hues; the scale structure and the
-              role of every step are Geist&rsquo;s. Every value on this page cites a token — no
-              arbitrary sizes, no one-off hex codes.
+              This product follows <strong className="text-gray-1000">Fluent 2</strong>,
+              Microsoft&rsquo;s design system — the one Azure DevOps is built on. Compact type
+              with no decorative tracking, a true-grey neutral ramp, square-ish radii and rows
+              dense enough that a fifteen-person team fits on one screen. The client&rsquo;s
+              brand replaces Fluent&rsquo;s communication blue; the neutrals are Fluent&rsquo;s
+              own. Every value on this page cites a token — no arbitrary sizes, no one-off hex
+              codes.
             </>
           }
         />
@@ -158,7 +163,7 @@ export default function DesignSystemPage() {
         {/* ── Colour ───────────────────────────────────────────────── */}
 
         <Block title="Colour" note="Ten steps. One job per step.">
-          <div className="mb-6 grid gap-x-6 gap-y-1 text-copy-13 text-gray-700 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="mb-6 grid gap-x-6 gap-y-1 text-caption text-gray-700 sm:grid-cols-2 lg:grid-cols-5">
             {STEP_ROLES.map((role, i) => (
               <div key={role} className="flex gap-2">
                 <span className="tabular w-9 shrink-0 text-gray-500">{(i + 1) * 100}</span>
@@ -177,42 +182,42 @@ export default function DesignSystemPage() {
           <Separator className="my-6" />
           <Row label="Surfaces">
             <div className="flex items-center gap-2">
-              <span className="size-8 rounded-6 border border-gray-400 bg-background-100" />
-              <span className="text-copy-13 text-gray-700">background-100 · working surface</span>
+              <span className="size-8 rounded-md border border-gray-400 bg-background-100" />
+              <span className="text-caption text-gray-700">background-100 · working surface</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="size-8 rounded-6 border border-gray-400 bg-background-200" />
-              <span className="text-copy-13 text-gray-700">background-200 · app shell</span>
+              <span className="size-8 rounded-md border border-gray-400 bg-background-200" />
+              <span className="text-caption text-gray-700">background-200 · app shell</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="size-8 rounded-6 bg-navy" />
-              <span className="text-copy-13 text-gray-700">navy · leadership hero only</span>
+              <span className="size-8 rounded-md bg-navy" />
+              <span className="text-caption text-gray-700">navy · leadership hero only</span>
             </div>
           </Row>
         </Block>
 
         {/* ── Type ─────────────────────────────────────────────────── */}
 
-        <Block title="Type" note="Geist ramp. Size, leading, weight and tracking travel together.">
+        <Block title="Type" note="Fluent ramp. Zero tracking at every size; headings semibold, not bold.">
           <div className="space-y-4">
             {[
-              ["heading-72", "text-heading-72", "78%"],
-              ["heading-48", "text-heading-48", "Team A"],
-              ["heading-32", "text-heading-32", "Good morning, Anna"],
-              ["heading-24", "text-heading-24", "Department Today"],
-              ["heading-20", "text-heading-20", "Team Members"],
-              ["label-16", "text-label-16", "Send client performance report"],
-              ["label-14", "text-label-14", "Review campaign launch assets"],
-              ["copy-16", "text-copy-16", "The system should answer questions directly."],
-              ["copy-14", "text-copy-14", "Client Work · Nike · Today, 2:00 PM"],
-              ["copy-13", "text-copy-13", "3 of 5 tasks completed today"],
-              ["label-12", "text-label-12 uppercase tracking-[0.08em]", "Today"],
+              ["display", "text-display", "78%"],
+              ["large-title", "text-large-title", "Team A"],
+              ["title-1", "text-title-1", "Good morning, Anna"],
+              ["title-3", "text-title-3", "Department Today"],
+              ["subtitle-1", "text-subtitle-1", "Team Members"],
+              ["subtitle-2", "text-subtitle-2", "Send client performance report"],
+              ["body-strong", "text-body-strong", "Review campaign launch assets"],
+              ["body-lg", "text-body-lg", "The system should answer questions directly."],
+              ["body", "text-body", "Client Work · Nike · Today, 2:00 PM"],
+              ["caption", "text-caption", "3 of 5 tasks completed today"],
+              ["caption-strong", "text-caption-strong uppercase tracking-[0.08em]", "Today"],
             ].map(([name, cls, sample]) => (
               <div
                 key={name}
                 className="grid items-baseline gap-2 border-b border-gray-300 pb-4 last:border-b-0 last:pb-0 sm:grid-cols-[112px_minmax(0,1fr)] sm:gap-6"
               >
-                <code className="text-copy-13 text-gray-600">{name}</code>
+                <code className="text-caption text-gray-600">{name}</code>
                 <div className={`${cls} text-gray-1000`}>{sample}</div>
               </div>
             ))}
@@ -221,7 +226,7 @@ export default function DesignSystemPage() {
 
         {/* ── Space, radius, elevation ─────────────────────────────── */}
 
-        <Block title="Space, radius & elevation" note="4pt grid. Border first.">
+        <Block title="Space, radius & elevation" note="4pt grid. Border first; Fluent shadows for what floats.">
           <Row label="Space">
             {[
               ["1", "4", "w-1"],
@@ -234,21 +239,22 @@ export default function DesignSystemPage() {
               ["16", "64", "w-16"],
             ].map(([step, px, cls]) => (
               <div key={step} className="text-center">
-                <div className={`${cls} h-8 rounded-6 bg-blue-300`} />
-                <div className="mt-1 text-label-12 text-gray-600">{px}</div>
+                <div className={`${cls} h-8 rounded-md bg-blue-300`} />
+                <div className="mt-1 text-caption-strong text-gray-600">{px}</div>
               </div>
             ))}
           </Row>
           <Row label="Radius">
             {[
-              ["radius-6", "rounded-6", "inputs, badges"],
-              ["radius-8", "rounded-8", "buttons, rows"],
-              ["radius-12", "rounded-12", "cards, panels"],
+              ["radius-sm", "rounded-sm", "chips, marks"],
+              ["radius-md", "rounded-md", "inputs, buttons, commands"],
+              ["radius-lg", "rounded-lg", "rows, cards"],
+              ["radius-xl", "rounded-xl", "panels, dialogs"],
             ].map(([name, cls, use]) => (
               <div key={name} className="w-32">
                 <div className={`h-12 border border-gray-400 bg-gray-100 ${cls}`} />
-                <div className="mt-1 text-label-12 text-gray-1000">{name}</div>
-                <div className="text-copy-13 text-gray-600">{use}</div>
+                <div className="mt-1 text-caption-strong text-gray-1000">{name}</div>
+                <div className="text-caption text-gray-600">{use}</div>
               </div>
             ))}
           </Row>
@@ -260,9 +266,9 @@ export default function DesignSystemPage() {
               ["shadow-large", "shadow-large", "dialogs"],
             ].map(([name, cls, use]) => (
               <div key={name} className="w-32">
-                <div className={`h-12 rounded-12 bg-background-100 ${cls}`} />
-                <div className="mt-1 text-label-12 text-gray-1000">{name}</div>
-                <div className="text-copy-13 text-gray-600">{use}</div>
+                <div className={`h-12 rounded-xl bg-background-100 ${cls}`} />
+                <div className="mt-1 text-caption-strong text-gray-1000">{name}</div>
+                <div className="text-caption text-gray-600">{use}</div>
               </div>
             ))}
           </Row>
@@ -355,7 +361,7 @@ export default function DesignSystemPage() {
 
         {/* ── Domain ───────────────────────────────────────────────── */}
 
-        <Block title="People" note="Tint chosen deterministically from the name">
+        <Block title="People" note="Filled disc, coloured deterministically from the name">
           <Row label="Sizes">
             <UserAvatar name="Anna Santos" size="xs" />
             <UserAvatar name="Anna Santos" size="sm" />
@@ -388,13 +394,13 @@ export default function DesignSystemPage() {
           </Row>
           <Row label="Task type">
             {TASK_TYPES_ORDER.map((t) => (
-              <TypeLabel key={t} type={t} className="text-copy-13 text-gray-700" />
+              <TypeLabel key={t} type={t} className="text-caption text-gray-700" />
             ))}
           </Row>
           <Row label="Priority">
             <PriorityLabel priority="high" />
             <PriorityLabel priority="urgent" />
-            <span className="text-copy-13 text-gray-500">Normal priority is never shown</span>
+            <span className="text-caption text-gray-500">Normal priority is never shown</span>
           </Row>
         </Block>
 
@@ -425,7 +431,7 @@ export default function DesignSystemPage() {
         </Block>
 
         <Block title="Description" note="Rich text, and the files that come with it">
-          <p className="mb-6 max-w-prose text-copy-13 text-gray-700">
+          <p className="mb-6 max-w-prose text-caption text-gray-700">
             BlockNote wearing this system&rsquo;s tokens rather than its own skin. Dropping a
             file into the prose uploads it and records it as an attachment, so there is one
             list of everything on a task instead of two. The column stores the document as
@@ -433,13 +439,13 @@ export default function DesignSystemPage() {
           </p>
           <div className="grid gap-6 lg:grid-cols-2">
             <div>
-              <p className="mb-2 text-label-12 uppercase tracking-[0.08em] text-gray-600">
+              <p className="mb-2 text-caption-strong uppercase tracking-[0.08em] text-gray-600">
                 Editing
               </p>
               <RichTextEditor name="design-description" defaultValue="Client moved the launch up. Deck needs a rebuild before Friday." />
             </div>
             <div>
-              <p className="mb-2 text-label-12 uppercase tracking-[0.08em] text-gray-600">
+              <p className="mb-2 text-caption-strong uppercase tracking-[0.08em] text-gray-600">
                 Reading
               </p>
               <RichTextView value="Client moved the launch up. Deck needs a rebuild before Friday." />
@@ -451,17 +457,39 @@ export default function DesignSystemPage() {
           </div>
         </Block>
 
+        <Block title="Command bar" note="Page verbs, in the same place on every screen">
+          <p className="mb-6 max-w-prose text-body text-gray-700">
+            Icon plus word, divided into groups. The icon makes the row scannable and the
+            word makes it unambiguous — a bar of glyphs alone is a guessing game. A page has
+            exactly one primary button and it is never in here.
+          </p>
+          <CommandBar>
+            <Command icon={Plus} href="#" tone="primary">
+              New Task
+            </Command>
+            <CommandDivider />
+            <Command icon={List} href="#">
+              List
+            </Command>
+            <Command icon={Columns3} href="#" active>
+              Board
+            </Command>
+            <CommandDivider />
+            <Command icon={Trash2} href="#" tone="danger">
+              Delete
+            </Command>
+          </CommandBar>
+        </Block>
+
         <Block title="Board" note="A lens on the day, not a place work lives">
-          <p className="mb-6 max-w-prose text-copy-13 text-gray-700">
+          <p className="mb-6 max-w-prose text-caption text-gray-700">
             Columns are the four fixed statuses — there is no column builder, and none is
             coming. The list stays the default view; the brief rules out Kanban as the
             default interface. Dragging is an enhancement: every card is a link to the task,
             where status can be changed with a keyboard.
           </p>
           <TaskBoard board={BOARD} />
-          <div className="mt-6">
-            <ViewToggle listHref="#" boardHref="#" active="board" />
-          </div>
+
         </Block>
 
         <Block title="Metrics">
@@ -496,7 +524,7 @@ export default function DesignSystemPage() {
             <DeltaBadge value={0} />
           </Row>
           <Row label="On navy">
-            <span className="flex gap-3 rounded-12 bg-navy p-4">
+            <span className="flex gap-3 rounded-xl bg-navy p-4">
               <DeltaBadge value={6} tone="dark" />
               <DeltaBadge value={-12} tone="dark" />
               <DeltaBadge value={0} tone="dark" />
@@ -508,13 +536,13 @@ export default function DesignSystemPage() {
           title="Trend strip"
           note="Zoomed to the data, and says so"
         >
-          <p className="mb-6 max-w-prose text-copy-13 text-gray-700">
+          <p className="mb-6 max-w-prose text-caption text-gray-700">
             Completion rates cluster in a narrow band, so a 0–100 scale would draw seven
             identical bars. The strip zooms to the data and states the range it is using,
             rather than truncating silently.
           </p>
           <TrendStrip data={TREND} />
-          <div className="mt-6 rounded-12 bg-navy p-6">
+          <div className="mt-6 rounded-xl bg-navy p-6">
             <TrendStrip data={TREND} tone="dark" />
           </div>
         </Block>
@@ -532,7 +560,7 @@ export default function DesignSystemPage() {
             <Eyebrow tone="onDark">Department Today</Eyebrow>
             <div className="mt-6 flex flex-wrap items-end justify-between gap-x-12 gap-y-8">
               <div>
-                <h3 className="text-heading-32 text-white">Sunday, September 6</h3>
+                <h3 className="text-title-1 text-white">Sunday, September 6</h3>
                 <dl className="mt-8 flex flex-wrap gap-x-12 gap-y-4">
                   <Stat value="30" label="People" size="sm" tone="onDark" />
                   <Stat value="87" label="Tasks due" size="sm" tone="onDark" />
@@ -549,7 +577,7 @@ export default function DesignSystemPage() {
         </Block>
 
         <Block title="Loading" note="Built from the components they stand in for">
-          <p className="mb-6 max-w-prose text-copy-13 text-gray-700">
+          <p className="mb-6 max-w-prose text-caption text-gray-700">
             Each skeleton mirrors the layout of the screen it covers, so the page does not
             jump when the real content arrives. Every route has one, plus a shared error
             boundary — before this, a slow query showed a blank page and a failed one showed
@@ -584,7 +612,7 @@ export default function DesignSystemPage() {
               {MEMBERS.map((m) => (
                 <TableRow key={m.id}>
                   <TableCell>
-                    <span className="flex items-center gap-2 text-label-14">
+                    <span className="flex items-center gap-2 text-body-strong">
                       <UserAvatar name={m.name} size="sm" />
                       {m.name}
                     </span>
@@ -593,7 +621,7 @@ export default function DesignSystemPage() {
                   <TableCell className="tabular text-right text-gray-700">
                     {m.done} / {m.due}
                   </TableCell>
-                  <TableCell className="tabular text-right text-label-14">{m.percent}%</TableCell>
+                  <TableCell className="tabular text-right text-body-strong">{m.percent}%</TableCell>
                 </TableRow>
               ))}
             </TableBody>

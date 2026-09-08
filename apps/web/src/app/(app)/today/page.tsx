@@ -1,5 +1,8 @@
+import { ListChecks, Plus } from "lucide-react";
 import {
-  ButtonLink,
+  Command,
+  CommandBar,
+  CommandDivider,
   CompletionMeter,
   EmptyState,
   TaskList,
@@ -27,13 +30,13 @@ export default async function TodayPage() {
     <div className="grid gap-x-12 gap-y-8 lg:grid-cols-[minmax(0,1fr)_240px] lg:items-start">
       <div className="min-w-0 space-y-8">
         <header>
-          <p className="text-label-12 uppercase tracking-[0.08em] text-gray-600">
+          <p className="text-caption-strong uppercase tracking-[0.08em] text-gray-600">
             {fmtLongDate(today)}
           </p>
-          <h1 className="mt-3 text-heading-32 text-gray-1000">
+          <h1 className="mt-3 text-title-1 text-gray-1000">
             {greeting(today)}, {user.name.split(" ")[0]}
           </h1>
-          <p className="mt-2 text-copy-14 text-gray-700">
+          <p className="mt-2 text-body text-gray-700">
             {day.due === 0 ? (
               "Nothing scheduled for today."
             ) : (
@@ -45,6 +48,16 @@ export default async function TodayPage() {
               </>
             )}
           </p>
+
+          <CommandBar className="mt-4">
+            <Command icon={Plus} href="/tasks/new" tone="primary">
+              New Task
+            </Command>
+            <CommandDivider />
+            <Command icon={ListChecks} href="/my-tasks">
+              All my tasks
+            </Command>
+          </CommandBar>
         </header>
 
         {day.overdue.length > 0 ? (
@@ -62,7 +75,7 @@ export default async function TodayPage() {
 
         {day.today.length === 0 ? (
           <section>
-            <p className="mb-3 text-label-12 uppercase tracking-[0.08em] text-gray-600">Today</p>
+            <p className="mb-3 text-caption-strong uppercase tracking-[0.08em] text-gray-600">Today</p>
             <EmptyState>
               {day.due === 0 ? "Nothing is due today." : "Everything due today is done."}
             </EmptyState>
@@ -96,19 +109,15 @@ export default async function TodayPage() {
       </div>
 
       <aside className="space-y-4 lg:sticky lg:top-24">
-        <ButtonLink href="/tasks/new" className="w-full">
-          New Task
-        </ButtonLink>
-
-        <div className="rounded-12 border border-gray-400 bg-background-100 p-6">
+        <div className="rounded-xl border border-gray-400 bg-background-100 p-6">
           <CompletionMeter done={day.done} due={day.due} percent={day.percent} />
         </div>
 
         {day.overdue.length > 0 ? (
-          <div className="rounded-12 border border-red-300 bg-red-100 p-6">
-            <p className="text-label-12 uppercase tracking-[0.08em] text-red-700">Carried over</p>
-            <p className="tabular mt-3 text-heading-32 text-red-700">{day.overdue.length}</p>
-            <p className="mt-1 text-copy-13 text-red-900">
+          <div className="rounded-xl border border-red-300 bg-red-100 p-6">
+            <p className="text-caption-strong uppercase tracking-[0.08em] text-red-700">Carried over</p>
+            <p className="tabular mt-3 text-title-1 text-red-700">{day.overdue.length}</p>
+            <p className="mt-1 text-caption text-red-900">
               {day.overdue.length === 1 ? "task from" : "tasks from"} earlier days
             </p>
           </div>

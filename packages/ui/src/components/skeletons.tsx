@@ -8,7 +8,7 @@ import { Panel } from "./section";
  */
 export function TaskListSkeleton({ rows = 3 }: { rows?: number }) {
   return (
-    <div className="divide-y divide-gray-300 overflow-hidden rounded-12 border border-gray-400 bg-background-100">
+    <div className="divide-y divide-gray-300 overflow-hidden rounded-xl border border-gray-400 bg-background-100">
       {Array.from({ length: rows }).map((_, i) => (
         <div key={i} className="flex items-start gap-3 px-4 py-3">
           <Skeleton className="mt-0.5 size-5 rounded-full" />
@@ -25,7 +25,7 @@ export function TaskListSkeleton({ rows = 3 }: { rows?: number }) {
 
 export function MemberListSkeleton({ rows = 5 }: { rows?: number }) {
   return (
-    <div className="divide-y divide-gray-300 overflow-hidden rounded-12 border border-gray-400 bg-background-100">
+    <div className="divide-y divide-gray-300 overflow-hidden rounded-xl border border-gray-400 bg-background-100">
       {Array.from({ length: rows }).map((_, i) => (
         <div key={i} className="flex items-center gap-4 px-4 py-3">
           <Skeleton className="size-8 rounded-full" />

@@ -97,20 +97,20 @@ export function AttachmentList({
         void accept(e.dataTransfer.files);
       }}
       className={cn(
-        "rounded-12 border transition-colors",
+        "rounded-xl border transition-colors",
         dragging ? "border-blue-700 bg-blue-100" : "border-gray-400 bg-background-100",
       )}
     >
       <div className="flex items-center gap-2 border-b border-gray-300 px-4 py-3">
         <Paperclip className="size-4 text-gray-700" />
-        <h2 className="text-label-14 text-gray-1000">Attachments</h2>
-        <span className="tabular ml-auto text-copy-13 text-gray-600">
+        <h2 className="text-body-strong text-gray-1000">Attachments</h2>
+        <span className="tabular ml-auto text-caption text-gray-600">
           {attachments.length}
         </span>
       </div>
 
       {attachments.length === 0 && pending.length === 0 ? (
-        <p className="px-4 py-6 text-center text-copy-13 text-gray-600">
+        <p className="px-4 py-6 text-center text-caption text-gray-600">
           Nothing attached yet.
         </p>
       ) : (
@@ -120,14 +120,14 @@ export function AttachmentList({
               <FileIcon contentType={file.contentType} />
               <a
                 href={file.href}
-                className="min-w-0 flex-1 truncate text-copy-14 text-gray-1000 underline-offset-2 hover:underline"
+                className="min-w-0 flex-1 truncate text-body text-gray-1000 underline-offset-2 hover:underline"
               >
                 {file.filename}
               </a>
-              <span className="tabular shrink-0 text-copy-13 text-gray-600">
+              <span className="tabular shrink-0 text-caption text-gray-600">
                 {formatBytes(file.sizeBytes)}
               </span>
-              <span className="hidden shrink-0 text-copy-13 text-gray-600 sm:inline">
+              <span className="hidden shrink-0 text-caption text-gray-600 sm:inline">
                 {file.uploadedByName}
               </span>
               {onDelete ? (
@@ -136,7 +136,7 @@ export function AttachmentList({
                   <button
                     type="submit"
                     aria-label={`Remove ${file.filename}`}
-                    className="rounded-6 p-1 text-gray-600 transition-colors hover:bg-gray-100 hover:text-red-700"
+                    className="rounded-md p-1 text-gray-600 transition-colors hover:bg-gray-100 hover:text-red-700"
                   >
                     <X className="size-4" />
                   </button>
@@ -148,14 +148,14 @@ export function AttachmentList({
           {pending.map((item) => (
             <li
               key={`pending-${item.name}`}
-              className="flex items-center gap-3 px-4 py-3 text-copy-14"
+              className="flex items-center gap-3 px-4 py-3 text-body"
             >
               <FileIcon contentType="" />
               <span className="min-w-0 flex-1 truncate text-gray-600">{item.name}</span>
               {item.error ? (
-                <span className="shrink-0 text-copy-13 text-red-700">{item.error}</span>
+                <span className="shrink-0 text-caption text-red-700">{item.error}</span>
               ) : (
-                <span className="shrink-0 text-copy-13 text-gray-600">Uploading…</span>
+                <span className="shrink-0 text-caption text-gray-600">Uploading…</span>
               )}
             </li>
           ))}
@@ -174,7 +174,7 @@ export function AttachmentList({
               e.target.value = ""; // So the same file can be picked twice.
             }}
           />
-          <p className="text-copy-13 text-gray-600">
+          <p className="text-caption text-gray-600">
             Drop files here, or{" "}
             <button
               type="button"

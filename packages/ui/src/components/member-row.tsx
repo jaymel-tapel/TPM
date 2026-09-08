@@ -30,33 +30,33 @@ export function MemberRow({ member }: { member: MemberRowData }) {
       <UserAvatar name={member.name} size="md" />
 
       <div className="min-w-0">
-        <div className="flex items-center gap-2 truncate text-label-14 text-gray-1000">
+        <div className="flex items-center gap-2 truncate text-body-strong text-gray-1000">
           {member.name}
           {ROLE_BADGES[member.role] ? (
-            <span className="rounded-6 bg-blue-100 px-1.5 text-label-12 text-blue-900">
+            <span className="rounded-md bg-blue-100 px-1.5 text-caption-strong text-blue-900">
               {ROLE_BADGES[member.role]}
             </span>
           ) : null}
         </div>
-        <div className={cn("text-copy-13", noteTone)}>{note}</div>
+        <div className={cn("text-caption", noteTone)}>{note}</div>
       </div>
 
       {/* The bar reports progress only. The red overdue count carries the
           warning, so colour stays meaningful. */}
       <Progress value={member.percent} className="hidden h-1.5 sm:block" />
 
-      <div className="tabular hidden text-copy-13 text-gray-600 sm:block">
+      <div className="tabular hidden text-caption text-gray-600 sm:block">
         {member.done} / {member.due}
       </div>
 
-      <div className="tabular text-right text-label-16 text-gray-1000">{member.percent}%</div>
+      <div className="tabular text-right text-subtitle-2 text-gray-1000">{member.percent}%</div>
     </Link>
   );
 }
 
 export function MemberList({ children }: { children: React.ReactNode }) {
   return (
-    <div className="divide-y divide-gray-300 overflow-hidden rounded-12 border border-gray-400 bg-background-100">
+    <div className="divide-y divide-gray-300 overflow-hidden rounded-xl border border-gray-400 bg-background-100">
       {children}
     </div>
   );

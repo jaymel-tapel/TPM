@@ -47,18 +47,18 @@ export default async function OverviewPage() {
       <HeroPanel>
         <div className="flex items-baseline justify-between gap-4">
           <Eyebrow tone="onDark">Department Today</Eyebrow>
-          <span className="text-copy-13 text-white/45">{fmtLongDate(now())}</span>
+          <span className="text-caption text-white/45">{fmtLongDate(now())}</span>
         </div>
 
         {/* Two columns: where we stand on the left, which way we are going on
             the right. One glance answers both. */}
         <div className="mt-8 grid gap-x-12 gap-y-8 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)]">
           <div>
-            <p className="tabular text-heading-72 text-amber-500">
+            <p className="tabular text-display text-amber-500">
               <Percent value={dept.percent} muted={false} />
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-3">
-              <p className="text-copy-16 text-white/70">Completion rate today</p>
+              <p className="text-body-lg text-white/70">Completion rate today</p>
               <DeltaBadge value={deptDelta} tone="dark" />
             </div>
 
@@ -83,7 +83,7 @@ export default async function OverviewPage() {
       <section>
         <SectionHeader
           aside={
-            <Link href="/teams" className="text-label-14 text-blue-700 hover:text-blue-800">
+            <Link href="/teams" className="text-body-strong text-blue-700 hover:text-blue-800">
               Open teams →
             </Link>
           }

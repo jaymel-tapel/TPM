@@ -21,7 +21,7 @@ export function Eyebrow({
   return (
     <p
       className={cn(
-        "flex items-center gap-3 text-label-12 uppercase tracking-[0.08em]",
+        "flex items-center gap-3 text-caption-strong uppercase tracking-[0.08em]",
         color,
         className,
       )}
@@ -48,8 +48,8 @@ export function SectionHeader({
 }) {
   return (
     <div className={cn("mb-4 flex flex-wrap items-baseline justify-between gap-4", className)}>
-      <h2 className="text-heading-20 text-gray-1000">{children}</h2>
-      {aside ? <div className="text-copy-13 text-gray-600">{aside}</div> : null}
+      <h2 className="text-subtitle-1 text-gray-1000">{children}</h2>
+      {aside ? <div className="text-caption text-gray-600">{aside}</div> : null}
     </div>
   );
 }
@@ -59,22 +59,33 @@ export function PageHeader({
   title,
   subtitle,
   aside,
+  commands,
   className,
 }: {
   eyebrow?: React.ReactNode;
   title: React.ReactNode;
   subtitle?: React.ReactNode;
   aside?: React.ReactNode;
+  /** A CommandBar. Page-level verbs sit under the title, not beside it. */
+  commands?: React.ReactNode;
   className?: string;
 }) {
   return (
-    <div className={cn("mb-8 flex flex-wrap items-end justify-between gap-6", className)}>
-      <div>
-        {eyebrow ? <Eyebrow className="mb-3">{eyebrow}</Eyebrow> : null}
-        <h1 className="text-heading-32 text-gray-1000">{title}</h1>
-        {subtitle ? <div className="mt-2 text-copy-14 text-gray-700">{subtitle}</div> : null}
+    <div className={cn("mb-6", className)}>
+      <div className="flex flex-wrap items-end justify-between gap-6">
+        <div>
+          {eyebrow ? <Eyebrow className="mb-3">{eyebrow}</Eyebrow> : null}
+          <h1 className="text-title-1 text-gray-1000">{title}</h1>
+          {subtitle ? <div className="mt-2 text-body text-gray-700">{subtitle}</div> : null}
+        </div>
+        {aside}
       </div>
-      {aside}
+      {/*
+        Actions go in a strip below the title rather than floating beside it,
+        so the same verbs land in the same place on every screen no matter how
+        long the title runs.
+      */}
+      {commands ? <div className="mt-4">{commands}</div> : null}
     </div>
   );
 }
@@ -95,5 +106,5 @@ export function Panel({
     quiet: "border-gray-300 bg-background-100",
   }[tone];
 
-  return <div className={cn("rounded-12 border", shell, className)}>{children}</div>;
+  return <div className={cn("rounded-xl border", shell, className)}>{children}</div>;
 }

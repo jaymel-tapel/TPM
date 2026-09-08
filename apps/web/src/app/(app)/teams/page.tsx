@@ -39,15 +39,15 @@ export default async function TeamsPage() {
         {dept.teams.map((team) => (
           <Panel key={team.id} className="p-6">
             <div className="flex items-baseline justify-between gap-4">
-              <p className="text-heading-20 text-gray-1000">{team.name}</p>
-              <p className="tabular text-heading-32 text-gray-1000">
+              <p className="text-subtitle-1 text-gray-1000">{team.name}</p>
+              <p className="tabular text-title-1 text-gray-1000">
                 <Percent value={team.percent} />
               </p>
             </div>
             <Progress value={team.percent} className="mt-4 h-1.5" />
             <div className="mt-4 flex items-center gap-2 border-t border-gray-300 pt-4">
               {team.directorName ? <UserAvatar name={team.directorName} size="sm" /> : null}
-              <p className="tabular text-copy-13 text-gray-700">
+              <p className="tabular text-caption text-gray-700">
                 <span className="text-gray-1000">{team.directorName}</span>
                 {` · ${team.done}/${team.due} today · ${team.overdue} overdue · ${team.headcount} people`}
               </p>
@@ -64,7 +64,7 @@ export default async function TeamsPage() {
                 aside={
                   <Link
                     href={`/teams/${team.teamId}`}
-                    className="text-label-14 text-blue-700 hover:text-blue-800"
+                    className="text-body-strong text-blue-700 hover:text-blue-800"
                   >
                     Open team view →
                   </Link>

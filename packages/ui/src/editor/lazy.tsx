@@ -19,8 +19,8 @@ function EditorSkeleton({ readOnly }: { readOnly?: boolean }) {
       aria-hidden
       className={
         readOnly
-          ? "h-16 animate-pulse rounded-8 bg-gray-100"
-          : "h-24 animate-pulse rounded-8 border border-gray-400 bg-gray-100"
+          ? "h-16 animate-pulse rounded-lg bg-gray-100"
+          : "h-24 animate-pulse rounded-lg border border-gray-400 bg-gray-100"
       }
     />
   );

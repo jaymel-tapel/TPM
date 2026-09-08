@@ -20,7 +20,7 @@ export function DeltaBadge({
     return (
       <span
         className={cn(
-          "inline-flex items-center gap-1 rounded-6 px-2 py-0.5 text-label-12",
+          "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-caption-strong",
           dark ? "bg-white/10 text-white/70" : "bg-gray-100 text-gray-700",
         )}
       >
@@ -33,7 +33,7 @@ export function DeltaBadge({
   return (
     <span
       className={cn(
-        "tabular inline-flex items-center gap-1 rounded-6 px-2 py-0.5 text-label-12",
+        "tabular inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-caption-strong",
         up
           ? dark
             ? "bg-green-700/25 text-green-200"

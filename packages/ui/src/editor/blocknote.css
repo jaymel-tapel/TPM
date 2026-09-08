@@ -83,8 +83,8 @@
  */
 .meridian-editor .bn-default-styles {
   font-family: var(--font-sans);
-  font-size: var(--text-copy-14);
-  line-height: var(--text-copy-14--line-height);
+  font-size: var(--text-body);
+  line-height: var(--text-body--line-height);
 }
 
 .meridian-editor .bn-block-content[data-content-type="codeBlock"] {

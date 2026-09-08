@@ -39,7 +39,7 @@ function BoardCard({
         onDragStart(task.id);
       }}
       className={cn(
-        "rounded-8 border border-gray-400 bg-background-100 p-3 transition-colors",
+        "rounded-lg border border-gray-400 bg-background-100 p-3 transition-colors",
         draggable && "cursor-grab active:cursor-grabbing",
         task.done && "opacity-60",
       )}
@@ -47,13 +47,13 @@ function BoardCard({
       <Link href={task.href} className="block">
         <p
           className={cn(
-            "text-label-14",
+            "text-body-strong",
             task.done ? "text-gray-600" : "text-gray-1000",
           )}
         >
           {task.title}
         </p>
-        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-copy-13 text-gray-700">
+        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-caption text-gray-700">
           <TypeLabel type={task.type} />
           {flagged ? <PriorityLabel priority={task.priority} /> : null}
         </div>
@@ -70,7 +70,7 @@ function BoardCard({
           />
           <span
             className={cn(
-              "tabular shrink-0 text-copy-13",
+              "tabular shrink-0 text-caption",
               task.overdue ? "font-medium text-red-700" : "text-gray-600",
             )}
           >
@@ -142,8 +142,8 @@ export function TaskBoard({
           >
             <header className="mb-3 flex items-center gap-2 border-b border-gray-400 pb-2">
               <StatusMark status={status} />
-              <h3 className="text-label-14 text-gray-1000">{STATUS_LABELS[status]}</h3>
-              <span className="tabular ml-auto text-copy-13 text-gray-600">
+              <h3 className="text-body-strong text-gray-1000">{STATUS_LABELS[status]}</h3>
+              <span className="tabular ml-auto text-caption text-gray-600">
                 {tasks.length}
               </span>
             </header>
@@ -157,7 +157,7 @@ export function TaskBoard({
             */}
             <div
               className={cn(
-                "flex flex-col gap-2 rounded-12 border border-dashed p-1 transition-colors",
+                "flex flex-col gap-2 rounded-xl border border-dashed p-1 transition-colors",
                 over === status
                   ? "border-blue-700 bg-blue-100"
                   : "border-transparent",
@@ -174,7 +174,7 @@ export function TaskBoard({
               ))}
 
               {tasks.length === 0 ? (
-                <p className="rounded-8 border border-dashed border-gray-400 px-3 py-6 text-center text-copy-13 text-gray-600">
+                <p className="rounded-lg border border-dashed border-gray-400 px-3 py-6 text-center text-caption text-gray-600">
                   Nothing here
                 </p>
               ) : null}
@@ -189,12 +189,12 @@ export function TaskBoard({
                 moreHref ? (
                   <Link
                     href={moreHref}
-                    className="rounded-8 px-3 py-2 text-center text-copy-13 text-gray-700 underline-offset-2 hover:underline"
+                    className="rounded-lg px-3 py-2 text-center text-caption text-gray-700 underline-offset-2 hover:underline"
                   >
                     {hidden} more in the list
                   </Link>
                 ) : (
-                  <p className="px-3 py-2 text-center text-copy-13 text-gray-600">
+                  <p className="px-3 py-2 text-center text-caption text-gray-600">
                     {hidden} more
                   </p>
                 )

@@ -7,7 +7,12 @@ import { taskAssignees, tasks, users, type Role, type Task, type User } from "@/
 export const isDirector = (u: User) => u.role !== "team_member";
 export const isSenior = (u: User) => u.role === "senior_director";
 
-export type NavItem = { href: string; label: string };
+/**
+ * `icon` is a name, not a component: this module is imported by server code
+ * that has no business holding React elements. The sidebar maps it.
+ */
+export type NavIcon = "today" | "myTasks" | "team" | "teams" | "reports" | "overview";
+export type NavItem = { href: string; label: string; icon: NavIcon };
 
 /**
  * Navigation is derived from the role rather than hand-maintained, so a link
@@ -17,20 +22,20 @@ export function navFor(role: Role): NavItem[] {
   switch (role) {
     case "senior_director":
       return [
-        { href: "/overview", label: "Overview" },
-        { href: "/teams", label: "Teams" },
-        { href: "/reports", label: "Reports" },
+        { href: "/overview", label: "Overview", icon: "overview" },
+        { href: "/teams", label: "Teams", icon: "teams" },
+        { href: "/reports", label: "Reports", icon: "reports" },
       ];
     case "account_director":
       return [
-        { href: "/today", label: "Today" },
-        { href: "/team", label: "Team" },
-        { href: "/reports", label: "Reports" },
+        { href: "/today", label: "Today", icon: "today" },
+        { href: "/team", label: "Team", icon: "team" },
+        { href: "/reports", label: "Reports", icon: "reports" },
       ];
     default:
       return [
-        { href: "/today", label: "Today" },
-        { href: "/my-tasks", label: "My Tasks" },
+        { href: "/today", label: "Today", icon: "today" },
+        { href: "/my-tasks", label: "My Tasks", icon: "myTasks" },
       ];
   }
 }

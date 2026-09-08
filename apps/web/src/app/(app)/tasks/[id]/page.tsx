@@ -63,7 +63,7 @@ export default async function TaskDetailPage({
           )
         }
         aside={
-          <Link href="/today" className="text-label-14 text-blue-700 hover:text-blue-800">
+          <Link href="/today" className="text-body-strong text-blue-700 hover:text-blue-800">
             ← Back to today
           </Link>
         }
@@ -78,7 +78,7 @@ export default async function TaskDetailPage({
               type="submit"
               disabled={!editable}
               className={cn(
-                "flex cursor-pointer items-center rounded-6 border px-3 py-1.5 text-label-14 transition-colors disabled:cursor-not-allowed disabled:opacity-50",
+                "flex cursor-pointer items-center rounded-md border px-3 py-1.5 text-body-strong transition-colors disabled:cursor-not-allowed disabled:opacity-50",
                 task.status === status
                   ? "border-blue-700 bg-blue-100 text-blue-900"
                   : "border-gray-400 bg-background-100 text-gray-700 hover:border-gray-500 hover:text-gray-1000",
@@ -113,9 +113,9 @@ export default async function TaskDetailPage({
           {task.description ? (
             <RichTextView value={task.description} />
           ) : (
-            <p className="text-copy-14 text-gray-600">No description.</p>
+            <p className="text-body text-gray-600">No description.</p>
           )}
-          <p className="mt-4 text-copy-13 text-gray-600">
+          <p className="mt-4 text-caption text-gray-600">
             Assigned to {task.assignees.map((a) => a.name).join(", ")}. You have read-only access
             to this task.
           </p>

@@ -3,9 +3,9 @@ export * from "./lib/utils";
 
 export * from "./components/attachment-list";
 export * from "./components/button-link";
+export * from "./components/command-bar";
 export * from "./components/section";
 export * from "./components/user-avatar";
-export * from "./components/view-toggle";
 export * from "./components/task-board";
 export * from "./components/task-meta";
 export * from "./components/task-row";

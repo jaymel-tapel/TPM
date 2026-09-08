@@ -45,7 +45,7 @@ export function TrendStrip({
           const last = i === data.length - 1;
           return (
             <div key={point.label} className="flex flex-1 flex-col items-center gap-2">
-              <span className={cn("tabular text-label-12", emphasis(last))}>
+              <span className={cn("tabular text-caption-strong", emphasis(last))}>
                 {point.percent}%
               </span>
               <div
@@ -80,7 +80,7 @@ export function TrendStrip({
             <span
               key={point.label}
               className={cn(
-                "flex-1 text-center text-label-12",
+                "flex-1 text-center text-caption-strong",
                 last ? (dark ? "text-white" : "text-gray-1000") : dark ? "text-white/45" : "text-gray-600",
               )}
             >
@@ -90,7 +90,7 @@ export function TrendStrip({
         })}
       </div>
 
-      <p className={cn("mt-3 text-label-12", dark ? "text-white/35" : "text-gray-500")}>
+      <p className={cn("mt-3 text-caption-strong", dark ? "text-white/35" : "text-gray-500")}>
         Scaled {floor}–100%
       </p>
     </div>

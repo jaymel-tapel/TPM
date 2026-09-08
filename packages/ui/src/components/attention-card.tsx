@@ -22,7 +22,7 @@ export function AttentionCard({
       aria-disabled={!item.href}
       tabIndex={item.href ? undefined : -1}
       className={cn(
-        "group flex items-start gap-3 rounded-12 border px-4 py-3 transition-colors",
+        "group flex items-start gap-3 rounded-xl border px-4 py-3 transition-colors",
         dark
           ? "border-white/15 bg-white/5 hover:bg-white/10"
           : "border-gray-400 bg-background-100 hover:bg-gray-100",
@@ -37,17 +37,17 @@ export function AttentionCard({
         )}
       />
       <span className="min-w-0 flex-1">
-        <span className={cn("block text-label-14", dark ? "text-white" : "text-gray-1000")}>
+        <span className={cn("block text-body-strong", dark ? "text-white" : "text-gray-1000")}>
           {item.headline}
         </span>
-        <span className={cn("block text-copy-13", dark ? "text-white/60" : "text-gray-700")}>
+        <span className={cn("block text-caption", dark ? "text-white/60" : "text-gray-700")}>
           {item.detail}
         </span>
       </span>
       {item.href ? (
         <span
           className={cn(
-            "self-center text-copy-14 transition-transform group-hover:translate-x-0.5",
+            "self-center text-body transition-transform group-hover:translate-x-0.5",
             dark ? "text-white/40" : "text-gray-500",
           )}
         >
@@ -67,8 +67,8 @@ export function NeedsAttention({
 }) {
   if (items.length === 0) {
     return (
-      <div className="rounded-12 border border-dashed border-gray-400 px-4 py-8 text-center">
-        <p className="text-copy-14 text-gray-600">Nothing needs attention right now.</p>
+      <div className="rounded-xl border border-dashed border-gray-400 px-4 py-8 text-center">
+        <p className="text-body text-gray-600">Nothing needs attention right now.</p>
       </div>
     );
   }
