@@ -28,6 +28,7 @@ import {
   PageHeader,
   Panel,
   Percent,
+  PriorityBadge,
   PriorityLabel,
   SectionHeader,
   Stat,
@@ -405,6 +406,8 @@ export default function DesignSystemPage() {
           <Row label="Priority">
             <PriorityLabel priority="high" />
             <PriorityLabel priority="urgent" />
+            <PriorityBadge priority="high" />
+            <PriorityBadge priority="urgent" />
             <span className="text-caption text-gray-500">Normal priority is never shown</span>
           </Row>
         </Block>

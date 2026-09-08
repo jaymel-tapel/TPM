@@ -1,5 +1,7 @@
 import {
   Briefcase,
+  ChevronUp,
+  ChevronsUp,
   ClipboardList,
   Eye,
   Palette,
@@ -51,10 +53,55 @@ export function TypeLabel({ type, className }: { type: TaskType; className?: str
   );
 }
 
-/** Priority is only ever shown when it is not "normal". */
+/*
+ * Priority is only ever shown when it is not "normal", and it stays inside the
+ * red scale. Amber is spoken for — DESIGN.md reserves it for the single most
+ * important number on a screen — so urgency separates by weight rather than by
+ * hue: urgent is filled, high is outlined, and the arrow count does the rest.
+ */
+const PRIORITY_ICON: Record<Exclude<Priority, "normal">, typeof ChevronUp> = {
+  high: ChevronUp,
+  urgent: ChevronsUp,
+};
+
+export function PriorityIcon({ priority, className }: { priority: Priority; className?: string }) {
+  if (priority === "normal") return null;
+  const Icon = PRIORITY_ICON[priority];
+  return <Icon aria-hidden className={cn("size-3.5 shrink-0", className)} strokeWidth={2.25} />;
+}
+
+/** Inline form, for a dense row where a chip would be too loud. */
 export function PriorityLabel({ priority }: { priority: Priority }) {
   if (priority === "normal") return null;
-  return <span className="font-medium text-red-700">{PRIORITY_LABELS[priority]}</span>;
+  return (
+    <span className="inline-flex items-center gap-1 font-medium text-red-700">
+      <PriorityIcon priority={priority} />
+      {PRIORITY_LABELS[priority]}
+    </span>
+  );
+}
+
+/**
+ * Chip form, for above a card title. It sits over the title rather than under
+ * it because urgency is the thing you want to have registered before you read
+ * what the work is.
+ */
+export function PriorityBadge({ priority }: { priority: Priority }) {
+  if (priority === "normal") return null;
+  const filled = priority === "urgent";
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-caption-strong",
+        filled
+          ? "bg-red-700 text-white"
+          : "border border-red-300 bg-red-100 text-red-900",
+      )}
+    >
+      <PriorityIcon priority={priority} />
+      {PRIORITY_LABELS[priority]}
+    </span>
+  );
 }
 
 export function TagBadge({ children }: { children: React.ReactNode }) {
