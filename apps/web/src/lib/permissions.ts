@@ -33,7 +33,8 @@ export type NavIcon =
   | "teams"
   | "reports"
   | "overview"
-  | "admin";
+  | "admin"
+  | "chat";
 export type NavChild = {
   /** Absent on a row that only groups the rows beneath it. */
   href?: string;
@@ -54,6 +55,12 @@ export type NavItem = {
   href: string;
   label: string;
   icon: NavIcon;
+  /**
+   * An unread badge. Filled in by the layout, like `children` — this module
+   * runs no queries. Chat is the only item that carries one; everything else
+   * in the rail is a place rather than a queue.
+   */
+  count?: number;
   /**
    * Filled in by the layout from the org chart, not declared here — this
    * module has no business running a query. A group with no children renders
@@ -76,6 +83,7 @@ export function navFor(role: Role): NavItem[] {
         // into a client's work, and the person who spans both teams is the one
         // who most often has to cross between them.
         { href: "/boards", label: "Boards", icon: "boards" },
+        { href: "/chat", label: "Chat", icon: "chat" },
         { href: "/docs", label: "Docs", icon: "docs" },
         { href: "/reports", label: "Reports", icon: "reports" },
         { href: "/admin", label: "Admin", icon: "admin" },
@@ -85,6 +93,7 @@ export function navFor(role: Role): NavItem[] {
         { href: "/today", label: "Today", icon: "today" },
         { href: "/boards", label: "Boards", icon: "boards" },
         { href: "/team", label: "Team", icon: "team" },
+        { href: "/chat", label: "Chat", icon: "chat" },
         { href: "/docs", label: "Docs", icon: "docs" },
         { href: "/reports", label: "Reports", icon: "reports" },
       ];
@@ -99,6 +108,7 @@ export function navFor(role: Role): NavItem[] {
          * own team's business the same way its board is.
          */
         { href: "/team", label: "Team", icon: "team" },
+        { href: "/chat", label: "Chat", icon: "chat" },
         { href: "/docs", label: "Docs", icon: "docs" },
       ];
   }

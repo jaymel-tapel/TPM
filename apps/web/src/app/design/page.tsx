@@ -42,6 +42,8 @@ import {
   DayPlan,
   DayStrip,
   SubtaskList,
+  ChatThread,
+  RoomList,
   AttachmentList,
   DocBacklinkList,
   DocRefList,
@@ -85,6 +87,8 @@ import {
   DAY_PLAN,
   DAY_CHIPS,
   SUBTASKS,
+  CHAT_ROOMS,
+  CHAT_MESSAGES,
   DAY_PLAN_HOURS,
   LEAVE_REQUESTS,
   WORK_BARS,
@@ -666,6 +670,27 @@ export default function DesignSystemPage() {
                 day="2026-09-09"
                 hourLabels={DAY_PLAN_HOURS}
               />
+            </div>
+          </div>
+        </Block>
+
+        <Block title="Chat" note="For the things that are not about one task">
+          <p className="mb-6 max-w-prose text-caption text-gray-700">
+            The brief rules chat out, and is right about what it was aiming at:
+            a messaging product bolted on, with threads and reactions and
+            presence to learn. It was not aiming at &ldquo;are we still on for
+            Thursday&rdquo;, which today has nowhere to go and so goes somewhere
+            else, taking the context with it. So: plain text, two kinds of room,
+            an unread count, and nothing else. A run of messages from one person
+            shows their face once. Unread is a weight and a dot, never colour
+            alone.
+          </p>
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
+            <div className="overflow-hidden rounded-xl border border-gray-400 bg-background-100">
+              <RoomList rooms={CHAT_ROOMS} />
+            </div>
+            <div className="h-80">
+              <ChatThread messages={CHAT_MESSAGES} />
             </div>
           </div>
         </Block>

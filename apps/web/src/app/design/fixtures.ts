@@ -11,6 +11,8 @@ import type {
   InboxItemData,
   PlanBlockData,
   SubtaskData,
+  ChatMessageData,
+  RoomListItemData,
   DayChipData,
   AttachmentData,
   BoardData,
@@ -592,5 +594,79 @@ export const SUBTASKS: SubtaskData[] = [
     dueText: "Yesterday, 5:00 PM",
     overdue: true,
     assignees: [{ id: "u-sofia", name: "Sofia Reyes" }],
+  },
+];
+
+export const CHAT_ROOMS: RoomListItemData[] = [
+  {
+    id: "r1",
+    href: "#",
+    title: "Sarah Lim",
+    kind: "direct",
+    excerpt: "Are we still on for Thursday?",
+    when: "2m ago",
+    unread: 2,
+    active: true,
+  },
+  {
+    id: "r2",
+    href: "#",
+    title: "Company retro",
+    kind: "channel",
+    excerpt: "Anna: I'll put the notes in Docs",
+    when: "1h ago",
+    unread: 0,
+    active: false,
+  },
+  {
+    id: "r3",
+    href: "#",
+    title: "Michael Ortega",
+    kind: "direct",
+    excerpt: null,
+    when: "",
+    unread: 0,
+    active: false,
+  },
+];
+
+export const CHAT_MESSAGES: ChatMessageData[] = [
+  {
+    id: "m0",
+    authorName: "Sarah Lim",
+    body: "Sending you the Northline notes now.",
+    when: "4:20 PM",
+    mine: false,
+    continues: false,
+    // The first message of a day carries the divider above it.
+    dayLabel: "Yesterday",
+  },
+  {
+    id: "m1",
+    authorName: "Sarah Lim",
+    body: "Northline moved the review to Thursday.",
+    when: "9:04 AM",
+    mine: false,
+    continues: false,
+    dayLabel: "Today",
+  },
+  {
+    // A run from one person: the face and the name appear once.
+    id: "m2",
+    authorName: "Sarah Lim",
+    body: "Are we still on for Thursday?",
+    when: "9:04 AM",
+    mine: false,
+    continues: true,
+    dayLabel: null,
+  },
+  {
+    id: "m3",
+    authorName: "Anna Santos",
+    body: "Yes — I'll have the deck by Wednesday evening.",
+    when: "9:12 AM",
+    mine: true,
+    continues: false,
+    dayLabel: null,
   },
 ];

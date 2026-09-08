@@ -4,6 +4,8 @@ export * from "./lib/day-layout";
 
 export * from "./components/activity-feed";
 export * from "./components/inbox-list";
+export * from "./components/room-list";
+export * from "./components/chat-thread";
 export * from "./components/attachment-list";
 export * from "./components/button-link";
 export * from "./components/command-bar";

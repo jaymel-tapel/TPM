@@ -743,6 +743,104 @@ export const leaveRequests = pgTable(
   ],
 );
 
+export const chatRoomKindEnum = pgEnum("chat_room_kind", ["direct", "channel"]);
+
+/**
+ * Somewhere to say something that is not about one task.
+ *
+ * The brief rules chat out, and is right about what it was aiming at: a chat
+ * product bolted onto a task product, with threads and reactions and presence
+ * to learn, which is the second-inbox problem the whole brief is written
+ * against. It was not aiming at "are we still on for Thursday", which today has
+ * nowhere to go and so goes somewhere else — taking the context with it.
+ *
+ * So messages, not a messaging product. Plain text, two kinds of room, an
+ * unread count, and nothing else.
+ */
+export const chatRooms = pgTable(
+  "chat_rooms",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    kind: chatRoomKindEnum("kind").notNull(),
+    /** Null on a direct room: it is named by whoever is in it. */
+    name: text("name"),
+    /**
+     * The two ids sorted and joined, on a direct room; null on a channel.
+     *
+     * One conversation per pair, enforced rather than hoped for. Without it,
+     * two people who message each other in the same moment get a room each and
+     * every reply lands in the one the other is not reading.
+     */
+    directKey: text("direct_key"),
+    createdBy: uuid("created_by")
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    // Nulls are distinct in Postgres, so this constrains direct rooms only.
+    uniqueIndex("chat_rooms_direct_key").on(t.directKey),
+  ],
+);
+
+/**
+ * Who is in a room, and how far they have read.
+ *
+ * A cursor, not a row per message per person. `notifications` fans out because
+ * a notification is ephemeral and read state is genuinely per-recipient; chat
+ * messages are history, like `task_activity`, and a row each would multiply the
+ * table by the size of the conversation to answer a question a timestamp
+ * answers.
+ *
+ * Membership is also the whole permission. There is no director override — a
+ * director reading a conversation they are not part of is a different product
+ * from this one.
+ */
+export const chatMembers = pgTable(
+  "chat_members",
+  {
+    roomId: uuid("room_id")
+      .notNull()
+      .references(() => chatRooms.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** Everything after this, from somebody else, is unread. */
+    lastReadAt: timestamp("last_read_at", { withTimezone: true }).notNull().defaultNow(),
+    joinedAt: timestamp("joined_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.roomId, t.userId] }),
+    // Every rail badge and room list starts here.
+    index("chat_members_user_idx").on(t.userId),
+  ],
+);
+
+export const chatMessages = pgTable(
+  "chat_messages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    roomId: uuid("room_id")
+      .notNull()
+      .references(() => chatRooms.id, { onDelete: "cascade" }),
+    /** No cascade: a room keeps what was said in it, as history does. */
+    authorId: uuid("author_id")
+      .notNull()
+      .references(() => users.id),
+    /**
+     * Plain text, deliberately.
+     *
+     * `RichTextView` mounts a whole BlockNote instance per call, which is why
+     * the activity feed caps itself at twenty comments. A scrollback cannot pay
+     * that per message — and rich text is the first step toward the product the
+     * brief refused.
+     */
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("chat_messages_room_idx").on(t.roomId, t.createdAt)],
+);
+
 export type Role = (typeof roleEnum.enumValues)[number];
 export type StatusKind = (typeof statusKindEnum.enumValues)[number];
 export type ActivityKind = (typeof activityKindEnum.enumValues)[number];
@@ -761,6 +859,8 @@ export type NotificationKind = (typeof notificationKindEnum.enumValues)[number];
 export type Notification = typeof notifications.$inferSelect;
 export type PlanBlock = typeof taskSchedule.$inferSelect;
 export type Department = typeof department.$inferSelect;
+export type ChatRoom = typeof chatRooms.$inferSelect;
+export type ChatMessage = typeof chatMessages.$inferSelect;
 export type LeaveRequest = typeof leaveRequests.$inferSelect;
 export type LeaveKind = (typeof leaveKindEnum.enumValues)[number];
 export type LeaveStatus = (typeof leaveStatusEnum.enumValues)[number];

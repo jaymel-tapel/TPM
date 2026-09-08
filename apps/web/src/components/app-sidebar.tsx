@@ -16,6 +16,7 @@ import {
   Plus,
   Users,
   UsersRound,
+  MessageSquare,
 } from "lucide-react";
 import { ROLE_LABELS, UserAvatar, cn, type InboxItemData, type Role } from "@meridian/ui";
 import type { NavChild, NavIcon, NavItem } from "@/lib/permissions";
@@ -23,6 +24,7 @@ import { logout } from "@/actions/auth";
 import { NotificationBell } from "./notification-bell";
 
 const ICONS: Record<NavIcon, typeof CalendarCheck> = {
+  chat: MessageSquare,
   today: CalendarCheck,
   boards: Columns3,
   docs: FileText,
@@ -180,7 +182,14 @@ function NavGroup({
       >
         {inSection ? <ActiveBar /> : null}
         <Icon className="size-4 shrink-0" strokeWidth={1.75} />
-        {link.label}
+        <span className="min-w-0 flex-1 truncate">{link.label}</span>
+        {/* The one badge in the navigation. Chat is a queue; everywhere else in
+            the rail is a place, and a count on a place means nothing. */}
+        {link.count ? (
+          <span className="tabular grid h-5 min-w-5 place-items-center rounded-full bg-blue-700 px-1.5 text-caption-strong text-white">
+            {link.count > 9 ? "9+" : link.count}
+          </span>
+        ) : null}
       </Link>
     );
   }
