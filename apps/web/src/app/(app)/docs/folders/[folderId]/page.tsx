@@ -1,8 +1,9 @@
 import { notFound } from "next/navigation";
-import { FilePlus, FolderPlus, Pencil, X } from "lucide-react";
+import { ArrowUp, FilePlus, FolderPlus, Pencil, X } from "lucide-react";
 import {
   Command,
   CommandBar,
+  CommandDivider,
   DocBreadcrumb,
   DocTree,
   PageHeader,
@@ -47,6 +48,12 @@ export default async function FolderPage({
   const scoped = isSenior(user) ? teams : teams.filter((t) => t.id === user.teamId);
   const placeable = folderOptions.filter((f) => canPlaceDoc(user, f));
   const canAdd = canPlaceDoc(user, folder);
+  /*
+   * Where "up" goes. The breadcrumb says it too, but it is caption-sized and
+   * easy to miss, and a reader gets no command bar at all — so the one thing
+   * every folder needs is the one thing that was conditional.
+   */
+  const parent = folder.trail.at(-2);
 
   return (
     <>
@@ -55,8 +62,12 @@ export default async function FolderPage({
         title={folder.name}
         subtitle={<ScopeBadge scope={folder.visibility} teamName={folder.teamName} />}
         commands={
-          editable || canAdd ? (
             <CommandBar>
+              <Command icon={ArrowUp} href={parent?.href ?? "/docs"}>
+                {parent ? `Up to ${parent.name}` : "All docs"}
+              </Command>
+              {canAdd || editable ? <CommandDivider /> : null}
+
               {canAdd ? (
                 <>
                   <Command icon={FilePlus} href={`/docs/new?folder=${folder.id}`}>
@@ -83,7 +94,6 @@ export default async function FolderPage({
                 </div>
               ) : null}
             </CommandBar>
-          ) : null
         }
       />
 

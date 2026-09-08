@@ -1,11 +1,9 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { format } from "date-fns";
-import { BookOpen, Pencil, Plus } from "lucide-react";
+import { ArrowUp, BookOpen, Pencil } from "lucide-react";
 import {
   Command,
   CommandBar,
-  CommandDivider,
   DocBacklinkList,
   DocBreadcrumb,
   DocTree,
@@ -61,7 +59,8 @@ export default async function DocPage({
   const placeable = folderOptions.filter((f) => canPlaceDoc(user, f));
   // A reader with no verbs gets no strip: an empty command bar is a rule under
   // the title with nothing above it.
-  const hasCommands = editable;
+  // The folder it lives in — where "up" goes. "All docs" jumped past it.
+  const folder = doc.trail.at(-1);
 
   return (
     <>
@@ -74,25 +73,23 @@ export default async function DocPage({
             {`${doc.authorName} · updated ${format(doc.updatedAt, "d MMM yyyy")}`}
           </span>
         }
-        aside={
-          <Link href="/docs" className="text-body-strong text-blue-700 hover:text-blue-800">
-            ← All docs
-          </Link>
-        }
         commands={
-          hasCommands ? (
           <CommandBar>
+            <Command icon={ArrowUp} href={folder?.href ?? "/docs"}>
+              {folder ? `Up to ${folder.name}` : "All docs"}
+            </Command>
             {editable ? (
-              <Command
-                icon={editing ? BookOpen : Pencil}
-                href={editing ? `/docs/${doc.id}` : `/docs/${doc.id}?edit`}
-                active={editing}
-              >
-                {editing ? "Done editing" : "Edit"}
-              </Command>
+              <div className="ml-auto flex items-center gap-1">
+                <Command
+                  icon={editing ? BookOpen : Pencil}
+                  href={editing ? `/docs/${doc.id}` : `/docs/${doc.id}?edit`}
+                  active={editing}
+                >
+                  {editing ? "Done editing" : "Edit"}
+                </Command>
+              </div>
             ) : null}
-                      </CommandBar>
-          ) : null
+          </CommandBar>
         }
       />
 
