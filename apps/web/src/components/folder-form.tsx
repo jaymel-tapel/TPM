@@ -17,8 +17,8 @@ import type { FormState } from "@/actions/docs";
 export type FolderFormValues = {
   id?: string;
   name: string;
-  visibility: "org" | "team";
-  teamId: string;
+  visibility: "org" | "account";
+  accountId: string;
   parentId: string;
 };
 
@@ -29,21 +29,21 @@ export function FolderForm({
   action,
   values,
   submitLabel,
-  teams,
+  accounts,
   parents,
   canPublishOrgWide,
 }: {
   action: (prev: FormState, formData: FormData) => Promise<FormState>;
   values: FolderFormValues;
   submitLabel: string;
-  teams: { id: string; name: string }[];
+  accounts: { id: string; name: string }[];
   /** Folders this one may sit in. Never its own subtree. */
   parents: { id: string; name: string }[];
   canPublishOrgWide: boolean;
 }) {
   const [state, formAction, pending] = useActionState(action, null);
   const [visibility, setVisibility] = useState(values.visibility);
-  const [teamId, setTeamId] = useState(values.teamId);
+  const [accountId, setAccountId] = useState(values.accountId);
   const [parentId, setParentId] = useState(values.parentId);
 
   // A folder inside another takes its place from it, so the choice stops being
@@ -54,7 +54,7 @@ export function FolderForm({
     <form action={formAction} className="space-y-6">
       {values.id ? <input type="hidden" name="folderId" value={values.id} /> : null}
       <input type="hidden" name="visibility" value={visibility} />
-      <input type="hidden" name="teamId" value={visibility === "team" ? teamId : ""} />
+      <input type="hidden" name="accountId" value={visibility === "account" ? accountId : ""} />
       <input type="hidden" name="parentId" value={parentId} />
 
       <div className="space-y-6 rounded-xl border border-gray-400 bg-background-100 p-6">
@@ -101,30 +101,30 @@ export function FolderForm({
             ) : (
               <Select
                 value={visibility}
-                onValueChange={(v) => v && setVisibility(v as "org" | "team")}
+                onValueChange={(v) => v && setVisibility(v as "org" | "account")}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue>{(v) => (v === "org" ? "Everyone" : "One team")}</SelectValue>
+                  <SelectValue>{(v) => (v === "org" ? "Everyone" : "One account")}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {canPublishOrgWide ? <SelectItem value="org">Everyone</SelectItem> : null}
-                  <SelectItem value="team">One team</SelectItem>
+                  <SelectItem value="account">One account</SelectItem>
                 </SelectContent>
               </Select>
             )}
           </div>
 
-          {!nested && visibility === "team" ? (
+          {!nested && visibility === "account" ? (
             <div>
-              <Label className={label}>Team</Label>
-              <Select value={teamId} onValueChange={(v) => v && setTeamId(v)}>
+              <Label className={label}>Account</Label>
+              <Select value={accountId} onValueChange={(v) => v && setAccountId(v)}>
                 <SelectTrigger className="w-full">
                   <SelectValue>
-                    {(v) => teams.find((t) => t.id === v)?.name ?? "Pick a team"}
+                    {(v) => accounts.find((t) => t.id === v)?.name ?? "Pick an account"}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {teams.map((t) => (
+                  {accounts.map((t) => (
                     <SelectItem key={t.id} value={t.id}>
                       {t.name}
                     </SelectItem>

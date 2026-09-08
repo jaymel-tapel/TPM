@@ -46,9 +46,9 @@ export default async function NewTaskPage() {
           actual: "",
           priority: "normal",
           dueDate: format(defaultDue, "yyyy-MM-dd'T'HH:mm"),
-          // The Senior Director sits outside both teams and so is not an
+          // The Senior Director sits outside both accounts and so is not an
           // assignable person; they pick who the work is for.
-          assignees: user.teamId ? [user.id] : [],
+          assignees: user.accountIds.length > 0 ? [user.id] : [],
           tags: [],
         }}
       />

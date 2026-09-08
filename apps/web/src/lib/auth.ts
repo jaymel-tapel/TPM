@@ -9,7 +9,7 @@ import { db } from "@/db";
 import { zoneOf, type Zone } from "@/lib/date";
 import { workHoursOf } from "@/lib/plan";
 import { getDepartmentSettings } from "@/queries/department-settings";
-import { users, type User } from "@/db/schema";
+import { accountMembers, accounts, users, type User } from "@/db/schema";
 
 const COOKIE = "mb_session";
 const MAX_AGE = 60 * 60 * 24 * 7;
@@ -87,11 +87,33 @@ async function readToken(): Promise<Payload | null> {
   }
 }
 
+/**
+ * A user plus the accounts they can reach, resolved once per request.
+ *
+ * Membership used to be a column — `users.account_id` — so every permission check
+ * could be a synchronous comparison. Now that a person works on several
+ * accounts it is a table, and asking it inside `canViewAccountWork` would turn
+ * every one of those checks into a query. Resolving it here keeps the
+ * predicates synchronous and the cost at one lookup per request, the same
+ * bargain `zone` and `hours` already make.
+ */
+export type Viewer = User & {
+  /** Accounts this person works on. Empty for a Senior Director, who is on none. */
+  accountIds: string[];
+  /**
+   * Accounts this person *directs* — always a subset of the above, and empty
+   * for everybody but an Account Director. The Senior Director directs none
+   * and reaches everything by role instead, so an empty list here never means
+   * "no reach".
+   */
+  directedIds: string[];
+};
+
 export type Session = {
   /** The account that actually logged in. */
   account: User;
   /** Who the app renders as — differs only via the demo role switcher. */
-  user: User;
+  user: Viewer;
   impersonating: boolean;
   /**
    * How this viewer reckons a day: their own timezone, or the department's if
@@ -138,11 +160,44 @@ export const getSession = cache(async (): Promise<Session | null> => {
       where: eq(users.id, payload.viewAs),
     });
     if (viewed) {
-      return { account, user: viewed, impersonating: true, ...settingsFor(viewed) };
+      return {
+        account,
+        user: await asViewer(viewed),
+        impersonating: true,
+        ...settingsFor(viewed),
+      };
     }
   }
-  return { account, user: account, impersonating: false, ...settingsFor(account) };
+  return {
+    account,
+    user: await asViewer(account),
+    impersonating: false,
+    ...settingsFor(account),
+  };
 });
+
+/**
+ * One lookup, two lists. Directing an account does not imply working on it in
+ * the database, so the two are read separately and the directed ones folded in
+ * — a director who has not been added to their own account's roster still
+ * reaches its work, which is the answer anybody would expect.
+ */
+async function asViewer(user: User): Promise<Viewer> {
+  const [memberOf, directs] = await Promise.all([
+    db
+      .select({ accountId: accountMembers.accountId })
+      .from(accountMembers)
+      .where(eq(accountMembers.userId, user.id)),
+    db
+      .select({ id: accounts.id })
+      .from(accounts)
+      .where(eq(accounts.accountDirectorId, user.id)),
+  ]);
+
+  const directedIds = directs.map((row) => row.id);
+  const accountIds = [...new Set([...memberOf.map((row) => row.accountId), ...directedIds])];
+  return { ...user, accountIds, directedIds };
+}
 
 /**
  * Session or bust. A cookie whose user no longer exists (or whose signature no
@@ -154,7 +209,7 @@ export async function requireSession(): Promise<Session> {
   return session;
 }
 
-export async function requireUser(): Promise<User> {
+export async function requireUser(): Promise<Viewer> {
   return (await requireSession()).user;
 }
 

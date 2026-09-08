@@ -1,7 +1,10 @@
 import { notFound } from "next/navigation";
+import { Building2 } from "lucide-react";
 import { Progress } from "@meridian/ui/primitives/progress";
 import { TrendChart } from "@meridian/ui/chart";
 import {
+  Command,
+  CommandBar,
   PageHeader,
   Panel,
   SectionHeader,
@@ -18,8 +21,8 @@ import {
   getReportMetrics,
   getWorkload,
 } from "@/queries/reports";
-import { departmentScope, teamScope } from "@/queries/sql";
-import { getTeamToday } from "@/queries/team";
+import { departmentScope, accountScope } from "@/queries/sql";
+import { getAccountToday, listAccountsById } from "@/queries/accounts";
 
 export const dynamic = "force-dynamic";
 
@@ -35,20 +38,42 @@ function duration(hours: number | null): string {
  * Screen 5. Only the metrics that answer "are we getting the work done
  * consistently?" — and exactly one chart.
  */
-export default async function ReportsPage() {
+export default async function ReportsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ account?: string }>;
+}) {
   const { user, zone } = await requireSession();
   await assertCanViewReports(user);
 
   const senior = isSenior(user);
-  if (!senior && !user.teamId) notFound();
-  const scope = senior ? departmentScope : teamScope(user.teamId!);
+  /*
+   * A director used to have one account, so the report had nothing to choose.
+   * Now they may carry three, and reporting on all of them at once would
+   * average a good client with a struggling one into a number that describes
+   * neither. So: one account at a time, named in the URL, defaulting to the
+   * first. The `?account=` is checked against what they actually direct — it
+   * arrives from the address bar, so it is a request rather than a fact.
+   */
+  const asked = (await searchParams).account;
+  /*
+   * Named first, chosen second: `listAccountsById` returns them in reading
+   * order, so the default is the account whose tab sits leftmost. Taking
+   * `directedIds[0]` instead defaulted to whatever order the lookup happened
+   * to return, which lit up a tab in the middle of the row and read as a bug.
+   */
+  const accountOptions = senior ? [] : await listAccountsById(user.directedIds);
+  const chosen =
+    asked && user.directedIds.includes(asked) ? asked : accountOptions[0]?.id;
+  if (!senior && !chosen) notFound();
+  const scope = senior ? departmentScope : accountScope(chosen!);
 
-  const [metrics, trend, byType, workload, team] = await Promise.all([
+  const [metrics, trend, byType, workload, account] = await Promise.all([
     getReportMetrics(scope, DAYS, undefined, zone),
     getCompletionTrend(scope, DAYS, undefined, zone),
     getCompletionByType(scope, DAYS, undefined, zone),
     getWorkload(scope, DAYS, undefined, zone),
-    senior ? Promise.resolve(null) : getTeamToday(user.teamId!, undefined, zone),
+    senior ? Promise.resolve(null) : getAccountToday(chosen!, undefined, zone),
   ]);
 
   const headline = [
@@ -65,8 +90,25 @@ export default async function ReportsPage() {
       <PageHeader
         eyebrow={`Last ${DAYS} days`}
         title="Report"
-        subtitle={`${senior ? "Across both teams" : (team?.teamName ?? "Team")} · are we getting the work done consistently?`}
+        subtitle={`${senior ? "Across every account" : (account?.accountName ?? "Account")} · are we getting the work done consistently?`}
       />
+
+      {/* Only when there is something to choose between. One account is not a
+          switch, it is a label the title already carries. */}
+      {accountOptions.length > 1 ? (
+        <CommandBar className="mb-6">
+          {accountOptions.map((option) => (
+            <Command
+              key={option.id}
+              icon={Building2}
+              href={`/reports?account=${option.id}`}
+              active={option.id === chosen}
+            >
+              {option.name}
+            </Command>
+          ))}
+        </CommandBar>
+      ) : null}
 
       <div className="space-y-10">
         <Panel className="p-8">
@@ -123,7 +165,7 @@ export default async function ReportsPage() {
                   <span className="min-w-0 truncate text-body-strong text-gray-1000">
                     {row.name}
                     {senior ? (
-                      <span className="ml-2 text-caption text-gray-600">{row.teamName}</span>
+                      <span className="ml-2 text-caption text-gray-600">{row.accountName}</span>
                     ) : null}
                   </span>
                   <span className="tabular whitespace-nowrap text-caption text-gray-600">

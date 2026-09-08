@@ -36,7 +36,7 @@ export function LoginForm() {
             Know what&rsquo;s <span className="text-amber-500">happening</span>.
           </h1>
           <p className="mt-6 max-w-[42ch] text-body-lg text-white/60">
-            Less managing the task manager. A clear view of today&rsquo;s work, your team, and
+            Less managing the task manager. A clear view of today&rsquo;s work, your account, and
             the department.
           </p>
         </div>

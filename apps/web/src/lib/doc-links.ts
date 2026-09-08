@@ -1,8 +1,9 @@
 import "server-only";
+import type { Viewer } from "@/lib/auth";
 import { and, eq } from "drizzle-orm";
 import { collectMentions } from "@meridian/ui/editor";
 import { db } from "@/db";
-import { taskDocuments, type User } from "@/db/schema";
+import { taskDocuments } from "@/db/schema";
 import { filterVisibleDocIds } from "@/queries/docs";
 
 /**
@@ -17,11 +18,11 @@ import { filterVisibleDocIds } from "@/queries/docs";
  *
  * The ids come out of a form field, so they are the author's claim about what
  * they linked, not a fact. Only documents the author may actually read become
- * rows — otherwise a hand-written payload could attach another team's document
+ * rows — otherwise a hand-written payload could attach another account's document
  * to a task and read its title back off the page.
  */
 export async function syncMentionedDocs(
-  author: User,
+  author: Viewer,
   taskId: string,
   description: string | null,
 ) {

@@ -11,7 +11,7 @@ import {
 } from "@meridian/ui";
 import { requireSession } from "@/lib/auth";
 
-import { canViewTeamWork, isDirector, isSenior } from "@/lib/permissions";
+import { canViewAccountWork, isDirector, isSenior } from "@/lib/permissions";
 import { getBoard } from "@/queries/boards";
 import { getBoardView } from "@/queries/tasks";
 import { toBoard, toTaskRow } from "@/lib/present";
@@ -21,8 +21,8 @@ export const dynamic = "force-dynamic";
 
 /**
  * A board is a working surface, so the page is the board and nothing else —
- * no date, no team name, no rollup. Those answer "where am I" and "how are we
- * doing", which the rail and the team screen already answer, and neither is a
+ * no date, no account name, no rollup. Those answer "where am I" and "how are we
+ * doing", which the rail and the account screen already answer, and neither is a
  * question anyone has while moving cards.
  */
 export default async function BoardPage({
@@ -39,7 +39,7 @@ export default async function BoardPage({
   const { user, zone } = await requireSession();
 
   const board = await getBoard(boardId);
-  if (!board || !canViewTeamWork(user, board.teamId)) notFound();
+  if (!board || !canViewAccountWork(user, board.accountId)) notFound();
 
   const view = await getBoardView(boardId, undefined, mineOnly ? user.id : null, zone);
   if (!view) notFound();
@@ -58,15 +58,15 @@ export default async function BoardPage({
       <CommandBar className="sticky top-0 z-20 -mx-8 mb-6 border-b border-gray-300 bg-background px-8 py-3">
         <span className="mr-2 text-subtitle-2 text-gray-1000">{board.name}</span>
         {/* Only for the Senior Director, who is the one person who reaches
-            boards across both teams and cannot tell them apart by context. */}
+            boards across both accounts and cannot tell them apart by context. */}
         {isSenior(user) ? (
-          <span className="mr-2 text-caption text-gray-600">{board.teamName}</span>
+          <span className="mr-2 text-caption text-gray-600">{board.accountName}</span>
         ) : null}
         <CommandDivider />
         {/*
           Columns or a list — of the same board. The switch means something
           again now that a board is a place: before, "list" and "board" were
-          two lenses on a whole team's day and the pairing was arbitrary. The
+          two lenses on a whole account's day and the pairing was arbitrary. The
           list keeps the board's own columns as its headings, so the vocabulary
           an Account Director chose survives the switch.
         */}

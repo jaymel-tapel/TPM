@@ -17,7 +17,7 @@ import type {
   AttachmentData,
   BoardData,
   TaskRowData,
-  TeamCompareData,
+  CompareRowData,
   TrendPointData,
 } from "@meridian/ui";
 
@@ -199,7 +199,7 @@ export const LEAVE_REQUESTS: LeaveRequestData[] = [
 export const ATTENTION: AttentionItemData[] = [
   { severity: "high", headline: "James Cruz", detail: "7 overdue tasks", href: "#" },
   { severity: "medium", headline: "4 tasks due within 2 hours", detail: "Not started yet" },
-  { severity: "high", headline: "Team B", detail: "Completion down 12% vs last week", href: "#" },
+  { severity: "high", headline: "Adidas", detail: "Completion down 12% vs last week", href: "#" },
   { severity: "medium", headline: "3 collaborative tasks", detail: "Still incomplete" },
 ];
 
@@ -213,12 +213,13 @@ export const TREND: TrendPointData[] = [
   { label: "Sun", percent: 78, due: 157, done: 122 },
 ];
 
-export const TEAMS: TeamCompareData[] = [
+export const ACCOUNTS: CompareRowData[] = [
   {
     id: "a",
     href: "#",
-    name: "Team A",
-    directorName: "Sarah Lim",
+    name: "Nike",
+    note: "Sarah Lim",
+    avatarName: "Sarah Lim",
     percent: 81,
     overdue: 8,
     delta: 0,
@@ -226,11 +227,45 @@ export const TEAMS: TeamCompareData[] = [
   {
     id: "b",
     href: "#",
-    name: "Team B",
-    directorName: "Michael Ortega",
+    name: "Adidas",
+    note: "Sarah Lim",
+    avatarName: "Sarah Lim",
     percent: 74,
     overdue: 9,
     delta: -12,
+  },
+  {
+    id: "c",
+    href: "#",
+    name: "Coca-Cola",
+    note: null,
+    percent: 66,
+    overdue: 3,
+    delta: 4,
+  },
+];
+
+/** The same component, comparing the people who carry the accounts instead. */
+export const DIRECTORS: CompareRowData[] = [
+  {
+    id: "d1",
+    href: "#",
+    name: "Sarah Lim",
+    note: "3 accounts",
+    avatarName: "Sarah Lim",
+    percent: 83,
+    overdue: 11,
+    delta: 2,
+  },
+  {
+    id: "d2",
+    href: "#",
+    name: "Michael Ortega",
+    note: "2 accounts",
+    avatarName: "Michael Ortega",
+    percent: 76,
+    overdue: 6,
+    delta: -5,
   },
 ];
 
@@ -278,51 +313,51 @@ export const DOC_FOLDERS: DocFolderData[] = [
     href: "#",
     name: "How we work",
     scope: "org",
-    teamName: null,
+    accountName: null,
     folders: [
       {
         id: "f2",
         href: "#",
         name: "Escalation",
         scope: "org",
-        teamName: null,
+        accountName: null,
         folders: [],
         documents: [
-          { id: "d3", href: "#", title: "Out of hours", scope: "org", teamName: null },
+          { id: "d3", href: "#", title: "Out of hours", scope: "org", accountName: null },
         ],
       },
     ],
     documents: [
-      { id: "d1", href: "#", title: "Start here", scope: "org", teamName: null },
-      { id: "d4", href: "#", title: "Brand guidelines", scope: "org", teamName: null },
+      { id: "d1", href: "#", title: "Start here", scope: "org", accountName: null },
+      { id: "d4", href: "#", title: "Brand guidelines", scope: "org", accountName: null },
     ],
   },
   {
     id: "f3",
     href: "#",
-    name: "Team A",
-    scope: "team",
-    teamName: "Team A",
+    name: "Nike",
+    scope: "account",
+    accountName: "Nike",
     folders: [],
     documents: [
-      { id: "d5", href: "#", title: "Runbook", scope: "team", teamName: "Team A" },
-      { id: "d6", href: "#", title: "Reporting checklist", scope: "team", teamName: "Team A" },
+      { id: "d5", href: "#", title: "Runbook", scope: "account", accountName: "Nike" },
+      { id: "d6", href: "#", title: "Reporting checklist", scope: "account", accountName: "Nike" },
     ],
   },
 ];
 
 /** A document sitting at the top level, in no folder at all. */
 export const DOC_LOOSE: DocNodeData[] = [
-  { id: "d7", href: "#", title: "Holidays", scope: "org", teamName: null },
+  { id: "d7", href: "#", title: "Holidays", scope: "org", accountName: null },
 ];
 
 export const DOC_REFS: DocRefData[] = [
   // Attached deliberately: detachable.
-  { id: "d4", href: "#", title: "Brand guidelines", scope: "org", teamName: null, attached: true, mentioned: false },
+  { id: "d4", href: "#", title: "Brand guidelines", scope: "org", accountName: null, attached: true, mentioned: false },
   // Named in the prose only: no detach button, because the description owns it.
-  { id: "d2", href: "#", title: "Escalation", scope: "org", teamName: null, attached: false, mentioned: true },
+  { id: "d2", href: "#", title: "Escalation", scope: "org", accountName: null, attached: false, mentioned: true },
   // Both — detaching leaves it listed, because the prose still says it.
-  { id: "d5", href: "#", title: "Team A runbook", scope: "team", teamName: "Team A", attached: true, mentioned: true },
+  { id: "d5", href: "#", title: "Nike runbook", scope: "account", accountName: "Nike", attached: true, mentioned: true },
 ];
 
 export const DOC_HITS: DocHitData[] = [
@@ -331,7 +366,7 @@ export const DOC_HITS: DocHitData[] = [
     href: "#",
     title: "Brand guidelines",
     scope: "org",
-    teamName: null,
+    accountName: null,
     snippet: [
       { text: "Blue ", hit: false },
       { text: "#5B88F7", hit: true },
@@ -345,7 +380,7 @@ export const DOC_HITS: DocHitData[] = [
     href: "#",
     title: "Escalation",
     scope: "org",
-    teamName: null,
+    accountName: null,
     snippet: [
       { text: "Blocked for more than a day is an ", hit: false },
       { text: "escalation", hit: true },

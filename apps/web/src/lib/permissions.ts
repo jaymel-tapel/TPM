@@ -1,8 +1,10 @@
 import "server-only";
 import { notFound } from "next/navigation";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
+import type { Viewer } from "@/lib/auth";
 import {
+  accountMembers,
   documents,
   folders,
   leaveRequests,
@@ -29,8 +31,7 @@ export type NavIcon =
   | "today"
   | "boards"
   | "docs"
-  | "team"
-  | "teams"
+  | "accounts"
   | "reports"
   | "overview"
   | "admin"
@@ -44,9 +45,9 @@ export type NavChild = {
    */
   note?: string;
   /**
-   * One more level, and only one. The Senior Director sees every team's
+   * One more level, and only one. The Senior Director sees every account's
    * boards, and a flat list of them is a list you have to read rather than
-   * scan; grouping by team is the org chart the rest of the product already
+   * scan; grouping by account is the org chart the rest of the product already
    * uses. A third level would be the nested spaces the brief refuses.
    */
   children?: NavChild[];
@@ -79,14 +80,14 @@ export function navFor(role: Role): NavItem[] {
       return [
         { href: "/overview", label: "Overview", icon: "overview" },
         /*
-         * Above the groups that open. Teams and Boards each expand into a list,
+         * Above the groups that open. Accounts and Boards each expand into a list,
          * so anything under them moves as those lists grow — and the one item
          * carrying an unread count is the one that has to sit still.
          */
         { href: "/chat", label: "Chat", icon: "chat" },
-        { href: "/teams", label: "Teams", icon: "teams" },
-        // Every team's boards, not one team's. The rail is the quickest way
-        // into a client's work, and the person who spans both teams is the one
+        { href: "/accounts", label: "Accounts", icon: "accounts" },
+        // Every account's boards, not one account's. The rail is the quickest way
+        // into a client's work, and the person who spans both accounts is the one
         // who most often has to cross between them.
         { href: "/boards", label: "Boards", icon: "boards" },
         { href: "/docs", label: "Docs", icon: "docs" },
@@ -100,7 +101,7 @@ export function navFor(role: Role): NavItem[] {
         // it down as boards are made.
         { href: "/chat", label: "Chat", icon: "chat" },
         { href: "/boards", label: "Boards", icon: "boards" },
-        { href: "/team", label: "Team", icon: "team" },
+        { href: "/accounts", label: "Accounts", icon: "accounts" },
         { href: "/docs", label: "Docs", icon: "docs" },
         { href: "/reports", label: "Reports", icon: "reports" },
       ];
@@ -110,12 +111,12 @@ export function navFor(role: Role): NavItem[] {
         { href: "/chat", label: "Chat", icon: "chat" },
         { href: "/boards", label: "Boards", icon: "boards" },
         /*
-         * A team member's Team is not the Account Director's Team. The rollup
-         * is still management's — `canViewTeam` refuses them and that has not
-         * changed. This one answers "who is here this week", which is their
-         * own team's business the same way its board is.
+         * A team member's Accounts is not the Account Director's. The rollup is
+         * still management's — `canViewAccount` refuses them and that has not
+         * changed. This one answers "who is on my clients this week", which is
+         * their own accounts' business the same way their boards are.
          */
-        { href: "/team", label: "Team", icon: "team" },
+        { href: "/accounts", label: "Accounts", icon: "accounts" },
         { href: "/docs", label: "Docs", icon: "docs" },
       ];
   }
@@ -126,65 +127,76 @@ export function homeFor(role: Role): string {
 }
 
 /**
- * Whether this person may look at a team the way its director does.
+ * Whether this person may look at an account the way its director does.
  *
- * Not the numbers — a team's workload is the team's own business and everyone
+ * Not the numbers — an account's workload is the account's own business and everyone
  * on it reads the same roster, the same way they all read its board and its
  * documents. What this gates is the management *screen*: the completion
  * headline the department is judged on, Needs Attention, the queue of leave
  * decisions only a director makes, and the right to open any one person's day.
  *
- * This is *not* the question "is this your team". A team member belongs to a
- * team without being able to manage it, and asking this one about their own
- * board or their own task refuses them — see `canViewTeamWork`.
+ * This is *not* the question "is this your account". A team member belongs to a
+ * account without being able to manage it, and asking this one about their own
+ * board or their own task refuses them — see `canViewAccountWork`.
  */
-export function canViewTeam(viewer: User, teamId: string): boolean {
+export function canViewAccount(viewer: Viewer, accountId: string): boolean {
   if (isSenior(viewer)) return true;
-  if (viewer.role === "account_director") return viewer.teamId === teamId;
-  return false;
+  return viewer.directedIds.includes(accountId);
 }
 
 /**
- * Whether this person may reach the *work* a team owns — its board, and the
- * tasks filed on it. Everyone on the team can, because it is their own work.
+ * Whether this person may reach the *work* an account owns — its board, and the
+ * tasks filed on it. Everyone on the account can, because it is their own work.
  *
- * Kept apart from `canViewTeam` because the two questions have different
+ * Kept apart from `canViewAccount` because the two questions have different
  * answers for a team member, and one predicate answering both is what let the
- * rail offer a board the page then refused. Anything that lists a team's work
+ * rail offer a board the page then refused. Anything that lists an account's work
  * has to agree with this, or it is advertising a door that does not open.
  */
-export function canViewTeamWork(viewer: User, teamId: string | null): boolean {
+export function canViewAccountWork(viewer: Viewer, accountId: string | null): boolean {
   if (isSenior(viewer)) return true;
   /*
-   * No team means the department's own work — a company retro, a tool trial.
-   * There is nothing to scope it by, so everyone sees it. Writing this as
-   * `viewer.teamId === teamId` instead would have quietly made it senior-only,
-   * because null equals null and nothing else does.
+   * No account means the department's own work — a company retro, a tool
+   * trial. There is nothing to scope it by, so everyone sees it. This has to
+   * be answered before the membership test rather than after: `accountIds`
+   * holds no nulls, so a null would fall through to `includes(null)` and read
+   * as a refusal instead of as "everybody's".
    */
-  if (teamId === null) return true;
-  return Boolean(viewer.teamId) && viewer.teamId === teamId;
+  if (accountId === null) return true;
+  return viewer.accountIds.includes(accountId);
 }
 
-export async function assertCanViewTeamWork(viewer: User, teamId: string | null) {
-  if (!canViewTeamWork(viewer, teamId)) notFound();
+export async function assertCanViewAccountWork(viewer: Viewer, accountId: string | null) {
+  if (!canViewAccountWork(viewer, accountId)) notFound();
 }
 
 /** Refusals read as 404 so one role can't probe for the existence of another's data. */
-export async function assertCanViewTeam(viewer: User, teamId: string) {
-  if (!canViewTeam(viewer, teamId)) notFound();
+export async function assertCanViewAccount(viewer: Viewer, accountId: string) {
+  if (!canViewAccount(viewer, accountId)) notFound();
 }
 
-export async function assertCanViewUser(viewer: User, targetId: string): Promise<User> {
+/**
+ * Whose day may be opened: your own, anybody's if you are the Senior Director,
+ * and — for an Account Director — anybody working on an account they direct.
+ *
+ * This is the one permission that cannot be answered from the session alone.
+ * The accounts that matter here are the *target's*, and membership is a table
+ * now rather than a column, so it costs a query. It is asked once per person
+ * page, which is where that belongs.
+ */
+export async function assertCanViewUser(viewer: Viewer, targetId: string): Promise<User> {
   const target = await db.query.users.findFirst({ where: eq(users.id, targetId) });
   if (!target) notFound();
   if (target.id === viewer.id) return target;
   if (isSenior(viewer)) return target;
-  if (
-    viewer.role === "account_director" &&
-    target.teamId &&
-    target.teamId === viewer.teamId
-  ) {
-    return target;
+  if (viewer.role === "account_director" && viewer.directedIds.length > 0) {
+    const shared = await db.query.accountMembers.findFirst({
+      where: and(
+        eq(accountMembers.userId, target.id),
+        inArray(accountMembers.accountId, viewer.directedIds),
+      ),
+    });
+    if (shared) return target;
   }
   notFound();
 }
@@ -195,30 +207,30 @@ export async function assertCanViewUser(viewer: User, targetId: string): Promise
  * The Senior Director alone, because everything else in the product is derived
  * from it: which board a task can be filed on, who may be assigned, who may be
  * named in a description, what a director can see. An Account Director editing
- * their own team's membership would be editing the thing their own permissions
+ * their own account's membership would be editing the thing their own permissions
  * are read from.
  */
-export function canAdminister(viewer: User): boolean {
+export function canAdminister(viewer: Viewer): boolean {
   return isSenior(viewer);
 }
 
-export async function assertCanAdminister(viewer: User) {
+export async function assertCanAdminister(viewer: Viewer) {
   if (!canAdminister(viewer)) notFound();
 }
 
-export async function assertCanViewReports(viewer: User) {
+export async function assertCanViewReports(viewer: Viewer) {
   if (!isDirector(viewer)) notFound();
 }
 
 /** Assignees and the creator can edit; directors can edit within their scope. */
-export async function canEditTask(viewer: User, task: Task): Promise<boolean> {
+export async function canEditTask(viewer: Viewer, task: Task): Promise<boolean> {
   if (isSenior(viewer)) return true;
-  // Department work is everyone's to act on, the same way a team's work is
-  // the team's. `Boolean(viewer.teamId)` below is what stops a null on both
-  // sides reading as a match by accident.
-  if (task.teamId === null) return true;
-  if (Boolean(viewer.teamId) && viewer.teamId === task.teamId) return true;
-  // Someone assigned work on another team's board can still act on it.
+  // Department work is everyone's to act on, the same way an account's work is
+  // the account's. Answered before the membership test, because a null account
+  // is "everybody's" rather than "nobody's".
+  if (task.accountId === null) return true;
+  if (viewer.accountIds.includes(task.accountId)) return true;
+  // Someone assigned work on another account's board can still act on it.
   const assignment = await db.query.taskAssignees.findFirst({
     where: and(eq(taskAssignees.taskId, task.id), eq(taskAssignees.userId, viewer.id)),
   });
@@ -228,31 +240,31 @@ export async function canEditTask(viewer: User, task: Task): Promise<boolean> {
 /*
  * Reading a task and changing one are the same permission.
  *
- * They used to differ: everyone on the team could open a task, but only its
- * author, an assignee or the team's director could touch it — so a teammate
+ * They used to differ: everyone on the account could open a task, but only its
+ * author, an assignee or the account's director could touch it — so a teammate
  * looking at work in front of them got a read-only panel and no way to correct
- * a date they could see was wrong. A team's work belongs to the team, which is
- * the rule the team's documents already follow.
+ * a date they could see was wrong. An account's work belongs to the account, which is
+ * the rule the account's documents already follow.
  *
  * Deleting is the one thing that is not merely an edit, but it asks first and
  * says who else is on the task, which is the check that matters there.
  */
-/** Everyone may read a task they can see the team of, or are assigned to. */
-export async function canViewTask(viewer: User, task: Task): Promise<boolean> {
+/** Everyone may read a task they can see the account of, or are assigned to. */
+export async function canViewTask(viewer: Viewer, task: Task): Promise<boolean> {
   if (isSenior(viewer)) return true;
-  if (task.teamId === null) return true;
-  if (Boolean(viewer.teamId) && viewer.teamId === task.teamId) return true;
+  if (task.accountId === null) return true;
+  if (viewer.accountIds.includes(task.accountId)) return true;
   return canEditTask(viewer, task);
 }
 
-export async function loadEditableTask(viewer: User, taskId: string): Promise<Task> {
+export async function loadEditableTask(viewer: Viewer, taskId: string): Promise<Task> {
   const task = await db.query.tasks.findFirst({ where: eq(tasks.id, taskId) });
   if (!task) notFound();
   if (!(await canEditTask(viewer, task))) notFound();
   return task;
 }
 
-export async function loadViewableTask(viewer: User, taskId: string): Promise<Task> {
+export async function loadViewableTask(viewer: Viewer, taskId: string): Promise<Task> {
   const task = await db.query.tasks.findFirst({ where: eq(tasks.id, taskId) });
   if (!task) notFound();
   if (!(await canViewTask(viewer, task))) notFound();
@@ -260,56 +272,70 @@ export async function loadViewableTask(viewer: User, taskId: string): Promise<Ta
 }
 
 /**
- * Who may shape a team's work: its own Account Director, or the Senior
+ * Who may shape an account's work: its own Account Director, or the Senior
  * Director. A team member can move a card but not invent the column it moves
  * into — the board is the Account Director's instrument.
  */
-export async function assertCanManageTeam(viewer: User, teamId: string | null) {
+export async function assertCanManageAccount(viewer: Viewer, accountId: string | null) {
   if (isSenior(viewer)) return;
-  // A board with no team is the department's, and the department is the
+  // A board with no account is the department's, and the department is the
   // Senior Director's to shape.
-  if (teamId === null) notFound();
-  if (viewer.role === "account_director" && viewer.teamId === teamId) return;
+  if (accountId === null) notFound();
+  // Directing it, not merely working on it. Being on Nike lets you move a card;
+  // it does not let you invent the column it moves into.
+  if (viewer.role === "account_director" && viewer.directedIds.includes(accountId)) return;
   notFound();
 }
 
 /*
  * Leave.
  *
- * Reading takes no new rule. `canViewTeamWork` already answers "may this
- * person reach this team's own business" — true for the Senior Director and
- * for everybody on the team, false for anyone else — which is exactly who may
- * see who is away. Leave reads therefore go through `assertCanViewTeamWork`,
- * and `canViewTeam` keeps refusing team members the management rollup.
+ * Reading takes no new rule. `canViewAccountWork` already answers "may this
+ * person reach this account's own business" — true for the Senior Director and
+ * for everybody on the account, false for anyone else — which is exactly who may
+ * see who is away. Leave reads therefore go through `assertCanViewAccountWork`,
+ * and `canViewAccount` keeps refusing team members the management rollup.
  *
  * Deciding is the part that needs its own rule, because it follows the org
- * chart rather than the team.
+ * chart rather than the account.
  */
 
 /**
- * Who decides a leave request: the person above the requester on the chart.
+ * Who decides a leave request: somebody above the requester on the chart.
  *
- * A team member's leave is their own Account Director's to approve. An Account
- * Director's is the Senior Director's — a director takes holiday like anyone
- * else, and having nobody to ask is what made this a rule about the chart and
- * not a rule about roles. Nobody decides their own at any level, which is why
- * the self check comes before the seniority one: a Senior Director may decide
- * every request in the department except the one they filed.
+ * "Their own Account Director" used to name exactly one person, because a
+ * person sat on exactly one team. Now that they work on several accounts the
+ * chart has more than one edge into them, and the honest rule is that **any
+ * director of an account they work on** may sign it off — whoever gets there
+ * first settles it. Anna is on Nike and Adidas; if Sarah directs both, nothing
+ * changed for her, and if two directors split them, either can answer.
+ *
+ * Two things carry over unchanged. An Account Director's own leave is still
+ * the Senior Director's, because a director asking a peer would be asking
+ * sideways rather than up. And nobody decides their own at any level, which is
+ * why the self check comes before the seniority one: a Senior Director may
+ * decide every request in the department except the one they filed.
+ *
+ * The requester's accounts are passed in rather than read here, because they
+ * are a fact about somebody who is not the viewer — the caller has already
+ * joined them, and a predicate that quietly ran a query could not be tested
+ * against a table of cases.
  */
-export function canDecideLeave(viewer: User, requester: User): boolean {
+export function canDecideLeave(
+  viewer: Viewer,
+  requester: User,
+  requesterAccountIds: string[],
+): boolean {
   if (viewer.id === requester.id) return false;
   if (isSenior(viewer)) return true;
-  return (
-    viewer.role === "account_director" &&
-    requester.role === "team_member" &&
-    Boolean(requester.teamId) &&
-    requester.teamId === viewer.teamId
-  );
+  if (viewer.role !== "account_director") return false;
+  if (requester.role !== "team_member") return false;
+  return requesterAccountIds.some((id) => viewer.directedIds.includes(id));
 }
 
 /** Loads the request and the person who filed it, or refuses as a 404. */
 export async function assertCanDecideLeave(
-  viewer: User,
+  viewer: Viewer,
   requestId: string,
 ): Promise<LeaveRequest> {
   const request = await db.query.leaveRequests.findFirst({
@@ -320,14 +346,20 @@ export async function assertCanDecideLeave(
     where: eq(users.id, request.userId),
   });
   if (!requester) notFound();
-  if (!canDecideLeave(viewer, requester)) notFound();
+  const memberships = await db
+    .select({ accountId: accountMembers.accountId })
+    .from(accountMembers)
+    .where(eq(accountMembers.userId, requester.id));
+  if (!canDecideLeave(viewer, requester, memberships.map((row) => row.accountId))) {
+    notFound();
+  }
   return request;
 }
 
-export async function assertCanManageBoard(viewer: User, boardId: string) {
+export async function assertCanManageBoard(viewer: Viewer, boardId: string) {
   const board = await db.query.boards.findFirst({ where: eq(boards.id, boardId) });
   if (!board) notFound();
-  await assertCanManageTeam(viewer, board.teamId);
+  await assertCanManageAccount(viewer, board.accountId);
   return board;
 }
 
@@ -335,42 +367,42 @@ export async function assertCanManageBoard(viewer: User, boardId: string) {
  * Documents.
  *
  * Reading follows the org chart the way everything else does: a document is
- * either the department's or one team's, and you see your own team's plus the
+ * either the department's or one account's, and you see your own account's plus the
  * department's.
  *
  * Writing follows how far up the chart you sit, not who owns the row. Both
- * kinds of director publish to the whole department. A team's documents belong
- * to the team — anyone on it may write them, because the person who does the
+ * kinds of director publish to the whole department. An account's documents belong
+ * to the account — anyone on it may write them, because the person who does the
  * work is usually the person who knows how it is done, and a runbook only one
  * person may correct is a runbook that goes stale.
  *
- * This is deliberately *not* `canViewTeam`'s rule, which refuses team members
+ * This is deliberately *not* `canViewAccount`'s rule, which refuses team members
  * outright: that rule is about reading across the org chart, and this one is
- * about writing inside your own team. Reusing it would have quietly locked
+ * about writing inside your own account. Reusing it would have quietly locked
  * members out of their own runbooks.
  */
 /** All a visibility decision needs — so a view type can be asked directly. */
-export type DocScopeOf = Pick<Doc, "visibility" | "teamId">;
+export type DocScopeOf = Pick<Doc, "visibility" | "accountId">;
 
-export function canViewDoc(viewer: User, doc: DocScopeOf): boolean {
+export function canViewDoc(viewer: Viewer, doc: DocScopeOf): boolean {
   if (isSenior(viewer)) return true;
   if (doc.visibility === "org") return true;
-  return Boolean(viewer.teamId) && viewer.teamId === doc.teamId;
+  return doc.accountId !== null && viewer.accountIds.includes(doc.accountId);
 }
 
-export function canEditDoc(viewer: User, doc: DocScopeOf): boolean {
+export function canEditDoc(viewer: Viewer, doc: DocScopeOf): boolean {
   if (isSenior(viewer)) return true;
   if (doc.visibility === "org") return isDirector(viewer);
-  return Boolean(viewer.teamId) && viewer.teamId === doc.teamId;
+  return doc.accountId !== null && viewer.accountIds.includes(doc.accountId);
 }
 
-/** Whether this person may start a document at all, org-wide or on a team. */
-export function canCreateDocs(viewer: User): boolean {
-  return isDirector(viewer) || Boolean(viewer.teamId);
+/** Whether this person may start a document at all, org-wide or on an account. */
+export function canCreateDocs(viewer: Viewer): boolean {
+  return isDirector(viewer) || viewer.accountIds.length > 0;
 }
 
 /** Directors publish to the whole department. Team members write for theirs. */
-export function canCreateOrgDocs(viewer: User): boolean {
+export function canCreateOrgDocs(viewer: Viewer): boolean {
   return isDirector(viewer);
 }
 
@@ -380,38 +412,38 @@ export function canCreateOrgDocs(viewer: User): boolean {
  * The one gate every write goes through, so "who may write an org-wide
  * document" is answered in a single place rather than once per action.
  */
-export function canPlaceDoc(viewer: User, placement: DocScopeOf): boolean {
+export function canPlaceDoc(viewer: Viewer, placement: DocScopeOf): boolean {
   if (placement.visibility === "org") return canCreateOrgDocs(viewer);
-  if (!placement.teamId) return false;
-  return isSenior(viewer) || viewer.teamId === placement.teamId;
+  if (!placement.accountId) return false;
+  return isSenior(viewer) || viewer.accountIds.includes(placement.accountId);
 }
 
-export async function assertMayPlaceDoc(viewer: User, placement: DocScopeOf) {
+export async function assertMayPlaceDoc(viewer: Viewer, placement: DocScopeOf) {
   if (!canPlaceDoc(viewer, placement)) notFound();
 }
 
-export async function loadViewableDoc(viewer: User, docId: string): Promise<Doc> {
+export async function loadViewableDoc(viewer: Viewer, docId: string): Promise<Doc> {
   const doc = await db.query.documents.findFirst({ where: eq(documents.id, docId) });
   if (!doc) notFound();
   if (!canViewDoc(viewer, doc)) notFound();
   return doc;
 }
 
-export async function loadViewableFolder(viewer: User, folderId: string): Promise<Folder> {
+export async function loadViewableFolder(viewer: Viewer, folderId: string): Promise<Folder> {
   const folder = await db.query.folders.findFirst({ where: eq(folders.id, folderId) });
   if (!folder) notFound();
   if (!canViewDoc(viewer, folder)) notFound();
   return folder;
 }
 
-export async function loadEditableFolder(viewer: User, folderId: string): Promise<Folder> {
+export async function loadEditableFolder(viewer: Viewer, folderId: string): Promise<Folder> {
   const folder = await db.query.folders.findFirst({ where: eq(folders.id, folderId) });
   if (!folder) notFound();
   if (!canEditDoc(viewer, folder)) notFound();
   return folder;
 }
 
-export async function loadEditableDoc(viewer: User, docId: string): Promise<Doc> {
+export async function loadEditableDoc(viewer: Viewer, docId: string): Promise<Doc> {
   const doc = await db.query.documents.findFirst({ where: eq(documents.id, docId) });
   if (!doc) notFound();
   if (!canEditDoc(viewer, doc)) notFound();

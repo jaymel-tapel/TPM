@@ -7,7 +7,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { boardStatuses, boards, statusKindEnum, tasks } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
-import { assertCanManageBoard, assertCanManageTeam } from "@/lib/permissions";
+import { assertCanManageBoard, assertCanManageAccount } from "@/lib/permissions";
 
 const name = z.string().trim().min(1, "Give it a name").max(60);
 
@@ -27,38 +27,38 @@ export async function createBoard(
 ): Promise<BoardFormState> {
   const viewer = await requireUser();
   /*
-   * An empty team is a real choice, not a missing one: it files the board with
-   * the department rather than with a team. Only the Senior Director may make
-   * it — `assertCanManageTeam` refuses a null team to everybody else.
+   * An empty account is a real choice, not a missing one: it files the board with
+   * the department rather than with an account. Only the Senior Director may make
+   * it — `assertCanManageAccount` refuses a null account to everybody else.
    */
-  const teamId = String(formData.get("teamId") ?? "") || null;
+  const accountId = String(formData.get("accountId") ?? "") || null;
   const parsed = name.safeParse(formData.get("name"));
   if (!parsed.success) return { error: parsed.error.issues[0]!.message };
 
-  await assertCanManageTeam(viewer, teamId);
+  await assertCanManageAccount(viewer, accountId);
 
   const [{ next }] = await db
     .select({ next: max(boards.position) })
     .from(boards)
-    .where(teamId === null ? isNull(boards.teamId) : eq(boards.teamId, teamId));
+    .where(accountId === null ? isNull(boards.accountId) : eq(boards.accountId, accountId));
 
   let board;
   try {
     [board] = await db
       .insert(boards)
       .values({
-        teamId,
+        accountId,
         name: parsed.data,
         position: (next ?? -1) + 1,
         createdBy: viewer.id,
       })
       .returning();
   } catch {
-    // Either (team_id, name) or, for a department board, the partial unique
+    // Either (account_id, name) or, for a department board, the partial unique
     // index on name alone.
     return {
-      error: teamId
-        ? "That team already has a board with that name."
+      error: accountId
+        ? "That account already has a board with that name."
         : "The department already has a board with that name.",
     };
   }
@@ -106,8 +106,8 @@ export async function deleteBoard(formData: FormData) {
 
   await db.delete(boards).where(eq(boards.id, boardId));
   revalidatePath("/", "layout");
-  // A department board belongs to no team, so there is no team page to land on.
-  redirect(board.teamId ? `/teams/${board.teamId}` : "/boards");
+  // A department board belongs to no account, so there is no account page to land on.
+  redirect(board.accountId ? `/accounts/${board.accountId}` : "/boards");
 }
 
 const columnInput = z.object({

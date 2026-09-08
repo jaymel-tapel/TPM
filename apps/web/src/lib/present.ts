@@ -36,7 +36,7 @@ import { formatDuration } from "@/lib/duration";
 import { minutesFromMidnight } from "@/lib/plan";
 import type { TaskCard } from "@/queries/sql";
 import type { BoardView } from "@/queries/tasks";
-import type { MemberRollup } from "@/queries/team";
+import type { MemberRollup } from "@/queries/accounts";
 import type { AwayMark, LeaveRow } from "@/queries/leave";
 import type { AttentionItem } from "@/queries/attention";
 import type { ActivityEntry } from "@/queries/activity";
@@ -175,7 +175,7 @@ export function toMemberRow(
    * A string is a base path the person's id is appended to; null is "not a
    * link", which is most of a team member's own roster.
    */
-  href: string | null = "/team",
+  href: string | null = "/people",
   reference: Date = now(),
   zone?: Zone,
 ): MemberRowData {
@@ -206,9 +206,9 @@ export function toBoard(board: BoardView, reference: Date = now()): BoardData {
  * Documents. `visibility` is the column's word and `scope` is the reader's —
  * the design system is told whose a document is, not how the row spells it.
  */
-const scopeOf = (doc: { visibility: "org" | "team"; teamName: string | null }) => ({
+const scopeOf = (doc: { visibility: "org" | "account"; accountName: string | null }) => ({
   scope: doc.visibility,
-  teamName: doc.teamName,
+  accountName: doc.accountName,
 });
 
 export function toDocNode(doc: DocSummary): DocNodeData {
@@ -238,13 +238,13 @@ export function toDocFolderRow(folder: FolderSummary): DocFolderData {
   };
 }
 
-export function toDocRef(doc: DocRef & { teamName?: string | null }): DocRefData {
+export function toDocRef(doc: DocRef & { accountName?: string | null }): DocRefData {
   return {
     id: doc.id,
     href: doc.href,
     title: doc.title,
     scope: doc.visibility,
-    teamName: doc.teamName ?? null,
+    accountName: doc.accountName ?? null,
     attached: doc.attached,
     mentioned: doc.mentioned,
   };

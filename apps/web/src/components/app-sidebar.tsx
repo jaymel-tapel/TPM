@@ -14,8 +14,7 @@ import {
   LayoutDashboard,
   LogOut,
   Plus,
-  Users,
-  UsersRound,
+  Building2,
   MessageSquare,
 } from "lucide-react";
 import { ROLE_LABELS, UserAvatar, cn, type InboxItemData, type Role } from "@meridian/ui";
@@ -28,8 +27,7 @@ const ICONS: Record<NavIcon, typeof CalendarCheck> = {
   today: CalendarCheck,
   boards: Columns3,
   docs: FileText,
-  team: Users,
-  teams: UsersRound,
+  accounts: Building2,
   reports: BarChart3,
   overview: LayoutDashboard,
   admin: ShieldCheck,
@@ -54,10 +52,10 @@ function ActiveBar() {
 }
 
 /**
- * A row under a nav group, and — for the Senior Director — the teams that hold
+ * A row under a nav group, and — for the Senior Director — the accounts that hold
  * the boards beneath it.
  *
- * Two levels and no more. One flat list of every team's boards is a list you
+ * Two levels and no more. One flat list of every account's boards is a list you
  * read rather than scan; a third level would be the nested spaces the brief
  * refuses.
  */
@@ -82,12 +80,12 @@ function NavChildRow({
    * Groups start closed, and open themselves around wherever you are.
    *
    * The Senior Director is the only person who gets this second level, and
-   * every team open at once buried Docs and Reports below the fold — the rail
+   * every account open at once buried Docs and Reports below the fold — the rail
    * became a list of every board in the department. Closed, it is a list of
-   * teams, which is how that person thinks about it.
+   * accounts, which is how that person thinks about it.
    *
    * Null until it is touched, so until then the answer comes from the path:
-   * following a link to a board from anywhere else opens the team holding it
+   * following a link to a board from anywhere else opens the account holding it
    * rather than leaving the current page hidden inside a shut group.
    */
   const [open, setOpen] = useState<boolean | null>(null);

@@ -52,7 +52,7 @@ export function DocRefList({
               >
                 {doc.title}
               </Link>
-              <ScopeBadge scope={doc.scope} teamName={doc.teamName} />
+              <ScopeBadge scope={doc.scope} accountName={doc.accountName} />
 
               {doc.mentioned ? (
                 <span
@@ -151,7 +151,7 @@ export function DocSearchResults({ hits, query }: { hits: DocHitData[]; query: s
             >
               {hit.title}
             </Link>
-            <ScopeBadge scope={hit.scope} teamName={hit.teamName} />
+            <ScopeBadge scope={hit.scope} accountName={hit.accountName} />
           </div>
           {hit.snippet.length > 0 ? (
             <p className="mt-1 text-caption text-gray-700">

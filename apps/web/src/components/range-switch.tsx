@@ -1,6 +1,6 @@
 import { CalendarCheck, CalendarDays } from "lucide-react";
 import { Command, CommandBar } from "@meridian/ui";
-import type { TeamRange } from "@/lib/range";
+import type { RangeKind } from "@/lib/range";
 
 /**
  * Today, or the week behind it.
@@ -15,7 +15,7 @@ export function RangeSwitch({
   basePath,
   className,
 }: {
-  range: TeamRange;
+  range: RangeKind;
   /** The route the two links point back at, without a query string. */
   basePath: string;
   className?: string;

@@ -22,7 +22,10 @@ export default async function BoardSettingsPage({
   // Managing a board is the Account Director's job, so a team member who
   // guesses the URL gets the same answer as one who guesses a wrong id.
   const canManage =
-    isSenior(user) || (user.role === "account_director" && user.teamId === board.teamId);
+    isSenior(user) ||
+    (user.role === "account_director" &&
+      board.accountId !== null &&
+      user.directedIds.includes(board.accountId));
   if (!canManage) notFound();
 
   const columns = await listBoardStatuses(boardId);
@@ -30,7 +33,7 @@ export default async function BoardSettingsPage({
   return (
     <>
       <PageHeader
-        eyebrow={board.teamName}
+        eyebrow={board.accountName}
         title={board.name}
         subtitle="What the columns are called, and what each one means."
         commands={

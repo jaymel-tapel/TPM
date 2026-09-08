@@ -8,12 +8,12 @@ import { toPlainText } from "@meridian/ui/editor";
 import { db } from "@/db";
 import { docVisibilityEnum, documents, folders, taskDocuments } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
-import { listAssignableUsers } from "@/queries/team";
+import { listAssignableUsers } from "@/queries/accounts";
 import type { MentionItem } from "@meridian/ui/editor";
 import {
   assertMayPlaceDoc,
   canCreateDocs,
-  canViewTeamWork,
+  canViewAccountWork,
   loadEditableFolder,
   loadEditableDoc,
   loadEditableTask,
@@ -26,7 +26,7 @@ const docInput = z.object({
   // on the JSON, not a word count.
   body: z.string().trim().max(200_000).optional().nullable(),
   visibility: z.enum(docVisibilityEnum.enumValues),
-  teamId: z.string().uuid().optional().nullable(),
+  accountId: z.string().uuid().optional().nullable(),
   folderId: z.string().uuid().optional().nullable(),
 });
 
@@ -35,7 +35,7 @@ function parse(formData: FormData) {
     title: formData.get("title"),
     body: formData.get("body") || null,
     visibility: formData.get("visibility"),
-    teamId: formData.get("teamId") || null,
+    accountId: formData.get("accountId") || null,
     folderId: formData.get("folderId") || null,
   });
 }
@@ -48,24 +48,24 @@ function refresh() {
 
 /**
  * Where a document sits decides who sees it: a child always carries its root's
- * visibility. Per-document visibility inside a tree makes holes — a team-only
+ * visibility. Per-document visibility inside a tree makes holes — an account-only
  * child under an org-wide parent is a gap in everyone else's tree and a broken
  * breadcrumb, and the reverse leaks by link.
  */
 async function rootPlacement(
   folderId: string | null,
-  chosen: { visibility: "org" | "team"; teamId: string | null },
+  chosen: { visibility: "org" | "account"; accountId: string | null },
 ) {
   if (!folderId) return chosen;
   const folder = await db.query.folders.findFirst({ where: eq(folders.id, folderId) });
   if (!folder) return null;
-  return { visibility: folder.visibility, teamId: folder.teamId };
+  return { visibility: folder.visibility, accountId: folder.accountId };
 }
 
 /** Applies a placement to a folder and everything beneath it. */
 async function cascadePlacement(
   folderId: string,
-  placement: { visibility: "org" | "team"; teamId: string | null },
+  placement: { visibility: "org" | "account"; accountId: string | null },
 ) {
   await db.execute(sql`
     with recursive subtree as (
@@ -75,7 +75,7 @@ async function cascadePlacement(
     )
     update folders
        set visibility = ${placement.visibility}::doc_visibility,
-           team_id = ${placement.teamId}::uuid,
+           account_id = ${placement.accountId}::uuid,
            updated_at = now()
      where id in (select id from subtree)
   `);
@@ -89,7 +89,7 @@ async function cascadePlacement(
     )
     update documents
        set visibility = ${placement.visibility}::doc_visibility,
-           team_id = ${placement.teamId}::uuid,
+           account_id = ${placement.accountId}::uuid,
            updated_at = now()
      where folder_id in (select id from subtree)
   `);
@@ -118,12 +118,20 @@ export async function createDoc(_prev: FormState, formData: FormData): Promise<F
 
   const chosen = {
     visibility: input.visibility,
-    teamId: input.visibility === "org" ? null : (input.teamId ?? viewer.teamId),
+    /*
+     * A person on one account still gets the obvious default. On several there
+     * is no obvious one, so the form has to say which — and the check below
+     * turns that into a sentence rather than a silent guess.
+     */
+    accountId:
+      input.visibility === "org"
+        ? null
+        : (input.accountId ?? (viewer.accountIds.length === 1 ? viewer.accountIds[0]! : null)),
   };
   const placement = await rootPlacement(input.folderId ?? null, chosen);
   if (!placement) return { error: "That parent document no longer exists." };
-  if (placement.visibility === "team" && !placement.teamId) {
-    return { error: "Pick the team this document belongs to." };
+  if (placement.visibility === "account" && !placement.accountId) {
+    return { error: "Pick the account this document belongs to." };
   }
   await assertMayPlaceDoc(viewer, placement);
 
@@ -135,7 +143,7 @@ export async function createDoc(_prev: FormState, formData: FormData): Promise<F
       // The index reads this, never the JSON — see `documents_search_idx`.
       searchText: toPlainText(input.body),
       visibility: placement.visibility,
-      teamId: placement.teamId,
+      accountId: placement.accountId,
       folderId: input.folderId ?? null,
       createdBy: viewer.id,
     })
@@ -158,12 +166,12 @@ export async function updateDoc(_prev: FormState, formData: FormData): Promise<F
 
   const chosen = {
     visibility: input.visibility,
-    teamId: input.visibility === "org" ? null : (input.teamId ?? existing.teamId),
+    accountId: input.visibility === "org" ? null : (input.accountId ?? existing.accountId),
   };
   const placement = await rootPlacement(nextFolder, chosen);
   if (!placement) return { error: "That parent document no longer exists." };
-  if (placement.visibility === "team" && !placement.teamId) {
-    return { error: "Pick the team this document belongs to." };
+  if (placement.visibility === "account" && !placement.accountId) {
+    return { error: "Pick the account this document belongs to." };
   }
   await assertMayPlaceDoc(viewer, placement);
 
@@ -180,7 +188,7 @@ export async function updateDoc(_prev: FormState, formData: FormData): Promise<F
 
   await db
     .update(documents)
-    .set({ visibility: placement.visibility, teamId: placement.teamId })
+    .set({ visibility: placement.visibility, accountId: placement.accountId })
     .where(eq(documents.id, docId));
 
   refresh();
@@ -190,7 +198,7 @@ export async function updateDoc(_prev: FormState, formData: FormData): Promise<F
 const folderInput = z.object({
   name: z.string().trim().min(1, "Give the folder a name").max(200),
   visibility: z.enum(docVisibilityEnum.enumValues),
-  teamId: z.string().uuid().optional().nullable(),
+  accountId: z.string().uuid().optional().nullable(),
   parentId: z.string().uuid().optional().nullable(),
 });
 
@@ -198,7 +206,7 @@ function parseFolder(formData: FormData) {
   return folderInput.safeParse({
     name: formData.get("name"),
     visibility: formData.get("visibility"),
-    teamId: formData.get("teamId") || null,
+    accountId: formData.get("accountId") || null,
     parentId: formData.get("parentId") || null,
   });
 }
@@ -206,12 +214,12 @@ function parseFolder(formData: FormData) {
 /** A folder's placement, from its parent if it has one. */
 async function folderPlacement(
   parentId: string | null,
-  chosen: { visibility: "org" | "team"; teamId: string | null },
+  chosen: { visibility: "org" | "account"; accountId: string | null },
 ) {
   if (!parentId) return chosen;
   const parent = await db.query.folders.findFirst({ where: eq(folders.id, parentId) });
   if (!parent) return null;
-  return { visibility: parent.visibility, teamId: parent.teamId };
+  return { visibility: parent.visibility, accountId: parent.accountId };
 }
 
 export async function createFolder(_prev: FormState, formData: FormData): Promise<FormState> {
@@ -224,12 +232,20 @@ export async function createFolder(_prev: FormState, formData: FormData): Promis
 
   const chosen = {
     visibility: input.visibility,
-    teamId: input.visibility === "org" ? null : (input.teamId ?? viewer.teamId),
+    /*
+     * A person on one account still gets the obvious default. On several there
+     * is no obvious one, so the form has to say which — and the check below
+     * turns that into a sentence rather than a silent guess.
+     */
+    accountId:
+      input.visibility === "org"
+        ? null
+        : (input.accountId ?? (viewer.accountIds.length === 1 ? viewer.accountIds[0]! : null)),
   };
   const placement = await folderPlacement(input.parentId ?? null, chosen);
   if (!placement) return { error: "That folder no longer exists." };
-  if (placement.visibility === "team" && !placement.teamId) {
-    return { error: "Pick the team this folder belongs to." };
+  if (placement.visibility === "account" && !placement.accountId) {
+    return { error: "Pick the account this folder belongs to." };
   }
   await assertMayPlaceDoc(viewer, placement);
 
@@ -238,7 +254,7 @@ export async function createFolder(_prev: FormState, formData: FormData): Promis
     .values({
       name: input.name,
       visibility: placement.visibility,
-      teamId: placement.teamId,
+      accountId: placement.accountId,
       parentId: input.parentId ?? null,
       createdBy: viewer.id,
     })
@@ -266,12 +282,12 @@ export async function updateFolder(_prev: FormState, formData: FormData): Promis
 
   const chosen = {
     visibility: input.visibility,
-    teamId: input.visibility === "org" ? null : (input.teamId ?? existing.teamId),
+    accountId: input.visibility === "org" ? null : (input.accountId ?? existing.accountId),
   };
   const placement = await folderPlacement(nextParent, chosen);
   if (!placement) return { error: "That folder no longer exists." };
-  if (placement.visibility === "team" && !placement.teamId) {
-    return { error: "Pick the team this folder belongs to." };
+  if (placement.visibility === "account" && !placement.accountId) {
+    return { error: "Pick the account this folder belongs to." };
   }
   await assertMayPlaceDoc(viewer, placement);
 
@@ -367,23 +383,23 @@ export async function listMentionableDocs() {
 /**
  * People the `@` menu can offer, alongside documents.
  *
- * Scoped to a team, because a mention is how somebody gets pointed at work,
- * and the work belongs to a team's board. Offering the whole department would
+ * Scoped to an account, because a mention is how somebody gets pointed at work,
+ * and the work belongs to an account's board. Offering the whole department would
  * let a description name someone who cannot open the thing naming them.
  *
  * `null` means everything the viewer can reach — an org-wide document is read
- * by everyone, so there is no narrower team to scope to.
+ * by everyone, so there is no narrower account to scope to.
  */
-export async function listMentionablePeople(teamId?: string | null): Promise<MentionItem[]> {
+export async function listMentionablePeople(accountId?: string | null): Promise<MentionItem[]> {
   const viewer = await requireUser();
-  // A team the viewer cannot reach is not a team they may pick people from.
-  if (teamId && !canViewTeamWork(viewer, teamId)) return [];
+  // An account the viewer cannot reach is not one they may pick people from.
+  if (accountId && !canViewAccountWork(viewer, accountId)) return [];
 
-  const people = await listAssignableUsers(teamId ? [teamId] : undefined);
+  const people = await listAssignableUsers(accountId ? [accountId] : undefined);
   return people.map((person) => ({
     id: person.id,
     title: person.name,
-    subtitle: person.team_name ?? undefined,
+    subtitle: person.account_names ?? undefined,
     kind: "person" as const,
   }));
 }

@@ -9,6 +9,8 @@ import type {
   User,
 } from "@/db/schema";
 import { isSenior } from "@/lib/permissions";
+import type { Viewer } from "@/lib/auth";
+import { uuids, worksOn, worksOnAny } from "./sql";
 
 /**
  * One request, as every screen needs it.
@@ -24,7 +26,6 @@ export type LeaveRow = {
   userId: string;
   userName: string;
   role: Role;
-  teamId: string | null;
   kind: LeaveKind;
   status: LeaveStatus;
   startDate: string;
@@ -67,21 +68,26 @@ type RawRow = Omit<LeaveRow, "decidedAt" | "createdAt"> & {
  * column simply does not leave the database for a reader who has no claim on
  * it.
  */
-function readableNote(viewer: User): SQL {
+function readableNote(viewer: Viewer): SQL {
   if (isSenior(viewer)) return sql`l.note`;
-  if (viewer.role === "account_director" && viewer.teamId) {
-    return sql`case when l.user_id = ${viewer.id}::uuid or u.team_id = ${viewer.teamId}::uuid
+  /*
+   * A director reads the note of anybody on an account they direct — which is
+   * exactly the set they may decide for, and the note exists to be weighed
+   * when deciding. `directedIds`, not `accountIds`: working alongside somebody
+   * on Nike is not a reason to learn why they are off.
+   */
+  if (viewer.role === "account_director" && viewer.directedIds.length > 0) {
+    return sql`case when l.user_id = ${viewer.id}::uuid or ${worksOnAny(viewer.directedIds)}
                     then l.note else null end`;
   }
   return sql`case when l.user_id = ${viewer.id}::uuid then l.note else null end`;
 }
 
-const selectFor = (viewer: User) => sql`
+const selectFor = (viewer: Viewer) => sql`
   select l.id,
          l.user_id as "userId",
          u.name as "userName",
          u.role,
-         u.team_id as "teamId",
          l.kind,
          l.status,
          l.start_date as "startDate",
@@ -104,28 +110,23 @@ function rows(raw: unknown[]): LeaveRow[] {
   }));
 }
 
-const uuids = (ids: string[]) =>
-  sql.join(
-    ids.map((id) => sql`${id}::uuid`),
-    sql`, `,
-  );
 
 /**
- * Approved leave on one team that touches the window `[from, to]`.
+ * Approved leave on one account that touches the window `[from, to]`.
  *
  * Only approved: a pending request is a plan, and a roster that showed it
  * would be telling everybody somebody is away before the person who decides
  * that has agreed.
  */
-export async function listTeamLeave(
-  viewer: User,
-  teamId: string,
+export async function listAccountLeave(
+  viewer: Viewer,
+  accountId: string,
   from: string,
   to: string,
 ): Promise<LeaveRow[]> {
   const result = await db.execute(sql`
     ${selectFor(viewer)}
-    where u.team_id = ${teamId}::uuid
+    where ${worksOn(accountId)}
       and l.status = 'approved'
       and l.start_date <= ${to}::date
       and l.end_date >= ${from}::date
@@ -143,16 +144,16 @@ export async function listTeamLeave(
  * today, and the day boundary belongs to whoever is asking.
  */
 export async function awayOn(
-  teamIds: string[],
+  accountIds: string[],
   day: string,
 ): Promise<Map<string, AwayMark>> {
-  if (teamIds.length === 0) return new Map();
+  if (accountIds.length === 0) return new Map();
 
   const result = await db.execute(sql`
     select l.user_id as "userId", l.kind, l.half, l.end_date as "endDate"
     from leave_requests l
     join users u on u.id = l.user_id
-    where u.team_id in (${uuids(teamIds)})
+    where ${worksOnAny(accountIds)}
       and l.status = 'approved'
       and l.start_date <= ${day}::date
       and l.end_date >= ${day}::date
@@ -176,7 +177,7 @@ export async function awayOn(
 }
 
 /** One person's own requests, newest first. Every status: this is their record. */
-export async function listMyLeave(viewer: User): Promise<LeaveRow[]> {
+export async function listMyLeave(viewer: Viewer): Promise<LeaveRow[]> {
   const result = await db.execute(sql`
     ${selectFor(viewer)}
     where l.user_id = ${viewer.id}::uuid
@@ -188,11 +189,11 @@ export async function listMyLeave(viewer: User): Promise<LeaveRow[]> {
 /**
  * What this viewer still has to decide.
  *
- * Takes the whole viewer rather than a team id because the Senior Director's
- * queue is not team-shaped: it is every Account Director's request, from both
- * teams, and nobody else's.
+ * Takes the whole viewer rather than an account id because the Senior Director's
+ * queue is not account-shaped: it is every Account Director's request, from both
+ * accounts, and nobody else's.
  */
-export async function listPendingFor(viewer: User): Promise<LeaveRow[]> {
+export async function listPendingFor(viewer: Viewer): Promise<LeaveRow[]> {
   if (isSenior(viewer)) {
     const result = await db.execute(sql`
       ${selectFor(viewer)}
@@ -202,13 +203,18 @@ export async function listPendingFor(viewer: User): Promise<LeaveRow[]> {
     return rows(result.rows);
   }
 
-  if (viewer.role !== "account_director" || !viewer.teamId) return [];
+  if (viewer.role !== "account_director" || viewer.directedIds.length === 0) return [];
 
+  /*
+   * Everyone on an account this director runs — which may include somebody who
+   * also works for another director. Both of them see the request and either
+   * may settle it; the first decision wins, and `decided_by` records who.
+   */
   const result = await db.execute(sql`
     ${selectFor(viewer)}
     where l.status = 'pending'
       and u.role = 'team_member'
-      and u.team_id = ${viewer.teamId}::uuid
+      and ${worksOnAny(viewer.directedIds)}
     order by l.start_date, u.name
   `);
   return rows(result.rows);
@@ -223,7 +229,7 @@ export async function listPendingFor(viewer: User): Promise<LeaveRow[]> {
  * would need `btree_gist` for a rule this short.
  */
 export async function overlappingLeave(
-  viewer: User,
+  viewer: Viewer,
   from: string,
   to: string,
 ): Promise<LeaveRow[]> {

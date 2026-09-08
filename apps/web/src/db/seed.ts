@@ -2,6 +2,7 @@ import "./load-env";
 import bcrypt from "bcryptjs";
 import { pool, db } from "./index";
 import {
+  accountMembers,
   boardStatuses,
   boards,
   documents,
@@ -12,7 +13,7 @@ import {
   taskAssignees,
   taskTags,
   tasks,
-  teams,
+  accounts,
   users,
   type Priority,
   type TaskType,
@@ -88,7 +89,10 @@ const OPEN_WINDOW_DAYS = 3;
 type Person = {
   name: string;
   role: "team_member" | "account_director" | "senior_director";
-  team: "A" | "B" | null;
+  /** Which director's book they sit in. Null for the Senior Director. */
+  pod: "A" | "B" | null;
+  /** Their craft, which is a fact about them rather than about one client. */
+  title: string | null;
   /** Share of that person's tasks finished by end of the day they were due. */
   reliability: number;
   /** Share of their misses that are still sitting open. */
@@ -99,26 +103,44 @@ type Person = {
 const SENIOR: Person = {
   name: "Elena Rivera",
   role: "senior_director",
-  team: null,
+  pod: null,
+  title: null,
   reliability: 0.9,
   abandon: 0.1,
   perDay: [0, 0],
 };
 
+/**
+ * The clients each Account Director carries.
+ *
+ * A "pod" is a director's book of business, not a team — nobody in the product
+ * belongs to one. It exists here only so the seed knows which accounts a
+ * person could plausibly be shared across, and which director signs their
+ * leave off.
+ */
+const BOOK = {
+  A: ["Nike", "Adidas", "Coca-Cola"],
+  B: ["Cortado", "Halcyon"],
+} as const;
+
+type Pod = keyof typeof BOOK;
+
 const member = (
   name: string,
-  team: "A" | "B",
+  pod: Pod,
+  title: string,
   reliability: number,
   // Most people eventually finish what they miss. Keeping the default low means
   // the few who genuinely fall behind stand out instead of everyone showing a
   // token overdue task.
   abandon = 0.06,
-): Person => ({ name, role: "team_member", team, reliability, abandon, perDay: [4, 7] });
+): Person => ({ name, role: "team_member", pod, title, reliability, abandon, perDay: [4, 7] });
 
-const director = (name: string, team: "A" | "B", reliability: number): Person => ({
+const director = (name: string, pod: Pod, reliability: number): Person => ({
   name,
   role: "account_director",
-  team,
+  pod,
+  title: "Account Director",
   reliability,
   abandon: 0.1,
   perDay: [2, 4],
@@ -129,45 +151,70 @@ const PEOPLE: Person[] = [
   director("Sarah Lim", "A", 0.86),
   director("Michael Ortega", "B", 0.83),
 
-  // Team A — the brief's named people plus the rest of the roster.
-  member("Anna Santos", "A", 0.85),
-  member("James Cruz", "A", 0.46, 0.42), // the person Needs Attention should surface
-  member("Sofia Reyes", "A", 0.97, 0.05),
-  member("Marco Ilagan", "A", 0.82),
-  member("Bea Fernandez", "A", 0.88),
-  member("Rafael Ong", "A", 0.79),
-  member("Nadine Chua", "A", 0.84),
-  member("Paolo Rivera", "A", 0.76),
-  member("Trina Bautista", "A", 0.9),
-  member("Kevin Dizon", "A", 0.8),
-  member("Isabel Moreno", "A", 0.86),
-  member("Andres Lim", "A", 0.78),
-  member("Camille Yap", "A", 0.83),
-  member("Victor Salazar", "A", 0.75, 0.25),
+  // Sarah's book — Nike, Adidas and Coca-Cola. The brief's named people, plus
+  // the rest of the roster.
+  member("Anna Santos", "A", "Designer", 0.85),
+  member("James Cruz", "A", "Copywriter", 0.46, 0.42), // the person Needs Attention should surface
+  member("Sofia Reyes", "A", "Strategist", 0.97, 0.05),
+  member("Marco Ilagan", "A", "Designer", 0.82),
+  member("Bea Fernandez", "A", "Paid Media", 0.88),
+  member("Rafael Ong", "A", "Copywriter", 0.79),
+  member("Nadine Chua", "A", "Account Manager", 0.84),
+  member("Paolo Rivera", "A", "Motion Designer", 0.76),
+  member("Trina Bautista", "A", "Strategist", 0.9),
+  member("Kevin Dizon", "A", "Paid Media", 0.8),
+  member("Isabel Moreno", "A", "Designer", 0.86),
+  member("Andres Lim", "A", "Analyst", 0.78),
+  member("Camille Yap", "A", "Copywriter", 0.83),
+  member("Victor Salazar", "A", "Account Manager", 0.75, 0.25),
 
-  // Team B
-  member("Grace Tolentino", "B", 0.88),
-  member("Leo Mendoza", "B", 0.8),
-  member("Patricia Uy", "B", 0.85),
-  member("Daniel Reyes", "B", 0.72, 0.25),
-  member("Mika Villanueva", "B", 0.9),
-  member("Joaquin Perez", "B", 0.76),
-  member("Hannah Cruz", "B", 0.83),
-  member("Emil Navarro", "B", 0.7, 0.3),
-  member("Clarisse Tan", "B", 0.87),
-  member("Ruben Aquino", "B", 0.74),
-  member("Yasmin Delgado", "B", 0.86),
-  member("Oscar Batungbakal", "B", 0.78),
-  member("Lianne Gomez", "B", 0.84),
+  // Michael's book — Cortado and Halcyon.
+  member("Grace Tolentino", "B", "Paid Media", 0.88),
+  member("Leo Mendoza", "B", "Analyst", 0.8),
+  member("Patricia Uy", "B", "Designer", 0.85),
+  member("Daniel Reyes", "B", "Copywriter", 0.72, 0.25),
+  member("Mika Villanueva", "B", "Strategist", 0.9),
+  member("Joaquin Perez", "B", "Paid Media", 0.76),
+  member("Hannah Cruz", "B", "Account Manager", 0.83),
+  member("Emil Navarro", "B", "Motion Designer", 0.7, 0.3),
+  member("Clarisse Tan", "B", "Designer", 0.87),
+  member("Ruben Aquino", "B", "Analyst", 0.74),
+  member("Yasmin Delgado", "B", "Copywriter", 0.86),
+  member("Oscar Batungbakal", "B", "Paid Media", 0.78),
+  member("Lianne Gomez", "B", "Account Manager", 0.84),
 ];
 
 /**
- * Team B dipped this week; Team A held steady. Applied on top of each person's
- * reliability so the Senior Director's "completion down vs last week" signal
- * has something real to find.
+ * Which accounts somebody works on.
+ *
+ * A director carries their whole book. Everybody else has a home client, plus
+ * — often enough that the demo shows it rather than mentions it — one more in
+ * the same book. Deterministic per person, so tuning one roster never
+ * reshuffles anybody else's.
+ *
+ * Anna Santos is pinned to Nike and Adidas: she is the person the brief's
+ * worked example follows, and the handoff's own illustration of somebody
+ * shared between two clients.
  */
-function weekFactor(team: "A" | "B" | null, daysAgo: number): number {
-  if (team !== "B") return 1;
+function accountsFor(person: Person, index: number): string[] {
+  if (!person.pod) return [];
+  const book = BOOK[person.pod];
+  if (person.role === "account_director") return [...book];
+  if (person.name === "Anna Santos") return ["Nike", "Adidas"];
+
+  const home = book[index % book.length]!;
+  const stream = streamFor(`${person.name}:accounts`);
+  const also = book.filter((name) => name !== home && stream() < 0.4);
+  return [home, ...also];
+}
+
+/**
+ * Michael's book dipped this week; Sarah's held steady. Applied on top of each
+ * person's reliability so the Senior Director's "completion down vs last week"
+ * signal has something real to find.
+ */
+function weekFactor(pod: "A" | "B" | null, daysAgo: number): number {
+  if (pod !== "B") return 1;
   return daysAgo <= 6 ? 0.93 : 1.08;
 }
 
@@ -178,7 +225,8 @@ function dayFactor(daysAgo: number): number {
   return 1 + wobble - 0.04;
 }
 
-const CLIENTS = ["Nike", "Aveda", "Northline", "Cortado", "Halcyon"];
+/** Every account, in the order the two books declare them. */
+const CLIENTS = [...BOOK.A, ...BOOK.B];
 
 const TITLES: Record<TaskType, string[]> = {
   client_work: [
@@ -213,7 +261,7 @@ const TITLES: Record<TaskType, string[]> = {
   meeting: [
     "Weekly meeting notes",
     "{client} status call",
-    "Team stand-up",
+    "Account stand-up",
     "Quarterly planning session",
     "Client onboarding call",
   ],
@@ -243,8 +291,9 @@ function pickType(): TaskType {
   return "internal";
 }
 
-function pickTitle(type: TaskType): string {
-  return pick(TITLES[type]).replace("{client}", pick(CLIENTS));
+/** The client's own name goes into the title, rather than a name picked at random. */
+function pickTitle(type: TaskType, client: string): string {
+  return pick(TITLES[type]).replace("{client}", client);
 }
 
 function pickPriority(): Priority {
@@ -254,7 +303,13 @@ function pickPriority(): Priority {
   return "normal";
 }
 
-const TAG_NAMES = [...CLIENTS, "launch", "monthly", "urgent-client", "reporting"];
+/*
+ * Tags stop pretending to be clients. "Nike" is an account now — a row with an
+ * owner, a board and a roster — and leaving it in the tag list as well would
+ * give the same fact two homes that could disagree. What is left is what a tag
+ * was always good at: a word about the *kind* of work.
+ */
+const TAG_NAMES = ["launch", "monthly", "urgent-client", "reporting"];
 
 function emailFor(name: string) {
   return `${name.toLowerCase().replace(/[^a-z ]/g, "").replace(/ +/g, ".")}@meridian.co`;
@@ -277,6 +332,7 @@ async function main() {
 
   console.log("Clearing existing data…");
   await db.delete(leaveRequests);
+  await db.delete(accountMembers);
   await db.delete(taskDocuments);
   await db.delete(documents);
   await db.delete(folders);
@@ -286,16 +342,17 @@ async function main() {
   await db.delete(tags);
   await db.delete(boardStatuses);
   await db.delete(boards);
-  await db.update(teams).set({ accountDirectorId: null });
+  await db.update(accounts).set({ accountDirectorId: null });
   await db.delete(users);
-  await db.delete(teams);
+  await db.delete(accounts);
 
-  console.log("Creating teams and users…");
-  const [teamA, teamB] = await db
-    .insert(teams)
-    .values([{ name: "Team A" }, { name: "Team B" }])
+  console.log("Creating accounts and users…");
+  const accountRows = await db
+    .insert(accounts)
+    .values(CLIENTS.map((name) => ({ name })))
     .returning();
-  const teamId = { A: teamA.id, B: teamB.id } as const;
+  const accountByName = new Map(accountRows.map((a) => [a.name, a]));
+  const accountId = (name: string) => accountByName.get(name)!.id;
 
   const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
   const inserted = await db
@@ -306,7 +363,7 @@ async function main() {
         email: emailFor(p.name),
         passwordHash,
         role: p.role,
-        teamId: p.team ? teamId[p.team] : null,
+        title: p.title,
       })),
     )
     .returning();
@@ -314,38 +371,59 @@ async function main() {
   const byName = new Map(inserted.map((u) => [u.name, u]));
   const idOf = (name: string) => byName.get(name)!.id;
 
-  await db
-    .update(teams)
-    .set({ accountDirectorId: idOf("Sarah Lim") })
-    .where(eq(teams.id, teamA.id));
-  await db
-    .update(teams)
-    .set({ accountDirectorId: idOf("Michael Ortega") })
-    .where(eq(teams.id, teamB.id));
+  /*
+   * Who works on what. This is the table the whole shape exists for, so the
+   * demo has to show it rather than describe it: roughly a third of the roster
+   * carries two clients, and Anna carries Nike and Adidas by name.
+   */
+  const accountsOf = new Map<string, string[]>(
+    PEOPLE.map((p, index) => [p.name, accountsFor(p, index)]),
+  );
+  await db.insert(accountMembers).values(
+    [...accountsOf].flatMap(([name, names]) =>
+      names.map((account) => ({ accountId: accountId(account), userId: idOf(name) })),
+    ),
+  );
+
+  for (const [pod, director] of [["A", "Sarah Lim"], ["B", "Michael Ortega"]] as const) {
+    for (const name of BOOK[pod]) {
+      await db
+        .update(accounts)
+        .set({ accountDirectorId: idOf(director) })
+        .where(eq(accounts.id, accountId(name)));
+    }
+  }
 
   /*
-   * One board per team, with the four columns that used to be the status
-   * enum. Boards are now where work lives, so the seed has to create them
-   * before it can create a task.
+   * One board per account, with the four columns that used to be the status
+   * enum. Boards are where work lives, so the seed has to create them before
+   * it can create a task.
    *
-   * Named for the work, not for the team that owns it. A board called "Team A"
-   * sitting inside a group called "Team A" reads as a mistake, and in the
-   * Senior Director's rail — where both teams' boards are listed under their
-   * teams — it was one line saying the same word twice.
+   * Named for the work, not for the account that owns it. A board called
+   * "Nike" sitting under a rail group called "Nike" reads as a mistake — one
+   * line saying the same word twice.
    */
+  const BOARD_NAME: Record<string, string> = {
+    Nike: "Brand & Creative",
+    Adidas: "Always-On Social",
+    "Coca-Cola": "Campaign Delivery",
+    Cortado: "Performance & Media",
+    Halcyon: "Content & Reporting",
+  };
+
   const boardRows = await db
     .insert(boards)
-    .values([
-      { teamId: teamA.id, name: "Brand & Creative", position: 0, createdBy: idOf("Sarah Lim") },
-      {
-        teamId: teamB.id,
-        name: "Performance & Media",
+    .values(
+      CLIENTS.map((name) => ({
+        accountId: accountId(name),
+        name: BOARD_NAME[name]!,
         position: 0,
-        createdBy: idOf("Michael Ortega"),
-      },
-    ])
+        createdBy: idOf(BOOK.A.includes(name as never) ? "Sarah Lim" : "Michael Ortega"),
+      })),
+    )
     .returning();
-  const boardOf = { A: boardRows[0]!, B: boardRows[1]! } as const;
+  const boardOf = (client: string) =>
+    boardRows.find((b) => b.accountId === accountId(client))!;
 
   const DEFAULT_COLUMNS = [
     { name: "To Do", kind: "open" as const, position: 0 },
@@ -362,8 +440,8 @@ async function main() {
     .returning();
 
   /** Board + legacy status name -> the status row to file work under. */
-  const statusOf = (team: "A" | "B", name: string) =>
-    statusRows.find((r) => r.boardId === boardOf[team].id && r.name === name)!;
+  const statusOf = (client: string, name: string) =>
+    statusRows.find((r) => r.boardId === boardOf(client).id && r.name === name)!;
 
   const tagRows = await db
     .insert(tags)
@@ -394,7 +472,8 @@ async function main() {
     type: TaskType;
     priority: Priority;
     due: Date;
-    team: "A" | "B";
+    /** The client this work is for, by name. */
+    account: string;
     createdBy: string;
     assignees: string[];
     status: SeedStatus;
@@ -408,11 +487,11 @@ async function main() {
       description: opts.description ?? null,
       type: opts.type,
       priority: opts.priority,
-      boardId: boardOf[opts.team].id,
-      statusId: statusOf(opts.team, COLUMN_FOR[opts.status]).id,
+      boardId: boardOf(opts.account).id,
+      statusId: statusOf(opts.account, COLUMN_FOR[opts.status]).id,
       dueDate: opts.due,
       createdBy: opts.createdBy,
-      teamId: teamId[opts.team],
+      accountId: accountId(opts.account),
       completedAt: opts.completedAt,
       createdAt: new Date(opts.due.getTime() - between(0.2, 1.6) * DAY),
       updatedAt: opts.completedAt ?? opts.due,
@@ -420,14 +499,10 @@ async function main() {
     for (const userId of opts.assignees) assigneeRows.push({ taskId: id, userId });
     // If the title already names a client, tag it with that one rather than a
     // contradictory second client.
-    const namedClient = CLIENTS.find((c) => opts.title.includes(c));
-    if (namedClient) {
-      tagLinks.push({ taskId: id, tagId: tagByName.get(namedClient)! });
-    } else if (chance(0.5)) {
-      tagLinks.push({
-        taskId: id,
-        tagId: tagByName.get(pick(["launch", "monthly", "urgent-client", "reporting"]))!,
-      });
+    // The client is on the row now, so a tag only ever says what kind of work
+    // this is — no round trip through the title to recover who it is for.
+    if (chance(0.5)) {
+      tagLinks.push({ taskId: id, tagId: tagByName.get(pick(TAG_NAMES))! });
     }
     return id;
   }
@@ -443,10 +518,10 @@ async function main() {
     dayStart: Date,
     daysAgo: number,
   ): { status: SeedStatus; completedAt: Date | null } {
-    const boost = person.team === "A" ? 1.03 : 1;
+    const boost = person.pod === "A" ? 1.03 : 1;
     const rate = Math.min(
       0.98,
-      person.reliability * boost * weekFactor(person.team, daysAgo) * dayFactor(daysAgo),
+      person.reliability * boost * weekFactor(person.pod, daysAgo) * dayFactor(daysAgo),
     );
     const dayEnd = new Date(dayStart.getTime() + DAY);
     const nowMs = reference.getTime();
@@ -475,7 +550,7 @@ async function main() {
     return { status: "done", completedAt: new Date(late) };
   }
 
-  const workers = PEOPLE.filter((p) => p.team !== null);
+  const workers = PEOPLE.filter((p) => p.pod !== null);
 
   for (const [index, dayStart] of days.entries()) {
     const daysAgo = days.length - 1 - index;
@@ -487,6 +562,15 @@ async function main() {
     for (const person of workers) {
       rnd = streamFor(person.name);
       const uid = idOf(person.name);
+      const mine = accountsOf.get(person.name)!;
+      /*
+       * Work lands on one of the accounts they actually work on, weighted to
+       * the first — somebody covering two clients still has a main one. Doing
+       * it any other way would put Anna's Adidas work on Nike's board, and the
+       * composite key on `tasks` would refuse it anyway.
+       */
+      const clientFor = () => (mine.length === 1 || chance(0.7) ? mine[0]! : pick(mine.slice(1)));
+      const podDirector = person.pod === "A" ? "Sarah Lim" : "Michael Ortega";
       let count = intBetween(person.perDay[0], person.perDay[1]);
       if (weekend && !isToday) count = Math.max(0, count - 3);
 
@@ -515,13 +599,14 @@ async function main() {
             : { status: i === 3 ? "in_progress" : "todo", completedAt: null };
         }
 
+        const client = clientFor();
         addTask({
-          title: pickTitle(type),
+          title: pickTitle(type, client),
           type,
           priority: pickPriority(),
           due,
-          team: person.team!,
-          createdBy: chance(0.75) ? uid : idOf(person.team === "A" ? "Sarah Lim" : "Michael Ortega"),
+          account: client,
+          createdBy: chance(0.75) ? uid : idOf(podDirector),
           assignees: [uid],
           status: outcome.status,
           completedAt: outcome.completedAt,
@@ -537,10 +622,15 @@ async function main() {
   // past their due date so the Needs Attention sections have something to say.
   console.log("Generating collaborative tasks…");
   rnd = globalRnd;
-  for (const team of ["A", "B"] as const) {
-    const roster = workers.filter((p) => p.team === team && p.role === "team_member");
-    const ad = team === "A" ? "Sarah Lim" : "Michael Ortega";
-    for (let i = 0; i < 9; i++) {
+  for (const client of CLIENTS) {
+    // Everyone who works on this client, which is what makes a shared task
+    // shareable — and, for somebody on two accounts, puts them in both pools.
+    const roster = workers.filter(
+      (p) => p.role === "team_member" && accountsOf.get(p.name)!.includes(client),
+    );
+    if (roster.length < 2) continue;
+    const ad = BOOK.A.includes(client as never) ? "Sarah Lim" : "Michael Ortega";
+    for (let i = 0; i < 5; i++) {
       const daysAgo = intBetween(0, 9);
       const dayStart = new Date(today.getTime() - daysAgo * DAY);
       const due = new Date(dayStart.getTime() + between(10, 17) * HOUR);
@@ -553,11 +643,11 @@ async function main() {
         : new Date(Math.min(reference.getTime() - HOUR, due.getTime() - between(0.5, 5) * HOUR));
       const type = pick(["client_work", "review", "creative"] as const);
       addTask({
-        title: pickTitle(type),
+        title: pickTitle(type, client),
         type,
         priority: chance(0.5) ? "high" : "normal",
         due,
-        team,
+        account: client,
         createdBy: idOf(ad),
         assignees: group.map((p) => idOf(p.name)),
         status: completedAt ? "done" : chance(0.5) ? "in_progress" : "todo",
@@ -572,14 +662,15 @@ async function main() {
   rnd = globalRnd;
   for (const name of ["James Cruz", "Nadine Chua", "Leo Mendoza", "Ruben Aquino"]) {
     const person = PEOPLE.find((p) => p.name === name)!;
+    const client = accountsOf.get(name)![0]!;
     const type = pickType();
     addTask({
-      title: pickTitle(type),
+      title: pickTitle(type, client),
       type,
       priority: "high",
       due: new Date(wallClock.getTime() + between(0.5, 1.8) * HOUR),
-      team: person.team!,
-      createdBy: idOf(person.team === "A" ? "Sarah Lim" : "Michael Ortega"),
+      account: client,
+      createdBy: idOf(person.pod === "A" ? "Sarah Lim" : "Michael Ortega"),
       assignees: [idOf(name)],
       status: "todo",
       completedAt: null,
@@ -608,7 +699,7 @@ async function main() {
 
   const makeFolder = async (folder: {
     name: string;
-    team?: string | null;
+    account?: string | null;
     parentId?: string | null;
     author: string;
   }) => {
@@ -616,8 +707,8 @@ async function main() {
       .insert(folders)
       .values({
         name: folder.name,
-        visibility: folder.team ? "team" : "org",
-        teamId: folder.team ?? null,
+        visibility: folder.account ? "account" : "org",
+        accountId: folder.account ?? null,
         parentId: folder.parentId ?? null,
         createdBy: idOf(folder.author),
       })
@@ -628,7 +719,7 @@ async function main() {
   const writeDoc = async (doc: {
     title: string;
     lines: string[];
-    team?: string | null;
+    account?: string | null;
     folderId?: string | null;
     author: string;
   }) => {
@@ -639,8 +730,8 @@ async function main() {
         title: doc.title,
         body: text,
         searchText: toPlainText(text),
-        visibility: doc.team ? "team" : "org",
-        teamId: doc.team ?? null,
+        visibility: doc.account ? "account" : "org",
+        accountId: doc.account ?? null,
         folderId: doc.folderId ?? null,
         createdBy: idOf(doc.author),
       })
@@ -696,39 +787,39 @@ async function main() {
     author: "Elena Rivera",
   });
 
-  const teamAFolder = await makeFolder({
-    name: "Team A",
-    team: teamA.id,
+  const nikeFolder = await makeFolder({
+    name: "Nike",
+    account: accountId("Nike"),
     author: "Sarah Lim",
   });
 
   const runbookA = await writeDoc({
     title: "Runbook",
-    lines: ["How Team A files work, names columns and hands over on a Friday."],
-    team: teamA.id,
-    folderId: teamAFolder.id,
+    lines: ["How Nike files work, names columns and hands over on a Friday."],
+    account: accountId("Nike"),
+    folderId: nikeFolder.id,
     author: "Sarah Lim",
   });
 
   await writeDoc({
     title: "Reporting checklist",
     lines: ["Pull the numbers on Monday. Completion is measured against the day a task was due."],
-    team: teamA.id,
-    folderId: teamAFolder.id,
+    account: accountId("Nike"),
+    folderId: nikeFolder.id,
     author: "Sarah Lim",
   });
 
-  const teamBFolder = await makeFolder({
-    name: "Team B",
-    team: teamB.id,
+  const adidasFolder = await makeFolder({
+    name: "Adidas",
+    account: accountId("Adidas"),
     author: "Michael Ortega",
   });
 
   await writeDoc({
     title: "Runbook",
-    lines: ["How Team B files work. Not visible to Team A."],
-    team: teamB.id,
-    folderId: teamBFolder.id,
+    lines: ["How Adidas files work. Not visible to a client that is not Adidas."],
+    account: accountId("Adidas"),
+    folderId: adidasFolder.id,
     author: "Michael Ortega",
   });
 
@@ -743,8 +834,8 @@ async function main() {
    * A couple of tasks that actually reference something, so the chips, the
    * backlinks and the `@` picker all have something to show on a fresh seed.
    */
-  const teamATasks = taskRows.filter((t) => t.teamId === teamA.id).slice(0, 2);
-  if (teamATasks[0]) {
+  const nikeTasks = taskRows.filter((t) => t.accountId === accountId("Nike")).slice(0, 2);
+  if (nikeTasks[0]) {
     // The prose has to actually name it: a `mentioned` row is derived from the
     // description on every save, so one without a matching chip would vanish
     // the first time anybody touched the task.
@@ -765,20 +856,20 @@ async function main() {
           },
         ]),
       })
-      .where(eq(tasks.id, teamATasks[0].id!));
+      .where(eq(tasks.id, nikeTasks[0].id!));
 
     await db
       .insert(taskDocuments)
       .values([
-        { taskId: teamATasks[0].id!, documentId: brand.id, source: "attached" as const },
-        { taskId: teamATasks[0].id!, documentId: escalation.id, source: "mentioned" as const },
+        { taskId: nikeTasks[0].id!, documentId: brand.id, source: "attached" as const },
+        { taskId: nikeTasks[0].id!, documentId: escalation.id, source: "mentioned" as const },
       ])
       .onConflictDoNothing();
   }
-  if (teamATasks[1]) {
+  if (nikeTasks[1]) {
     await db
       .insert(taskDocuments)
-      .values({ taskId: teamATasks[1].id!, documentId: runbookA.id, source: "attached" as const })
+      .values({ taskId: nikeTasks[1].id!, documentId: runbookA.id, source: "attached" as const })
       .onConflictDoNothing();
   }
 
@@ -787,7 +878,7 @@ async function main() {
   /*
    * Enough leave that the feature is visible the moment you sign in, and
    * shaped so the org chart explains itself: somebody is off right now on
-   * both teams, Sarah has a queue, and Sarah's own request can only be
+   * both accounts, Sarah has a queue, and Sarah's own request can only be
    * settled by Elena.
    *
    * Offsets are days from the seed's own today, so the demo is always
@@ -796,7 +887,7 @@ async function main() {
   const on = (offset: number) => dayKey(new Date(today.getTime() + offset * 24 * HOUR));
 
   await db.insert(leaveRequests).values([
-    // Away right now, so `/team` and `/teams` both show a marker on load.
+    // Away right now, so `/account` and `/accounts` both show a marker on load.
     {
       userId: idOf("Sofia Reyes"),
       kind: "vacation" as const,
@@ -862,7 +953,7 @@ async function main() {
       endDate: on(-4),
       status: "cancelled" as const,
     },
-    // Team B, so the Senior Director sees availability on both rosters.
+    // Michael's book, so the Senior Director sees availability across both.
     {
       userId: idOf("Leo Mendoza"),
       kind: "vacation" as const,
@@ -874,7 +965,7 @@ async function main() {
     },
     /*
      * The row that tells the whole story without a word of explanation:
-     * Sarah cannot decide her own, so it sits in Elena's queue on /teams.
+     * Sarah cannot decide her own, so it sits in Elena's queue on /accounts.
      */
     {
       userId: idOf("Sarah Lim"),

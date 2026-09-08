@@ -127,6 +127,13 @@
       "when": 1788890911457,
       "tag": "0017_silly_master_mold",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1788895584151,
+      "tag": "0018_famous_earthquake",
+      "breakpoints": true
     }
   ]
 }

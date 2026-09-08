@@ -16,7 +16,7 @@ import type { FormState } from "@/actions/admin";
 
 const label = "mb-2 block text-caption-strong uppercase tracking-[0.08em] text-gray-600";
 
-export function TeamAdminForm({
+export function AccountAdminForm({
   action,
   values,
   submitLabel,
@@ -25,7 +25,7 @@ export function TeamAdminForm({
   action: (prev: FormState, formData: FormData) => Promise<FormState>;
   values: { id?: string; name: string; accountDirectorId: string };
   submitLabel: string;
-  /** Account Directors already on this team — the only people eligible. */
+  /** Account Directors already on this account — the only people eligible. */
   directors: { id: string; name: string }[];
 }) {
   const [state, formAction, pending] = useActionState(action, null);
@@ -33,13 +33,13 @@ export function TeamAdminForm({
 
   return (
     <form action={formAction} className="space-y-6">
-      {values.id ? <input type="hidden" name="teamId" value={values.id} /> : null}
+      {values.id ? <input type="hidden" name="accountId" value={values.id} /> : null}
       <input type="hidden" name="accountDirectorId" value={directorId} />
 
       <div className="space-y-6 rounded-xl border border-gray-400 bg-background-100 p-6">
         <div>
           <Label htmlFor="name" className={label}>
-            Team name
+            Account name
           </Label>
           <Input
             id="name"
@@ -73,13 +73,13 @@ export function TeamAdminForm({
               </Select>
             ) : (
               <p className="rounded-md bg-gray-100 px-3 py-2 text-body text-gray-700">
-                Nobody on this team is an Account Director yet. Make someone one first.
+                Nobody on this account is an Account Director yet. Make someone one first.
               </p>
             )}
           </div>
         ) : (
           <p className="text-caption text-gray-600">
-            A director is chosen once there is somebody on the team to be one.
+            A director is chosen once there is somebody on the account to be one.
           </p>
         )}
 

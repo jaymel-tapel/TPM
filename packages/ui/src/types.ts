@@ -185,6 +185,10 @@ export type MemberRowData = {
   href: string | null;
   name: string;
   role: Role;
+  /** Their craft — "Designer", "Copywriter". Shown instead of the role when set. */
+  title?: string | null;
+  /** The accounts they work on. Only worth showing where a roster spans them. */
+  accounts?: string[];
   due: number;
   done: number;
   overdue: number;
@@ -298,7 +302,7 @@ export const STATUS_KINDS = Object.keys(STATUS_KIND_LABELS) as StatusKind[];
 export const PRIORITIES = Object.keys(PRIORITY_LABELS) as Priority[];
 
 /** Whose a document is, as the reader sees it. */
-export type DocScope = "org" | "team";
+export type DocScope = "org" | "account";
 
 /** A document, as it sits in the tree. Documents do not contain documents. */
 export type DocNodeData = {
@@ -307,7 +311,7 @@ export type DocNodeData = {
   title: string;
   scope: DocScope;
   /** The team's name, or null when the document is everyone's. */
-  teamName: string | null;
+  accountName: string | null;
 };
 
 /**
@@ -319,7 +323,7 @@ export type DocFolderData = {
   href: string;
   name: string;
   scope: DocScope;
-  teamName: string | null;
+  accountName: string | null;
   folders: DocFolderData[];
   documents: DocNodeData[];
 };
@@ -330,7 +334,7 @@ export type DocRefData = {
   href: string;
   title: string;
   scope: DocScope;
-  teamName: string | null;
+  accountName: string | null;
   /** Attached deliberately, so it can be detached. */
   attached: boolean;
   /** Named in the description, so it can only be removed by editing the prose. */
@@ -345,7 +349,7 @@ export type DocHitData = {
   href: string;
   title: string;
   scope: DocScope;
-  teamName: string | null;
+  accountName: string | null;
   snippet: SnippetRunData[];
 };
 

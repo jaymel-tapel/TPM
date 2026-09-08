@@ -10,30 +10,85 @@ import type { StatusKind } from "@/db/schema";
 export const isBlocked = sql`s.kind = 'blocked'`;
 
 /**
- * Every query in the app is scoped one of three ways. Keeping the scope as a
- * single composable SQL fragment means the person, team and department views
- * all count the same things the same way.
+ * Every query in the app is scoped one of a few ways. Keeping the scope as a
+ * single composable SQL fragment means the person, account, campaign and
+ * department views all count the same things the same way.
  */
 export type Scope =
   | { kind: "department" }
-  | { kind: "team"; teamId: string }
-  | { kind: "user"; userId: string };
+  | { kind: "account"; accountId: string }
+  | { kind: "campaign"; campaignId: string }
+  | { kind: "user"; userId: string }
+  /** One person's work inside one account — a roster row on an account page. */
+  | { kind: "userInAccount"; userId: string; accountId: string };
 
 export const departmentScope: Scope = { kind: "department" };
-export const teamScope = (teamId: string): Scope => ({ kind: "team", teamId });
+export const accountScope = (accountId: string): Scope => ({ kind: "account", accountId });
+export const campaignScope = (campaignId: string): Scope => ({ kind: "campaign", campaignId });
 export const userScope = (userId: string): Scope => ({ kind: "user", userId });
+export const userInAccountScope = (userId: string, accountId: string): Scope => ({
+  kind: "userInAccount",
+  userId,
+  accountId,
+});
 
-/** Applied to a `tasks` row aliased as `k`. */
+/** Whether the task aliased as `k` is one of this person's. */
+const assignedTo = (userId: string): SQL =>
+  sql`exists (select 1 from task_assignees sa where sa.task_id = k.id and sa.user_id = ${userId})`;
+
+/**
+ * Applied to a `tasks` row aliased as `k`.
+ *
+ * Every arm is written out and there is no `default`. There used to be one,
+ * returning `true` — so a scope nobody had handled quietly widened to the whole
+ * department instead of failing to compile. That is the wrong direction for a
+ * mistake to fall in a product where the scope *is* the permission, and adding
+ * three arms at once is exactly when it would have bitten.
+ */
 export function scopeSql(scope: Scope): SQL {
   switch (scope.kind) {
-    case "team":
-      return sql`k.team_id = ${scope.teamId}`;
-    case "user":
-      return sql`exists (select 1 from task_assignees sa where sa.task_id = k.id and sa.user_id = ${scope.userId})`;
-    default:
+    case "department":
       return sql`true`;
+    case "account":
+      return sql`k.account_id = ${scope.accountId}`;
+    case "campaign":
+      return sql`k.campaign_id = ${scope.campaignId}`;
+    case "user":
+      return assignedTo(scope.userId);
+    case "userInAccount":
+      return sql`(k.account_id = ${scope.accountId} and ${assignedTo(scope.userId)})`;
   }
+  const impossible: never = scope;
+  throw new Error(`Unhandled scope: ${JSON.stringify(impossible)}`);
 }
+
+/** A list of ids as a SQL `in (...)` body, each cast so Postgres can compare it. */
+export const uuids = (ids: string[]) =>
+  sql.join(
+    ids.map((id) => sql`${id}::uuid`),
+    sql`, `,
+  );
+
+/**
+ * Whether a `users` row aliased as `u` works on this account.
+ *
+ * Membership is a table now, so "is this person on that account" is an
+ * `exists` rather than a column comparison. Kept here beside `scopeSql` so
+ * every query asks it the same way — the copies are what drift.
+ */
+export const worksOn = (accountId: string | null): SQL =>
+  accountId === null
+    ? sql`false`
+    : sql`exists (select 1 from account_members m where m.user_id = u.id and m.account_id = ${accountId}::uuid)`;
+
+/** Whether `u` works on any of these accounts. An empty list matches nobody. */
+export const worksOnAny = (accountIds: string[]): SQL =>
+  accountIds.length === 0
+    ? sql`false`
+    : sql`exists (select 1 from account_members m where m.user_id = u.id and m.account_id in (${sql.join(
+        accountIds.map((id) => sql`${id}::uuid`),
+        sql`, `,
+      )}))`;
 
 /** The department's zone, and the fallback when a reader has not set one. */
 export const TZ = APP_TIMEZONE;
@@ -63,7 +118,7 @@ export const onTimeIn = (zone: string = TZ) =>
  * the work.
  *
  * It has to be applied in two places, not one. `runTaskQuery` covers the
- * lists, but `team.ts`, `department.ts`, `reports.ts` and `attention.ts` each
+ * lists, but `account.ts`, `department.ts`, `reports.ts` and `attention.ts` each
  * write `from tasks k` directly — so filtering the shared path alone would fix
  * every list and leave every number wrong.
  */
@@ -83,7 +138,8 @@ export type TaskCard = {
   estimateMinutes: number | null;
   actualMinutes: number | null;
   completedAt: Date | null;
-  teamId: string;
+  accountId: string | null;
+  campaignId: string | null;
   boardId: string;
   boardName: string;
   createdBy: string;
@@ -115,7 +171,7 @@ export const taskCardSelect = sql`
   k.id, k.title, k.description, k.type, k.priority,
   k.due_date as "dueDate", k.completed_at as "completedAt",
   k.estimate_minutes as "estimateMinutes", k.actual_minutes as "actualMinutes",
-  k.team_id as "teamId", k.created_by as "createdBy",
+  k.account_id as "accountId", k.campaign_id as "campaignId", k.created_by as "createdBy",
   k.parent_id as "parentId",
   (select p.title from tasks p where p.id = k.parent_id) as "parentTitle",
   (select count(*) from tasks c where c.parent_id = k.id)::int as "childCount",
@@ -133,9 +189,9 @@ export const taskCardSelect = sql`
     '[]'::jsonb
   ) as tags,
   /*
-   * Scoped to the task's own team rather than the reader's, because this
+   * Scoped to the task's own account rather than the reader's, because this
    * projection has no reader — threading one through would touch every list
-   * query in the app. So a document from another team, attached by the one
+   * query in the app. So a document from another account, attached by the one
    * role that can see both, is not counted on the row; the task page lists it
    * correctly. Undercounting for a Senior Director beats leaking a count to
    * everybody else.
@@ -143,7 +199,7 @@ export const taskCardSelect = sql`
   (select count(distinct td.document_id)
    from task_documents td join documents dd on dd.id = td.document_id
    where td.task_id = k.id
-     and (dd.visibility = 'org' or dd.team_id = k.team_id))::int as docs
+     and (dd.visibility = 'org' or dd.account_id = k.account_id))::int as docs
 `;
 
 /** Ordering used everywhere a task list is shown. */

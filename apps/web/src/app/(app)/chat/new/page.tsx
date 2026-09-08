@@ -1,5 +1,5 @@
 import { requireSession } from "@/lib/auth";
-import { listChatPeople } from "@/queries/team";
+import { listChatPeople } from "@/queries/accounts";
 import { NewConversationForm } from "./new-conversation-form";
 
 export const dynamic = "force-dynamic";

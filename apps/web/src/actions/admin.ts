@@ -3,14 +3,15 @@
 import { randomBytes } from "node:crypto";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import { supportedZones } from "@/lib/zones";
-import { department, roleEnum, teams, users } from "@/db/schema";
+import { accountMembers, department, roleEnum, accounts, users } from "@/db/schema";
 import { hashPassword, requireUser } from "@/lib/auth";
 import { assertCanAdminister } from "@/lib/permissions";
 import { emailTaken } from "@/queries/admin";
+import { uuids } from "@/queries/sql";
 
 export type FormState = { error?: string } | null;
 
@@ -25,7 +26,8 @@ const personInput = z.object({
   name: z.string().trim().min(1, "Give them a name").max(120),
   email: z.string().trim().toLowerCase().email("That is not an email address").max(200),
   role: z.enum(roleEnum.enumValues),
-  teamId: z.string().uuid().optional().nullable(),
+  title: z.string().trim().max(80).optional().nullable(),
+  accountIds: z.array(z.string().uuid()),
 });
 
 function parsePerson(formData: FormData) {
@@ -33,22 +35,40 @@ function parsePerson(formData: FormData) {
     name: formData.get("name"),
     email: formData.get("email"),
     role: formData.get("role"),
-    teamId: formData.get("teamId") || null,
+    title: formData.get("title") || null,
+    // Several checkboxes under one name: a person works on as many accounts as
+    // they work on, which is the whole point of the shape.
+    accountIds: formData.getAll("accountIds").map(String).filter(Boolean),
   });
 }
 
 /**
  * The one rule the rest of the product reads off the org chart: a Senior
- * Director sits above the teams and so is on none, and everybody else is on
- * exactly one. Boards, assignment and mentions are all scoped by `team_id`,
- * so a team member without one can reach nothing and a Senior Director with
- * one would quietly narrow their own reach.
+ * Director sits above the accounts and so is on none, and everybody else is on
+ * at least one. Boards, assignment and mentions are all scoped by `account_id`,
+ * so somebody on no account can reach nothing, and a Senior Director on one
+ * would quietly narrow their own reach to it.
+ *
+ * "At least one" is the part that changed. It used to be "exactly one", which
+ * is what the whole product has stopped assuming.
  */
-function placementError(role: string, teamId: string | null): string | null {
+function placementError(role: string, accountIds: string[]): string | null {
   if (role === "senior_director") {
-    return teamId ? "A Senior Director sits above the teams, so they are on none." : null;
+    return accountIds.length > 0
+      ? "A Senior Director sits above the accounts, so they are on none."
+      : null;
   }
-  return teamId ? null : "Pick the team they are on.";
+  return accountIds.length > 0 ? null : "Pick at least one account they work on.";
+}
+
+/** Replaces somebody's memberships wholesale — the form submits the whole set. */
+async function setMemberships(userId: string, accountIds: string[]) {
+  await db.delete(accountMembers).where(eq(accountMembers.userId, userId));
+  if (accountIds.length === 0) return;
+  await db
+    .insert(accountMembers)
+    .values(accountIds.map((accountId) => ({ accountId, userId })))
+    .onConflictDoNothing();
 }
 
 /**
@@ -70,22 +90,26 @@ export async function createPerson(
   const parsed = parsePerson(formData);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Check the form" };
   const input = parsed.data;
-  const teamId = input.role === "senior_director" ? null : (input.teamId ?? null);
+  const accountIds = input.role === "senior_director" ? [] : input.accountIds;
 
-  const placement = placementError(input.role, teamId);
+  const placement = placementError(input.role, accountIds);
   if (placement) return { error: placement };
   if (await emailTaken(input.email)) {
     return { error: `${input.email} already belongs to somebody.` };
   }
 
   const password = initialPassword();
-  await db.insert(users).values({
-    name: input.name,
-    email: input.email,
-    passwordHash: await hashPassword(password),
-    role: input.role,
-    teamId,
-  });
+  const [created] = await db
+    .insert(users)
+    .values({
+      name: input.name,
+      email: input.email,
+      passwordHash: await hashPassword(password),
+      role: input.role,
+      title: input.title ?? null,
+    })
+    .returning({ id: users.id });
+  await setMemberships(created!.id, accountIds);
 
   refresh();
   // Deliberately no redirect: the password exists only in this response, and
@@ -130,9 +154,9 @@ export async function updatePerson(_prev: FormState, formData: FormData): Promis
   const parsed = parsePerson(formData);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Check the form" };
   const input = parsed.data;
-  const teamId = input.role === "senior_director" ? null : (input.teamId ?? null);
+  const accountIds = input.role === "senior_director" ? [] : input.accountIds;
 
-  const placement = placementError(input.role, teamId);
+  const placement = placementError(input.role, accountIds);
   if (placement) return { error: placement };
   if (await emailTaken(input.email, userId)) {
     return { error: `${input.email} already belongs to somebody.` };
@@ -141,79 +165,98 @@ export async function updatePerson(_prev: FormState, formData: FormData): Promis
   const existing = await db.query.users.findFirst({ where: eq(users.id, userId) });
   if (!existing) return { error: "That person no longer exists." };
 
-  // Moving somebody off a team they run leaves the team without a director,
-  // rather than pointing at somebody who is no longer on it.
-  if (existing.teamId && existing.teamId !== teamId) {
-    await db
-      .update(teams)
-      .set({ accountDirectorId: null })
-      .where(sql`${teams.id} = ${existing.teamId}::uuid and ${teams.accountDirectorId} = ${userId}::uuid`);
-  }
-  // Same if they stop being a director at all.
+  /*
+   * Taking somebody off an account they run leaves that account without a
+   * director, rather than pointing at somebody who no longer works on it. With
+   * several accounts this is per-account: dropping Sarah from Adidas clears
+   * Adidas and leaves Nike and Coca-Cola alone.
+   */
+  await db
+    .update(accounts)
+    .set({ accountDirectorId: null })
+    .where(
+      accountIds.length > 0
+        ? sql`${accounts.accountDirectorId} = ${userId}::uuid
+              and ${accounts.id} not in (${uuids(accountIds)})`
+        : eq(accounts.accountDirectorId, userId),
+    );
+  // Same everywhere, if they stop being a director at all.
   if (input.role !== "account_director") {
     await db
-      .update(teams)
+      .update(accounts)
       .set({ accountDirectorId: null })
-      .where(eq(teams.accountDirectorId, userId));
+      .where(eq(accounts.accountDirectorId, userId));
   }
 
   await db
     .update(users)
-    .set({ name: input.name, email: input.email, role: input.role, teamId })
+    .set({
+      name: input.name,
+      email: input.email,
+      role: input.role,
+      title: input.title ?? null,
+    })
     .where(eq(users.id, userId));
+  await setMemberships(userId, accountIds);
 
   refresh();
   redirect("/admin");
 }
 
-const teamInput = z.object({
-  name: z.string().trim().min(1, "Give the team a name").max(120),
+const accountInput = z.object({
+  name: z.string().trim().min(1, "Give the account a name").max(120),
   accountDirectorId: z.string().uuid().optional().nullable(),
 });
 
-function parseTeam(formData: FormData) {
-  return teamInput.safeParse({
+function parseAccount(formData: FormData) {
+  return accountInput.safeParse({
     name: formData.get("name"),
     accountDirectorId: formData.get("accountDirectorId") || null,
   });
 }
 
-export async function createTeam(_prev: FormState, formData: FormData): Promise<FormState> {
+export async function createAccount(_prev: FormState, formData: FormData): Promise<FormState> {
   const viewer = await requireUser();
   await assertCanAdminister(viewer);
 
-  const parsed = parseTeam(formData);
+  const parsed = parseAccount(formData);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Check the form" };
 
-  // No director on the way in: there is nobody on the team yet to be one.
-  await db.insert(teams).values({ name: parsed.data.name });
+  // No director on the way in: there is nobody on the account yet to be one.
+  await db.insert(accounts).values({ name: parsed.data.name });
 
   refresh();
   redirect("/admin");
 }
 
-export async function updateTeam(_prev: FormState, formData: FormData): Promise<FormState> {
+export async function updateAccount(_prev: FormState, formData: FormData): Promise<FormState> {
   const viewer = await requireUser();
   await assertCanAdminister(viewer);
 
-  const teamId = String(formData.get("teamId") ?? "");
-  const parsed = parseTeam(formData);
+  const accountId = String(formData.get("accountId") ?? "");
+  const parsed = parseAccount(formData);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Check the form" };
   const { name, accountDirectorId } = parsed.data;
 
   if (accountDirectorId) {
-    // A team's director has to be a director, and has to be on that team —
-    // `canViewTeam` reads exactly that pairing.
+    // An account's director has to be a director, and has to work on that
+    // account — `canViewAccount` reads exactly that pairing.
     const director = await db.query.users.findFirst({ where: eq(users.id, accountDirectorId) });
-    if (!director || director.teamId !== teamId || director.role !== "account_director") {
-      return { error: "A team's director has to be an Account Director on that team." };
+    const member = await db.query.accountMembers.findFirst({
+      where: and(
+        eq(accountMembers.userId, accountDirectorId),
+        eq(accountMembers.accountId, accountId),
+      ),
+    });
+    if (!director || !member || director.role !== "account_director") {
+      return { error: "An account's director has to be an Account Director on that account." };
     }
   }
 
   await db
-    .update(teams)
+    .update(accounts)
     .set({ name, accountDirectorId: accountDirectorId ?? null })
-    .where(eq(teams.id, teamId));
+    .where(eq(accounts.id, accountId));
 
   refresh();
   redirect("/admin");

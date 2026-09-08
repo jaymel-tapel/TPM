@@ -173,7 +173,7 @@ export default async function TaskDetailPage({
 
       <div className="mt-6">
         <TaskActivity
-          teamId={task.teamId}
+          accountId={task.accountId ?? null}
           taskId={task.id}
           items={activity.entries.map((entry) => toActivityItem(entry, user))}
           total={activity.total}

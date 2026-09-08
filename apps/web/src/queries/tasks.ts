@@ -1,7 +1,7 @@
 import "server-only";
 import { eq, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { boardStatuses, boards, statusKindEnum, teams, type StatusKind } from "@/db/schema";
+import { boardStatuses, boards, statusKindEnum, accounts, type StatusKind } from "@/db/schema";
 
 const isStatusKind = (value: string): value is StatusKind =>
   (statusKindEnum.enumValues as readonly string[]).includes(value);
@@ -15,6 +15,7 @@ import {
   taskCardSelect,
   taskOrder,
   userScope,
+  uuids,
   type Scope,
   type TaskCard,
 } from "./sql";
@@ -34,7 +35,7 @@ async function runTaskQuery(
   { containers = false }: { containers?: boolean } = {},
 ) {
   const result = await db.execute(
-    // `isLeaf` here covers every list; the raw counters in team.ts,
+    // `isLeaf` here covers every list; the raw counters in account.ts,
     // department.ts, reports.ts and attention.ts each apply it themselves.
     sql`select ${taskCardSelect} ${taskCardFrom}
         where ${where} ${containers ? sql`` : sql`and ${isLeaf}`}
@@ -222,7 +223,7 @@ export type BoardView = {
 
 /**
  * The board is a second lens on the day, not a second source of truth: it
- * shows exactly what the team screen reasons about — due today, carried over
+ * shows exactly what the account screen reasons about — due today, carried over
  * from an earlier day, and completed today.
  *
  * Showing every task ever would make the Done column grow without bound and
@@ -279,32 +280,32 @@ export async function getBoardView(
   };
 }
 
-/** Boards a person can open, newest team first. Drives the sidebar. */
+/** Boards a person can open, newest account first. Drives the sidebar. */
 export async function listBoardsForUser(user: {
   role: string;
-  teamId: string | null;
-}): Promise<{ id: string; name: string; teamId: string | null; teamName: string | null }[]> {
+  accountIds: string[];
+}): Promise<{ id: string; name: string; accountId: string | null; accountName: string | null }[]> {
   const where =
     user.role === "senior_director"
       ? undefined
-      : user.teamId
-        ? // Their team's boards, and the department's, which belong to nobody
-          // and so to everybody.
-          sql`(${eq(boards.teamId, user.teamId)} or ${boards.teamId} is null)`
-        : sql`${boards.teamId} is null`;
+      : user.accountIds.length > 0
+        ? // Every account they work on, and the department's own boards, which
+          // belong to nobody and so to everybody.
+          sql`(${boards.accountId} in (${uuids(user.accountIds)}) or ${boards.accountId} is null)`
+        : sql`${boards.accountId} is null`;
 
   return db
     .select({
       id: boards.id,
       name: boards.name,
-      teamId: boards.teamId,
-      teamName: teams.name,
+      accountId: boards.accountId,
+      accountName: accounts.name,
     })
     .from(boards)
     // Left, or the department's own boards drop out of the rail entirely.
-    .leftJoin(teams, eq(teams.id, boards.teamId))
+    .leftJoin(accounts, eq(accounts.id, boards.accountId))
     .where(where)
-    .orderBy(teams.name, boards.position, boards.name);
+    .orderBy(accounts.name, boards.position, boards.name);
 }
 
 /**

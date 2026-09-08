@@ -14,69 +14,70 @@ import {
 } from "@meridian/ui";
 import { Progress } from "@meridian/ui/primitives/progress";
 import type { Zone } from "@/lib/date";
-import { getTeamToday } from "@/queries/team";
+import { getAccountToday } from "@/queries/accounts";
 import { getBoardView } from "@/queries/tasks";
 import { toBoard } from "@/lib/present";
 import { setTaskStatus } from "@/actions/tasks";
 import { getNeedsAttention } from "@/queries/attention";
-import { teamScope } from "@/queries/sql";
+import { accountScope } from "@/queries/sql";
 import { toLeaveRequest, toMemberRow } from "@/lib/present";
-import { listPendingFor, listTeamLeave } from "@/queries/leave";
+import { listPendingFor, listAccountLeave } from "@/queries/leave";
 import { addDays, dayKey } from "@/lib/leave";
 import { now } from "@/lib/date";
 import type { User } from "@/db/schema";
+import type { Viewer } from "@/lib/auth";
 import { LeaveDecision } from "@/components/leave-buttons";
 import { RangeSwitch } from "@/components/range-switch";
-import { RANGE_DAYS, RANGE_METRIC_LABEL, type TeamRange } from "@/lib/range";
+import { RANGE_DAYS, RANGE_METRIC_LABEL, type RangeKind } from "@/lib/range";
 
 /** How far ahead the leave list looks. A fortnight is as far as a rota is real. */
 const LEAVE_HORIZON_DAYS = 14;
 
 /**
- * Screen 3. The Account Director should understand the team in seconds: one
+ * Screen 3. The Account Director should understand the account in seconds: one
  * headline number, one line per person, then what needs them.
  */
-export async function TeamTodayView({
+export async function AccountTodayView({
   viewer,
-  teamId,
+  accountId,
   zone,
-  showTeamName = false,
+  showAccountName = false,
   range,
   basePath,
 }: {
   /** Whose queue the Leave section shows. */
-  viewer: User;
-  teamId: string;
-  /** The reader's timezone — a team's "today" is reckoned by whoever opens it. */
+  viewer: Viewer;
+  accountId: string;
+  /** The reader's timezone — an account's "today" is reckoned by whoever opens it. */
   zone?: Zone;
   /**
-   * The Account Director has one team and the rail already says so, so their
+   * The Account Director has one account and the rail already says so, so their
    * screen goes straight to the numbers. A Senior Director is looking at one
-   * of several, and a page about a team should say which.
+   * of several, and a page about an account should say which.
    */
-  showTeamName?: boolean;
-  range: TeamRange;
-  /** Where the day/week links point — the AD's own team, or a team the Senior
+  showAccountName?: boolean;
+  range: RangeKind;
+  /** Where the day/week links point — the AD's own account, or an account the Senior
    *  Director picked. */
   basePath: string;
 }) {
   const reference = now(zone);
   const today = dayKey(reference, zone);
 
-  const [team, attention, pending, upcoming] = await Promise.all([
-    getTeamToday(teamId, undefined, zone, RANGE_DAYS[range]),
-    getNeedsAttention(teamScope(teamId), undefined, zone),
+  const [account, attention, pending, upcoming] = await Promise.all([
+    getAccountToday(accountId, undefined, zone, RANGE_DAYS[range]),
+    getNeedsAttention(accountScope(accountId), undefined, zone),
     listPendingFor(viewer),
     // Who is out today is already on the member rows, so this is only the
     // fortnight ahead — saying it twice on one screen would be noise.
-    listTeamLeave(viewer, teamId, addDays(today, 1), addDays(today, LEAVE_HORIZON_DAYS)),
+    listAccountLeave(viewer, accountId, addDays(today, 1), addDays(today, LEAVE_HORIZON_DAYS)),
   ]);
-  if (!team) notFound();
+  if (!account) notFound();
 
   return (
     <div className="space-y-10">
-      {showTeamName ? (
-        <h1 className="text-title-1 text-gray-1000">{team.teamName}</h1>
+      {showAccountName ? (
+        <h1 className="text-title-1 text-gray-1000">{account.accountName}</h1>
       ) : null}
 
       <RangeSwitch range={range} basePath={basePath} />
@@ -84,32 +85,32 @@ export async function TeamTodayView({
       <Panel className="p-8">
         <div className="flex flex-wrap items-end gap-x-12 gap-y-6">
           <Stat
-            value={<Percent value={team.percent} />}
+            value={<Percent value={account.percent} />}
             label={RANGE_METRIC_LABEL[range]}
             size="xl"
           />
           <dl className="flex flex-wrap gap-x-12 gap-y-4 sm:ml-auto">
-            <Stat value={team.headcount} label="People" size="sm" />
-            <Stat value={team.due} label="Tasks due" size="sm" />
-            <Stat value={team.done} label="Completed" size="sm" />
+            <Stat value={account.headcount} label="People" size="sm" />
+            <Stat value={account.due} label="Tasks due" size="sm" />
+            <Stat value={account.done} label="Completed" size="sm" />
             <Stat
-              value={team.overdue}
+              value={account.overdue}
               label="Overdue"
               size="sm"
-              tone={team.overdue > 0 ? "danger" : "default"}
+              tone={account.overdue > 0 ? "danger" : "default"}
             />
           </dl>
         </div>
-        <Progress value={team.percent} className="mt-8 h-1.5" />
+        <Progress value={account.percent} className="mt-8 h-1.5" />
       </Panel>
 
       <section>
           <SectionHeader aside="Click a person to open their day">Team Members</SectionHeader>
           <MemberList>
-            {team.members.map((member) => (
+            {account.members.map((member) => (
               <MemberRow
                 key={member.id}
-                member={toMemberRow(member, "/team", reference, zone)}
+                member={toMemberRow(member, "/people", reference, zone)}
               />
             ))}
           </MemberList>

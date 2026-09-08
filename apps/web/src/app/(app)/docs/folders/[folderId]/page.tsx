@@ -11,7 +11,7 @@ import {
 } from "@meridian/ui";
 import { requireSession } from "@/lib/auth";
 import { canCreateOrgDocs, canEditDoc, canPlaceDoc, isSenior } from "@/lib/permissions";
-import { listTeams } from "@/queries/team";
+import { listAccounts } from "@/queries/accounts";
 import { getFolder, listFolderContents, listFolderOptions } from "@/queries/docs";
 import { toDocFolderRow, toDocNode } from "@/lib/present";
 import { deleteFolder, updateFolder } from "@/actions/docs";
@@ -39,13 +39,13 @@ export default async function FolderPage({
   const editable = canEditDoc(user, folder);
   const editing = editable && (await searchParams).edit !== undefined;
 
-  const [contents, teams, folderOptions] = await Promise.all([
+  const [contents, accounts, folderOptions] = await Promise.all([
     listFolderContents(user, folderId),
-    editing ? listTeams() : Promise.resolve([]),
+    editing ? listAccounts() : Promise.resolve([]),
     // Never its own subtree: a folder inside its own child has no root.
     editing ? listFolderOptions(user, folderId) : Promise.resolve([]),
   ]);
-  const scoped = isSenior(user) ? teams : teams.filter((t) => t.id === user.teamId);
+  const scoped = isSenior(user) ? accounts : accounts.filter((t) => user.accountIds.includes(t.id));
   const placeable = folderOptions.filter((f) => canPlaceDoc(user, f));
   const canAdd = canPlaceDoc(user, folder);
   /*
@@ -60,7 +60,7 @@ export default async function FolderPage({
       <DocBreadcrumb trail={folder.trail.slice(0, -1)} current={folder.name} />
       <PageHeader
         title={folder.name}
-        subtitle={<ScopeBadge scope={folder.visibility} teamName={folder.teamName} />}
+        subtitle={<ScopeBadge scope={folder.visibility} accountName={folder.accountName} />}
         commands={
             <CommandBar>
               <Command icon={ArrowUp} href={parent?.href ?? "/docs"}>
@@ -102,14 +102,14 @@ export default async function FolderPage({
           <FolderForm
             action={updateFolder}
             submitLabel="Save changes"
-            teams={scoped}
+            accounts={scoped}
             parents={placeable.map((f) => ({ id: f.id, name: f.name }))}
             canPublishOrgWide={canCreateOrgDocs(user)}
             values={{
               id: folder.id,
               name: folder.name,
               visibility: folder.visibility,
-              teamId: folder.teamId ?? "",
+              accountId: folder.accountId ?? "",
               parentId: folder.parentId ?? "",
             }}
           />

@@ -51,10 +51,10 @@ export default async function PersonPage({
           </div>
         </div>
         <Link
-          href={viewer.role === "senior_director" ? "/teams" : "/team"}
+          href={viewer.role === "senior_director" ? "/accounts" : "/account"}
           className="text-body-strong text-blue-700 hover:text-blue-800"
         >
-          ← Back to team
+          ← Back to account
         </Link>
       </div>
 

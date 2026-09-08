@@ -55,7 +55,7 @@ import {
   CommandDivider,
   TaskBoard,
   TaskListSkeleton,
-  TeamCompare,
+  CompareList,
   TASK_TYPES_ORDER,
   TASK_TYPE_LABELS,
   TagBadge,
@@ -81,7 +81,8 @@ import {
   MEMBERS,
   MENTION_BODY,
   TASKS,
-  TEAMS,
+  ACCOUNTS,
+  DIRECTORS,
   TREND,
   INBOX,
   DAY_PLAN,
@@ -193,7 +194,7 @@ export default function DesignSystemPage() {
               This product follows <strong className="text-gray-1000">Fluent 2</strong>,
               Microsoft&rsquo;s design system — the one Azure DevOps is built on. Compact type
               with no decorative tracking, a true-grey neutral ramp, square-ish radii and rows
-              dense enough that a fifteen-person team fits on one screen. The client&rsquo;s
+              dense enough that a fifteen-person account fits on one screen. The client&rsquo;s
               brand replaces Fluent&rsquo;s communication blue; the neutrals are Fluent&rsquo;s
               own. Every value on this page cites a token — no arbitrary sizes, no one-off hex
               codes.
@@ -243,7 +244,7 @@ export default function DesignSystemPage() {
           <div className="space-y-4">
             {[
               ["display", "text-display", "78%"],
-              ["large-title", "text-large-title", "Team A"],
+              ["large-title", "text-large-title", "Nike"],
               ["title-1", "text-title-1", "Good morning, Anna"],
               ["title-3", "text-title-3", "Department Today"],
               ["subtitle-1", "text-subtitle-1", "Team Members"],
@@ -510,15 +511,15 @@ export default function DesignSystemPage() {
             Folders hold and documents say something — neither does the other&rsquo;s job,
             which is what stops &ldquo;open&rdquo; and &ldquo;expand&rdquo; fighting over
             the same row. Where a thing sits decides who reads it: a folder is either the
-            department&rsquo;s or one team&rsquo;s, and what is inside takes its place from
+            department&rsquo;s or one account&rsquo;s, and what is inside takes its place from
             it, which is why the scope badge sits on roots only. A task can point at a
             document deliberately or name it in the prose with <code>@</code>; the two are
             different links and the list says which is which.
           </p>
 
           <Row label="Scope">
-            <ScopeBadge scope="org" teamName={null} />
-            <ScopeBadge scope="team" teamName="Team A" />
+            <ScopeBadge scope="org" accountName={null} />
+            <ScopeBadge scope="account" accountName="Nike" />
           </Row>
 
           <div className="mt-6 grid gap-6 lg:grid-cols-2">
@@ -767,7 +768,7 @@ export default function DesignSystemPage() {
           </div>
         </Block>
 
-        <Block title="Team roster" note="A row is a link only where there is somewhere to go">
+        <Block title="Account roster" note="A row is a link only where there is somewhere to go">
           <MemberList>
             {MEMBERS.map((m) => (
               <MemberRow key={m.id} member={m} />
@@ -836,8 +837,13 @@ export default function DesignSystemPage() {
           </div>
         </Block>
 
-        <Block title="Team comparison" note="One shared axis, not two cards">
-          <TeamCompare teams={TEAMS} />
+        <Block title="Comparison" note="One shared axis, not one card each">
+          <Row label="Accounts">
+            <CompareList rows={ACCOUNTS} />
+          </Row>
+          <Row label="Account Directors">
+            <CompareList rows={DIRECTORS} />
+          </Row>
         </Block>
 
         <Block title="Needs attention" note="Sentences, not charts to interpret">
@@ -892,7 +898,7 @@ export default function DesignSystemPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Person</TableHead>
-                <TableHead>Team</TableHead>
+                <TableHead>Account</TableHead>
                 <TableHead className="text-right">Completed</TableHead>
                 <TableHead className="text-right">Rate</TableHead>
               </TableRow>
@@ -906,7 +912,7 @@ export default function DesignSystemPage() {
                       {m.name}
                     </span>
                   </TableCell>
-                  <TableCell className="text-gray-700">Team A</TableCell>
+                  <TableCell className="text-gray-700">Nike</TableCell>
                   <TableCell className="tabular text-right text-gray-700">
                     {m.done} / {m.due}
                   </TableCell>

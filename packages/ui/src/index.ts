@@ -24,7 +24,7 @@ export * from "./components/work-bar";
 export * from "./components/leave-list";
 export * from "./components/attention-card";
 export * from "./components/delta-badge";
-export * from "./components/team-compare";
+export * from "./components/compare-list";
 export * from "./components/trend-strip";
 export * from "./components/error-state";
 export * from "./components/hero-panel";

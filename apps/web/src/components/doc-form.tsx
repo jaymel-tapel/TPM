@@ -20,8 +20,8 @@ export type DocFormValues = {
   id?: string;
   title: string;
   body: string;
-  visibility: "org" | "team";
-  teamId: string;
+  visibility: "org" | "account";
+  accountId: string;
   folderId: string;
 };
 
@@ -32,14 +32,14 @@ export function DocForm({
   action,
   values,
   submitLabel,
-  teams,
+  accounts,
   folders,
   canPublishOrgWide,
 }: {
   action: (prev: FormState, formData: FormData) => Promise<FormState>;
   values: DocFormValues;
   submitLabel: string;
-  teams: { id: string; name: string }[];
+  accounts: { id: string; name: string }[];
   /** Folders it may be filed in. */
   folders: { id: string; name: string }[];
   /** Only the Senior Director publishes to the whole department. */
@@ -47,11 +47,11 @@ export function DocForm({
 }) {
   const [state, formAction, pending] = useActionState(action, null);
   const [visibility, setVisibility] = useState(values.visibility);
-  const [teamId, setTeamId] = useState(values.teamId);
+  const [accountId, setAccountId] = useState(values.accountId);
   const [folderId, setFolderId] = useState(values.folderId);
   // An org-wide document is read by everyone, so everyone can be named in
-  // one; a team's document is read by that team.
-  const mentionSource = useMentionSource(visibility === "team" ? teamId : null);
+  // one; an account's document is read by that account.
+  const mentionSource = useMentionSource(visibility === "account" ? accountId : null);
 
   // Where a document sits decides who reads it, so a filed document takes its
   // parent's scope and the choice stops being a choice.
@@ -61,7 +61,7 @@ export function DocForm({
     <form action={formAction} className="space-y-6">
       {values.id ? <input type="hidden" name="docId" value={values.id} /> : null}
       <input type="hidden" name="visibility" value={visibility} />
-      <input type="hidden" name="teamId" value={visibility === "team" ? teamId : ""} />
+      <input type="hidden" name="accountId" value={visibility === "account" ? accountId : ""} />
       <input type="hidden" name="folderId" value={folderId} />
 
       <div className="space-y-6 rounded-xl border border-gray-400 bg-background-100 p-6">
@@ -123,34 +123,34 @@ export function DocForm({
             ) : (
               <Select
                 value={visibility}
-                onValueChange={(v) => v && setVisibility(v as "org" | "team")}
+                onValueChange={(v) => v && setVisibility(v as "org" | "account")}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue>
-                    {(v) => (v === "org" ? "Everyone" : "One team")}
+                    {(v) => (v === "org" ? "Everyone" : "One account")}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {canPublishOrgWide ? (
                     <SelectItem value="org">Everyone</SelectItem>
                   ) : null}
-                  <SelectItem value="team">One team</SelectItem>
+                  <SelectItem value="account">One account</SelectItem>
                 </SelectContent>
               </Select>
             )}
           </div>
 
-          {!inFolder && visibility === "team" ? (
+          {!inFolder && visibility === "account" ? (
             <div>
-              <Label className={label}>Team</Label>
-              <Select value={teamId} onValueChange={(v) => v && setTeamId(v)}>
+              <Label className={label}>Account</Label>
+              <Select value={accountId} onValueChange={(v) => v && setAccountId(v)}>
                 <SelectTrigger className="w-full">
                   <SelectValue>
-                    {(v) => teams.find((t) => t.id === v)?.name ?? "Pick a team"}
+                    {(v) => accounts.find((t) => t.id === v)?.name ?? "Pick an account"}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {teams.map((t) => (
+                  {accounts.map((t) => (
                     <SelectItem key={t.id} value={t.id}>
                       {t.name}
                     </SelectItem>

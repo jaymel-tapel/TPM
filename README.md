@@ -6,8 +6,14 @@ A daily operating system for a 30-person department. Built from
 > ClickUp optimises for flexibility. This system optimises for clarity.
 
 The organisation's shape is fixed — one Senior Director, two Account Directors,
-~15 people per team — so the product knows it rather than asking anyone to
-configure it. There are no spaces, folders, custom views or dashboards to build.
+thirty people, five clients — so the product knows it rather than asking anyone
+to configure it. There are no spaces, folders, custom views or dashboards to
+build.
+
+The unit everything hangs off is the **account**: a client the department works
+for. People work on as many accounts as they work on — a designer covers Nike
+and Adidas, an Account Director carries three — which is the one thing a
+team-shaped product could not say.
 
 ---
 
@@ -67,13 +73,14 @@ levels from a single login. It is gated behind
 |---|---|---|
 | `/design` | **Design system** | Every component, in every state. No auth required. |
 | `/today` | **My Day** | What's left, what's done, one honest percentage. |
-| `/my-tasks` | My Tasks | Everything open plus today's completions, with compact filters. |
-| `/team` | **Team Today** | An Account Director's team in one screen. A team member opens the same route and gets the same roster, without the management screen around it. |
-| `/team/[id]` | Person | Anyone's day, for a director who can see them. |
+| `/boards`, `/boards/[id]` | Boards | An account's work as a list or a board. "My Tasks" is a filter on it, not a screen of its own. |
+| `/accounts` | **Accounts** | Every client the reader works on, side by side. |
+| `/accounts/[id]` | **Account** | One client in one screen. Its director gets the management view; anyone working on it gets the same roster without the management screen around it. |
+| `/people/[id]` | Person | Anyone's day, for a director who can see them. |
 | `/leave` | Leave | File for time off, and settle what is waiting on you. |
-| `/overview` | **Department** | The Senior Director's hero, team comparison and exceptions. |
-| `/teams` | Teams | Both teams side by side. |
-| `/reports` | Report | Six metrics and exactly one chart. |
+| `/overview` | **Department** | The Senior Director's hero, account comparison and exceptions. |
+| `/reports` | Report | Six metrics and exactly one chart, one account at a time for a director. |
+| `/docs`, `/chat` | Docs, Chat | Documents scoped to an account or the department; direct messages and groups. |
 | `/tasks/new`, `/tasks/[id]` | Task | Eight fields. Nothing else to configure. |
 
 ---
@@ -105,11 +112,24 @@ UI can never disagree about where a day begins.
 
 ## Data model
 
-`users`, `teams`, `tasks`, `task_assignees`, `tags`, `task_tags` — the tables
-the brief names. Assignment is many-to-many through
-`task_assignees`; there is deliberately no `assignee_id` on `tasks`, because one
-task can belong to several people. Completing a shared task completes it for
-everyone assigned.
+`users`, `accounts`, `account_members`, `tasks`, `task_assignees`, `tags`,
+`task_tags` — the brief's tables, with `teams` renamed to what it always
+described and the membership taken off the user row.
+
+**A person's accounts are a table, not a column.** `users.team_id` said
+somebody worked for exactly one client, which is not how an agency staffs
+anything; `account_members` says how many they actually work on. Two
+consequences worth knowing: every permission reads that table rather than a
+field, so the accounts are resolved once per request onto the session (`Viewer`
+in `lib/auth.ts`) and every predicate stays a synchronous list check; and leave
+is signed off by *a* director of an account you work on, because "your Account
+Director" stopped naming exactly one person.
+
+Assignment is many-to-many through `task_assignees`; there is deliberately no
+`assignee_id` on `tasks`, because one task can belong to several people.
+Completing a shared task completes it for everyone assigned. **Membership and
+assignment are different questions** — belonging to Nike says you may see
+Nike's work; being on a task says the work is yours.
 
 `leave_requests` is the one table here the brief does not name. Its dates are
 `date` columns rather than timestamps, which is the opposite choice to

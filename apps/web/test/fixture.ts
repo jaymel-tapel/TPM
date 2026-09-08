@@ -1,6 +1,7 @@
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
+  accountMembers,
   chatMembers,
   chatMessages,
   chatRooms,
@@ -13,12 +14,13 @@ import {
   taskDocuments,
   tasks,
   leaveRequests,
-  teams,
+  accounts,
   users,
 } from "@/db/schema";
 import { toPlainText } from "@meridian/ui/editor";
 import { startOfAppDay } from "@/lib/date";
 import { dayKey } from "@/lib/leave";
+import type { Viewer } from "@/lib/auth";
 
 export const HOUR = 3_600_000;
 export const DAY = 24 * HOUR;
@@ -28,8 +30,8 @@ export const NOW = new Date("2026-09-07T05:00:00Z");
 export const TODAY = startOfAppDay(NOW);
 
 export const IDS = {
-  teamA: "11111111-1111-4111-a111-111111111111",
-  teamB: "22222222-2222-4222-a222-222222222222",
+  nike: "11111111-1111-4111-a111-111111111111",
+  adidas: "22222222-2222-4222-a222-222222222222",
   anna: "aaaaaaaa-1111-4111-a111-111111111111",
   james: "aaaaaaaa-2222-4222-a222-222222222222",
   sarah: "aaaaaaaa-3333-4333-a333-333333333333",
@@ -56,31 +58,43 @@ export const statusId = (boardId: string, column: Column) =>
 
 export async function resetDb() {
   await db.execute(
-    sql`truncate chat_messages, chat_members, chat_rooms, leave_requests, task_schedule, notifications, task_activity, task_documents, documents, task_tags, task_assignees, task_attachments, tasks, board_statuses, boards, tags, users, teams restart identity cascade`,
+    sql`truncate chat_messages, chat_members, chat_rooms, leave_requests, task_schedule, notifications, task_activity, task_documents, documents, task_tags, task_assignees, task_attachments, tasks, campaigns, board_statuses, boards, tags, account_members, users, accounts restart identity cascade`,
   );
 }
 
-/** Two teams, five people. Small enough that every expected number can be
- *  worked out by hand in the test itself. */
+/** Two accounts, five people. Small enough that every expected number can be
+ *  worked out by hand in the test itself.
+ *
+ *  Everybody starts on exactly one account, which is what the product used to
+ *  assume — so a test that says nothing about membership still reads the way it
+ *  always did. A test about working across accounts calls `addMembership` and
+ *  says so out loud. */
 export async function seedOrg() {
-  await db.insert(teams).values([
-    { id: IDS.teamA, name: "Team A" },
-    { id: IDS.teamB, name: "Team B" },
+  await db.insert(accounts).values([
+    { id: IDS.nike, name: "Nike" },
+    { id: IDS.adidas, name: "Adidas" },
   ]);
 
   await db.insert(users).values([
-    { id: IDS.anna, name: "Anna Santos", email: "anna@test.co", passwordHash: "x", role: "team_member", teamId: IDS.teamA },
-    { id: IDS.james, name: "James Cruz", email: "james@test.co", passwordHash: "x", role: "team_member", teamId: IDS.teamA },
-    { id: IDS.sarah, name: "Sarah Lim", email: "sarah@test.co", passwordHash: "x", role: "account_director", teamId: IDS.teamA },
-    { id: IDS.mika, name: "Mika Villanueva", email: "mika@test.co", passwordHash: "x", role: "team_member", teamId: IDS.teamB },
-    { id: IDS.elena, name: "Elena Rivera", email: "elena@test.co", passwordHash: "x", role: "senior_director", teamId: null },
+    { id: IDS.anna, name: "Anna Santos", email: "anna@test.co", passwordHash: "x", role: "team_member", title: "Designer" },
+    { id: IDS.james, name: "James Cruz", email: "james@test.co", passwordHash: "x", role: "team_member", title: "Copywriter" },
+    { id: IDS.sarah, name: "Sarah Lim", email: "sarah@test.co", passwordHash: "x", role: "account_director" },
+    { id: IDS.mika, name: "Mika Villanueva", email: "mika@test.co", passwordHash: "x", role: "team_member", title: "Paid Media" },
+    { id: IDS.elena, name: "Elena Rivera", email: "elena@test.co", passwordHash: "x", role: "senior_director" },
   ]);
 
-  await db.update(teams).set({ accountDirectorId: IDS.sarah }).where(sql`id = ${IDS.teamA}`);
+  await db.insert(accountMembers).values([
+    { accountId: IDS.nike, userId: IDS.anna },
+    { accountId: IDS.nike, userId: IDS.james },
+    { accountId: IDS.nike, userId: IDS.sarah },
+    { accountId: IDS.adidas, userId: IDS.mika },
+  ]);
+
+  await db.update(accounts).set({ accountDirectorId: IDS.sarah }).where(sql`id = ${IDS.nike}`);
 
   await db.insert(boards).values([
-    { id: IDS.boardA, teamId: IDS.teamA, name: "Team A", createdBy: IDS.sarah },
-    { id: IDS.boardB, teamId: IDS.teamB, name: "Team B", createdBy: IDS.elena },
+    { id: IDS.boardA, accountId: IDS.nike, name: "Nike", createdBy: IDS.sarah },
+    { id: IDS.boardB, accountId: IDS.adidas, name: "Adidas", createdBy: IDS.elena },
   ]);
 
   await db.insert(boardStatuses).values(
@@ -90,9 +104,37 @@ export async function seedOrg() {
   );
 }
 
-/** The board a team's work lands on in the fixture. */
-export const boardFor = (teamId: string) =>
-  teamId === IDS.teamA ? IDS.boardA : IDS.boardB;
+/** Puts somebody on another account. The thing the whole change exists for. */
+export async function addMembership(accountId: string, userId: string) {
+  await db.insert(accountMembers).values({ accountId, userId }).onConflictDoNothing();
+}
+
+/**
+ * The `Viewer` a page would have been handed for this person.
+ *
+ * Permissions read `accountIds` and `directedIds` off the session rather than
+ * querying, so a test that hands them a bare `users` row is testing something
+ * the app never does. This builds the same thing `getSession` builds, from the
+ * same two lookups.
+ */
+export async function viewerFor(userId: string): Promise<Viewer> {
+  const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
+  if (!user) throw new Error(`No such user: ${userId}`);
+  const [memberOf, directs] = await Promise.all([
+    db
+      .select({ accountId: accountMembers.accountId })
+      .from(accountMembers)
+      .where(eq(accountMembers.userId, userId)),
+    db.select({ id: accounts.id }).from(accounts).where(eq(accounts.accountDirectorId, userId)),
+  ]);
+  const directedIds = directs.map((row) => row.id);
+  const accountIds = [...new Set([...memberOf.map((row) => row.accountId), ...directedIds])];
+  return { ...user, accountIds, directedIds };
+}
+
+/** The board an account's work lands on in the fixture. */
+export const boardFor = (accountId: string) =>
+  accountId === IDS.nike ? IDS.boardA : IDS.boardB;
 
 let n = 0;
 
@@ -102,7 +144,7 @@ let n = 0;
  * is due mid-afternoon and completed relative to that.
  */
 export async function addTask(opts: {
-  team: string;
+  account: string;
   assignees: string[];
   dueDay: number;
   dueHour?: number;
@@ -121,7 +163,7 @@ export async function addTask(opts: {
       ? null
       : new Date(TODAY.getTime() + opts.completedDay * DAY + (opts.completedHour ?? 14) * HOUR);
 
-  const boardId = boardFor(opts.team);
+  const boardId = boardFor(opts.account);
   await db.insert(tasks).values({
     id,
     title: `Task ${n}`,
@@ -132,7 +174,7 @@ export async function addTask(opts: {
     dueDate: due,
     completedAt,
     createdBy: opts.assignees[0],
-    teamId: opts.team,
+    accountId: opts.account,
     parentId: opts.parent ?? null,
     createdAt: new Date(due.getTime() - DAY),
     updatedAt: due,
@@ -148,26 +190,26 @@ let docSeq = 0;
 let folderSeq = 0;
 
 /**
- * A folder. `team: null` is org-wide; one inside another takes its parent's
+ * A folder. `account: null` is org-wide; one inside another takes its parent's
  * placement, exactly as the action does, so a test cannot build a tree the app
  * could never produce.
  */
 export async function addFolder(opts: {
   name: string;
-  team?: string | null;
+  account?: string | null;
   parent?: string | null;
   createdBy?: string;
 }) {
   folderSeq += 1;
   const id = `0f000000-${String(folderSeq).padStart(4, "0")}-4000-a000-000000000000`;
 
-  let visibility: "org" | "team" = opts.team ? "team" : "org";
-  let teamId = opts.team ?? null;
+  let visibility: "org" | "account" = opts.account ? "account" : "org";
+  let accountId = opts.account ?? null;
   if (opts.parent) {
     const parent = await db.query.folders.findFirst({ where: sql`id = ${opts.parent}` });
     if (parent) {
       visibility = parent.visibility;
-      teamId = parent.teamId;
+      accountId = parent.accountId;
     }
   }
 
@@ -175,7 +217,7 @@ export async function addFolder(opts: {
     id,
     name: opts.name,
     visibility,
-    teamId,
+    accountId,
     parentId: opts.parent ?? null,
     createdBy: opts.createdBy ?? IDS.elena,
   });
@@ -186,20 +228,20 @@ export async function addFolder(opts: {
 export async function addDoc(opts: {
   title: string;
   body?: string;
-  team?: string | null;
+  account?: string | null;
   folder?: string | null;
   createdBy?: string;
 }) {
   docSeq += 1;
   const id = `0d000000-${String(docSeq).padStart(4, "0")}-4000-a000-000000000000`;
 
-  let visibility: "org" | "team" = opts.team ? "team" : "org";
-  let teamId = opts.team ?? null;
+  let visibility: "org" | "account" = opts.account ? "account" : "org";
+  let accountId = opts.account ?? null;
   if (opts.folder) {
     const folder = await db.query.folders.findFirst({ where: sql`id = ${opts.folder}` });
     if (folder) {
       visibility = folder.visibility;
-      teamId = folder.teamId;
+      accountId = folder.accountId;
     }
   }
 
@@ -209,7 +251,7 @@ export async function addDoc(opts: {
     body: opts.body ?? null,
     searchText: toPlainText(opts.body ?? null),
     visibility,
-    teamId,
+    accountId,
     folderId: opts.folder ?? null,
     createdBy: opts.createdBy ?? IDS.elena,
   });

@@ -8,7 +8,7 @@ import {
   Percent,
   SectionHeader,
   Stat,
-  TeamCompare,
+  CompareList,
   TrendStrip,
 } from "@meridian/ui";
 import { requireSession } from "@/lib/auth";
@@ -22,9 +22,9 @@ import { fmtLongDate, now } from "@/lib/date";
 export const dynamic = "force-dynamic";
 
 /**
- * Screen 4. Not a bigger team dashboard. It answers the Senior Director's
+ * Screen 4. Not a bigger account dashboard. It answers the Senior Director's
  * three questions in order: where does the department stand, how do the two
- * teams compare, and what needs me.
+ * accounts compare, and what needs me.
  */
 export default async function OverviewPage() {
   const { user, zone } = await requireSession();
@@ -83,22 +83,23 @@ export default async function OverviewPage() {
       <section>
         <SectionHeader
           aside={
-            <Link href="/teams" className="text-body-strong text-blue-700 hover:text-blue-800">
-              Open teams →
+            <Link href="/accounts" className="text-body-strong text-blue-700 hover:text-blue-800">
+              Open accounts →
             </Link>
           }
         >
-          Teams
+          Accounts
         </SectionHeader>
-        <TeamCompare
-          teams={dept.teams.map((team) => ({
-            id: team.id,
-            href: `/teams/${team.id}`,
-            name: team.name,
-            directorName: team.directorName,
-            percent: team.percent,
-            overdue: team.overdue,
-            delta: team.weekPercent - team.priorWeekPercent,
+        <CompareList
+          rows={dept.accounts.map((account) => ({
+            id: account.id,
+            href: `/accounts/${account.id}`,
+            name: account.name,
+            note: account.directorName,
+            avatarName: account.directorName,
+            percent: account.percent,
+            overdue: account.overdue,
+            delta: account.weekPercent - account.priorWeekPercent,
           }))}
         />
       </section>

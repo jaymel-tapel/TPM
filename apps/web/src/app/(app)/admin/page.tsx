@@ -13,7 +13,7 @@ import {
 import { ROLE_LABELS } from "@meridian/ui";
 import { requireSession } from "@/lib/auth";
 import { assertCanAdminister } from "@/lib/permissions";
-import { listAdminTeams, listPeople } from "@/queries/admin";
+import { listAdminAccounts, listPeople } from "@/queries/admin";
 import { getDepartmentSettings } from "@/queries/department-settings";
 import { supportedZones } from "@/lib/zones";
 import { DepartmentForm } from "@/components/department-form";
@@ -29,9 +29,9 @@ export default async function AdminPage() {
   const { user } = await requireSession();
   await assertCanAdminister(user);
 
-  const [people, teams, dept] = await Promise.all([
+  const [people, accounts, dept] = await Promise.all([
     listPeople(),
-    listAdminTeams(),
+    listAdminAccounts(),
     getDepartmentSettings(),
   ]);
 
@@ -46,8 +46,8 @@ export default async function AdminPage() {
               Add a person
             </Command>
             <CommandDivider />
-            <Command icon={Plus} href="/admin/teams/new">
-              Add a team
+            <Command icon={Plus} href="/admin/accounts/new">
+              Add an account
             </Command>
           </CommandBar>
         }
@@ -63,32 +63,32 @@ export default async function AdminPage() {
         />
       </Panel>
 
-      <SectionHeader aside={`${teams.length} ${teams.length === 1 ? "team" : "teams"}`}>
-        Teams
+      <SectionHeader aside={`${accounts.length} ${accounts.length === 1 ? "account" : "accounts"}`}>
+        Accounts
       </SectionHeader>
       <Panel className="mb-10">
         <ul className="divide-y divide-gray-300">
-          {teams.map((team) => (
-            <li key={team.id} className="flex items-center gap-4 px-4 py-3">
+          {accounts.map((account) => (
+            <li key={account.id} className="flex items-center gap-4 px-4 py-3">
               <Link
-                href={`/admin/teams/${team.id}`}
+                href={`/admin/accounts/${account.id}`}
                 className="min-w-0 flex-1 truncate text-body-strong text-gray-1000 hover:text-blue-800"
               >
-                {team.name}
+                {account.name}
               </Link>
               <span className="text-caption text-gray-700">
-                {team.accountDirectorName ?? "No director"}
+                {account.accountDirectorName ?? "No director"}
               </span>
               <span className="tabular w-24 text-right text-caption text-gray-600">
-                {team.headcount} {team.headcount === 1 ? "person" : "people"}
+                {account.headcount} {account.headcount === 1 ? "person" : "people"}
               </span>
               <span className="tabular w-20 text-right text-caption text-gray-600">
-                {team.boardCount} {team.boardCount === 1 ? "board" : "boards"}
+                {account.boardCount} {account.boardCount === 1 ? "board" : "boards"}
               </span>
             </li>
           ))}
-          {teams.length === 0 ? (
-            <li className="px-4 py-6 text-body text-gray-600">No teams yet.</li>
+          {accounts.length === 0 ? (
+            <li className="px-4 py-6 text-body text-gray-600">No accounts yet.</li>
           ) : null}
         </ul>
       </Panel>
@@ -113,8 +113,12 @@ export default async function AdminPage() {
               <span className="w-36 text-right text-caption text-gray-700">
                 {ROLE_LABELS[person.role]}
               </span>
-              <span className="w-24 text-right text-caption text-gray-600">
-                {person.teamName ?? "—"}
+              {/* Every account, not the first one: "Nike" beside somebody who
+                  also carries Adidas is the old model showing through. */}
+              <span className="w-40 truncate text-right text-caption text-gray-600">
+                {person.accounts.length > 0
+                  ? person.accounts.map((a) => a.name).join(", ")
+                  : "—"}
               </span>
             </li>
           ))}
@@ -124,7 +128,7 @@ export default async function AdminPage() {
       <p className="mt-4 max-w-prose text-caption text-gray-600">
         Nobody is deleted here. People own work — tasks they wrote, documents they authored,
         comments they left — and removing the row would take that with them or refuse outright.
-        Moving somebody off a team is how they stop being given work.
+        Moving somebody off an account is how they stop being given work.
       </p>
 
       <div className="mt-6">

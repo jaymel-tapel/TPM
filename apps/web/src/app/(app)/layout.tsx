@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { demoSwitcherEnabled, getSession } from "@/lib/auth";
 import { isSenior, navFor, type NavChild } from "@/lib/permissions";
-import { listTeams } from "@/queries/team";
+import { listAccounts } from "@/queries/accounts";
 import { listBoardsForUser } from "@/queries/tasks";
 import { getInbox, getUnreadCount } from "@/queries/notifications";
 import { getUnreadTotal } from "@/queries/chat";
@@ -19,14 +19,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const links = navFor(session.user.role);
 
   /*
-   * Rail groups are filled from the org chart, not configured: the Teams item
-   * opens to the teams, and the Boards item to the boards that person can
-   * reach. The Senior Director gets both — every team, and every team's work.
+   * Rail groups are filled from the org chart, not configured: the Accounts item
+   * opens to the accounts, and the Boards item to the boards that person can
+   * reach. The Senior Director gets both — every account, and every account's work.
    */
   if (isSenior(session.user)) {
-    const teams = await listTeams();
-    const item = links.find((l) => l.href === "/teams");
-    if (item) item.children = teams.map((t) => ({ href: `/teams/${t.id}`, label: t.name }));
+    const accounts = await listAccounts();
+    const item = links.find((l) => l.href === "/accounts");
+    if (item) item.children = accounts.map((t) => ({ href: `/accounts/${t.id}`, label: t.name }));
   }
 
   {
@@ -35,36 +35,36 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     if (item) {
       if (isSenior(session.user)) {
         /*
-         * Grouped by team, because the Senior Director is the one person who
-         * sees every team's boards at once and a flat list of them is a list
-         * you read rather than scan. The department's own boards have no team
+         * Grouped by account, because the Senior Director is the one person who
+         * sees every account's boards at once and a flat list of them is a list
+         * you read rather than scan. The department's own boards have no account
          * to sit under, so they sit at the top where they belong.
          */
-        const byTeam = new Map<string, { name: string; children: NavChild[] }>();
+        const byAccount = new Map<string, { name: string; children: NavChild[] }>();
         const department: NavChild[] = [];
 
         for (const board of boards) {
           const row = { href: `/boards/${board.id}`, label: board.name };
-          if (!board.teamId) {
+          if (!board.accountId) {
             department.push(row);
             continue;
           }
-          const group = byTeam.get(board.teamId);
+          const group = byAccount.get(board.accountId);
           if (group) group.children.push(row);
-          else byTeam.set(board.teamId, { name: board.teamName ?? "Team", children: [row] });
+          else byAccount.set(board.accountId, { name: board.accountName ?? "Account", children: [row] });
         }
 
         item.children = [
           ...department,
-          ...[...byTeam.values()].map((t) => ({ label: t.name, children: t.children })),
+          ...[...byAccount.values()].map((t) => ({ label: t.name, children: t.children })),
         ];
       } else {
         item.children = boards.map((b) => ({
           href: `/boards/${b.id}`,
           label: b.name,
-          // The department's own boards sit alongside their team's, and a
+          // The department's own boards sit alongside their account's, and a
           // person should be able to tell which is which.
-          note: b.teamId ? undefined : "Department",
+          note: b.accountId ? undefined : "Department",
         }));
       }
     }
@@ -93,7 +93,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <AppSidebar
         links={links}
         user={{ name: session.user.name, role: session.user.role }}
-        // Boards are the Account Director's to create, for their own team.
+        // Boards are the Account Director's to create, for their own account.
         canCreateBoard={session.user.role === "account_director" || isSenior(session.user)}
         notifications={inbox.map((entry) => toInboxItem(entry))}
         unread={unread}

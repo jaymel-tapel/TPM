@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { chatMembers, chatRooms } from "@/db/schema";
-import { listChatPeople } from "./team";
+import { listChatPeople } from "./accounts";
 import {
   getRoom,
   getUnreadTotal,
@@ -31,8 +31,8 @@ beforeEach(async () => {
 describe("who can be messaged", () => {
   it("includes the Senior Director", async () => {
     /*
-     * The trap. `listAssignableUsers` joins `teams`, and the Senior Director is
-     * the one person with no team — so reusing it here would have meant nobody
+     * The trap. `listAssignableUsers` joins `accounts`, and the Senior Director is
+     * the one person with no account — so reusing it here would have meant nobody
      * in the department could message their own director, silently and with
      * nothing failing. Pinned so a later tidy-up cannot fold the two together.
      */
@@ -41,10 +41,12 @@ describe("who can be messaged", () => {
     expect(people).toHaveLength(5);
   });
 
-  it("says which team somebody is on, and tolerates having none", async () => {
+  it("says which account somebody is on, and tolerates having none", async () => {
     const people = await listChatPeople();
-    expect(people.find((p) => p.id === IDS.anna)!.teamName).toBe("Team A");
-    expect(people.find((p) => p.id === IDS.elena)!.teamName).toBeNull();
+    expect(people.find((p) => p.id === IDS.anna)!.accountName).toBe("Nike");
+    // The Senior Director is on none, and the picker has to survive that
+    // rather than drop the one person everybody needs to message.
+    expect(people.find((p) => p.id === IDS.elena)!.accountName).toBeNull();
   });
 });
 

@@ -23,10 +23,10 @@ import { uploadAttachment } from "@/components/task-attachments";
 import { LogTimeField } from "@/components/log-time-field";
 import { useMentionSource } from "@/components/doc-mention";
 
-export type AssignableUser = { id: string; name: string; team_name: string | null };
-/** `teamId` is what decides who may be assigned or named on this board. */
-/** `teamId` is null on a department board — one that belongs to no team. */
-export type BoardOption = { id: string; name: string; teamId: string | null };
+export type AssignableUser = { id: string; name: string; account_name: string | null };
+/** `accountId` is what decides who may be assigned or named on this board. */
+/** `accountId` is null on a department board — one that belongs to no account. */
+export type BoardOption = { id: string; name: string; accountId: string | null };
 export type StatusOption = { id: string; name: string; kind: "open" | "done" | "blocked" };
 
 export type TaskFormValues = {
@@ -72,7 +72,7 @@ export function TaskForm({
   values: TaskFormValues;
   /**
    * Who may be assigned, per board id. Keyed like the columns are, and for the
-   * same reason: a board's people are its team's people, and changing the
+   * same reason: a board's people are its account's people, and changing the
    * board changes both.
    */
   peopleByBoard: Record<string, AssignableUser[]>;
@@ -99,7 +99,7 @@ export function TaskForm({
   const [estimate, setEstimate] = useState(values.estimate);
   // Named in a description, assigned in the sidebar — same board, so the
   // same set of people either way.
-  const mentionSource = useMentionSource(boards.find((b) => b.id === boardId)?.teamId ?? null);
+  const mentionSource = useMentionSource(boards.find((b) => b.id === boardId)?.accountId ?? null);
 
   const columns = statusesByBoard[boardId] ?? [];
   const people = peopleByBoard[boardId] ?? [];
@@ -112,7 +112,7 @@ export function TaskForm({
   function chooseBoard(next: string) {
     setBoardId(next);
     /*
-     * Assignees belong to the board's team, so moving the task to another
+     * Assignees belong to the board's account, so moving the task to another
      * board drops anyone who does not come with it. Silently keeping them
      * would post a payload the server refuses, and the form would fail on a
      * field nobody had touched.
@@ -128,7 +128,7 @@ export function TaskForm({
     const matched = q ? people.filter((p) => p.name.toLowerCase().includes(q)) : people;
     const map = new Map<string, AssignableUser[]>();
     for (const p of matched) {
-      const key = p.team_name ?? "Other";
+      const key = p.account_name ?? "Other";
       map.set(key, [...(map.get(key) ?? []), p]);
     }
     return [...map.entries()];
@@ -347,10 +347,10 @@ export function TaskForm({
           className="mb-3"
         />
         <div className="max-h-96 space-y-4 overflow-y-auto pr-1">
-          {grouped.map(([team, members]) => (
-            <div key={team}>
+          {grouped.map(([account, members]) => (
+            <div key={account}>
               <p className="mb-1.5 text-caption-strong uppercase tracking-[0.08em] text-gray-600">
-                {team}
+                {account}
               </p>
               {members.map((p) => (
                 <label

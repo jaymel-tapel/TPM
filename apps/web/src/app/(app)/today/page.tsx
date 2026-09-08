@@ -130,7 +130,7 @@ export default async function TodayPage({
         </header>
 
         {/*
-          The same rollup the team screen uses, so a person and their manager
+          The same rollup the account screen uses, so a person and their manager
           read one shape of summary rather than two. Overdue, pending and
           completed account for every task the day holds — they add up, which
           a percentage on its own never let you check.
