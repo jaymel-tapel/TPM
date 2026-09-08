@@ -65,6 +65,19 @@ export type ActivityItemData = {
   removable: boolean;
 };
 
+/** One line in someone's inbox. The excerpt is already plain text — an inbox
+ *  row is one line, and mounting an editor per row is what capped the feed. */
+export type InboxItemData = {
+  id: string;
+  kind: "mentioned" | "assigned" | "commented";
+  actorName: string;
+  taskId: string;
+  taskTitle: string;
+  excerpt: string | null;
+  when: string;
+  read: boolean;
+};
+
 /** What a task row needs. Due text and overdue are resolved by the app, which
  *  owns the clock and the timezone. */
 export type TaskRowData = {

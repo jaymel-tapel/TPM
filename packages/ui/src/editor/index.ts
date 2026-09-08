@@ -3,6 +3,7 @@
 export { RichTextEditor, RichTextView } from "./lazy";
 export {
   collectMentions,
+  collectPeople,
   isEmptyDocument,
   toBlocks,
   toPlainText,
@@ -10,5 +11,6 @@ export {
   USER_MENTION,
   type Block,
   type DocMentionProps,
+  type UserMentionProps,
   type MentionItem,
 } from "./blocks";

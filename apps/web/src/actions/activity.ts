@@ -4,12 +4,13 @@ import { revalidatePath } from "next/cache";
 import { notFound } from "next/navigation";
 import { and, eq, inArray, sum } from "drizzle-orm";
 import { z } from "zod";
-import { isEmptyDocument } from "@meridian/ui/editor";
+import { collectPeople, isEmptyDocument } from "@meridian/ui/editor";
 import { db } from "@/db";
-import { taskActivity, tasks } from "@/db/schema";
+import { taskActivity, taskAssignees, tasks } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
 import { isDirector, loadViewableTask } from "@/lib/permissions";
 import { parseDuration } from "@/lib/duration";
+import { deliver, notify } from "@/lib/notify";
 
 export type CommentState = { error?: string } | null;
 
@@ -40,14 +41,12 @@ export async function addComment(
   if (isEmptyDocument(body)) return { error: "Write something first." };
 
   const user = await requireUser();
-  await loadViewableTask(user, taskId);
+  const task = await loadViewableTask(user, taskId);
 
-  await db.insert(taskActivity).values({
-    taskId,
-    actorId: user.id,
-    kind: "comment",
-    body,
-  });
+  const [entry] = await db
+    .insert(taskActivity)
+    .values({ taskId, actorId: user.id, kind: "comment", body })
+    .returning({ id: taskActivity.id });
 
   /*
    * Deliberately NOT calling `syncMentionedDocs`. It owns the whole
@@ -56,9 +55,41 @@ export async function addComment(
    * *description* references. The `mentioned` link belongs to the description;
    * a mention in a comment renders as a chip and links to the doc, which is
    * all it needs to do.
+   *
+   * People are different: a mention of a person is addressed *to* them, and
+   * has to leave something behind or nobody ever learns it happened.
    */
+  const mentioned = collectPeople(body).map((p) => p.userId);
+  const told = await notify({
+    task,
+    actorId: user.id,
+    kind: "mentioned",
+    activityId: entry!.id,
+    userIds: mentioned,
+  });
+
+  /*
+   * Everyone with a stake in the task hears about a comment — except the
+   * people just told they were mentioned. One comment is one notification per
+   * person, and "Sarah mentioned you" is the more useful of the two.
+   */
+  const named = new Set([...mentioned, user.id]);
+  const stakeholders = await db
+    .select({ userId: taskAssignees.userId })
+    .from(taskAssignees)
+    .where(eq(taskAssignees.taskId, taskId));
+  const alsoTold = await notify({
+    task,
+    actorId: user.id,
+    kind: "commented",
+    activityId: entry!.id,
+    userIds: [...stakeholders.map((a) => a.userId), task.createdBy].filter(
+      (id) => !named.has(id),
+    ),
+  });
 
   revalidatePath(`/tasks/${taskId}`);
+  await deliver([...told, ...alsoTold]);
   return null;
 }
 

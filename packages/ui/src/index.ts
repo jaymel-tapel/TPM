@@ -2,6 +2,7 @@ export * from "./types";
 export * from "./lib/utils";
 
 export * from "./components/activity-feed";
+export * from "./components/inbox-list";
 export * from "./components/attachment-list";
 export * from "./components/button-link";
 export * from "./components/command-bar";

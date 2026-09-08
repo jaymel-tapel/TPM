@@ -21,7 +21,9 @@ import {
   type StatusKind,
 } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
+import { collectPeople } from "@meridian/ui/editor";
 import { syncMentionedDocs } from "@/lib/doc-links";
+import { deliver, notify } from "@/lib/notify";
 import { assertCanViewTeamWork, loadEditableTask } from "@/lib/permissions";
 import { assigneesOutsideTeam } from "@/queries/team";
 
@@ -119,7 +121,10 @@ async function recordActivity(entry: {
   toLabel?: string | null;
   subjectName?: string | null;
 }) {
-  await db.insert(taskActivity).values(entry);
+  const [row] = await db.insert(taskActivity).values(entry).returning({
+    id: taskActivity.id,
+  });
+  return row!.id;
 }
 
 /** The column's name and kind, for both the write and the record of it. */
@@ -196,7 +201,21 @@ export async function createTask(_prev: FormState, formData: FormData): Promise<
     toLabel: status.name,
   });
 
+  const told = await notify({
+    task,
+    actorId: viewer.id,
+    kind: "assigned",
+    userIds: input.assignees,
+  });
+  const mentioned = await notify({
+    task,
+    actorId: viewer.id,
+    kind: "mentioned",
+    userIds: collectPeople(input.description).map((p) => p.userId),
+  });
+
   refresh();
+  await deliver([...told, ...mentioned]);
   redirect(`/tasks/${task.id}`);
 }
 
@@ -247,6 +266,12 @@ export async function updateTask(_prev: FormState, formData: FormData): Promise<
     .from(taskAssignees)
     .innerJoin(users, eq(users.id, taskAssignees.userId))
     .where(eq(taskAssignees.taskId, taskId));
+  /*
+   * Who the description already named. A save rewrites the whole body, so
+   * without this a fixed typo would notify everyone mentioned in it all over
+   * again. Only names that were not there before are new news.
+   */
+  const namedBefore = new Set(collectPeople(existing.description).map((p) => p.userId));
 
   await db
     .update(tasks)
@@ -303,19 +328,41 @@ export async function updateTask(_prev: FormState, formData: FormData): Promise<
 
   const had = new Map(before.map((a) => [a.userId, a.name]));
   const now = new Set(input.assignees);
+  const nudge: string[] = [];
   for (const userId of input.assignees) {
     if (had.has(userId)) continue;
     const [person] = await db
       .select({ name: users.name })
       .from(users)
       .where(eq(users.id, userId));
-    await recordActivity({
+    const activityId = await recordActivity({
       taskId,
       actorId: viewer.id,
       kind: "assigned",
       subjectName: person?.name ?? null,
     });
+    // Only the people newly added — `input.assignees` is the whole list on
+    // every save, so notifying it wholesale would re-tell everyone each time.
+    nudge.push(
+      ...(await notify({
+        task: { ...existing, teamId: board.teamId },
+        actorId: viewer.id,
+        kind: "assigned",
+        activityId,
+        userIds: [userId],
+      })),
+    );
   }
+  nudge.push(
+    ...(await notify({
+      task: { ...existing, teamId: board.teamId },
+      actorId: viewer.id,
+      kind: "mentioned",
+      userIds: collectPeople(input.description)
+        .map((p) => p.userId)
+        .filter((id) => !namedBefore.has(id)),
+    })),
+  );
   for (const [userId, name] of had) {
     if (now.has(userId)) continue;
     await recordActivity({
@@ -327,6 +374,7 @@ export async function updateTask(_prev: FormState, formData: FormData): Promise<
   }
 
   refresh();
+  await deliver(nudge);
   redirect(`/tasks/${taskId}`);
 }
 
