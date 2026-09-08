@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { Columns3, List, Plus, Settings2 } from "lucide-react";
+import { Columns3, List, Plus, Settings2, User } from "lucide-react";
 import {
   Command,
   CommandBar,
@@ -34,13 +34,23 @@ export default async function BoardPage({
   const { boardId } = await params;
   const query = await searchParams;
   const asList = query.view === "list";
+  const mineOnly = query.mine === "1";
   const { user } = await requireSession();
 
   const board = await getBoard(boardId);
   if (!board || !canViewTeamWork(user, board.teamId)) notFound();
 
-  const view = await getBoardView(boardId);
+  const view = await getBoardView(boardId, undefined, mineOnly ? user.id : null);
   if (!view) notFound();
+
+  /** Keeps whichever of the two settings you are not currently changing. */
+  const href = ({ list = asList, mine = mineOnly }: { list?: boolean; mine?: boolean }) => {
+    const params = new URLSearchParams();
+    if (list) params.set("view", "list");
+    if (mine) params.set("mine", "1");
+    const query = params.toString();
+    return `/boards/${boardId}${query ? `?${query}` : ""}`;
+  };
 
   return (
     <>
@@ -54,11 +64,20 @@ export default async function BoardPage({
           list keeps the board's own columns as its headings, so the vocabulary
           an Account Director chose survives the switch.
         */}
-        <Command icon={List} href={`/boards/${boardId}?view=list`} active={asList}>
+        <Command icon={List} href={href({ list: true })} active={asList}>
           List
         </Command>
-        <Command icon={Columns3} href={`/boards/${boardId}`} active={!asList}>
+        <Command icon={Columns3} href={href({ list: false })} active={!asList}>
           Board
+        </Command>
+        <CommandDivider />
+        {/*
+          A filter, not a third view — it narrows whichever view is showing.
+          This is what the separate My Tasks screen used to be for, except it
+          answers the question where the work already is.
+        */}
+        <Command icon={User} href={href({ mine: !mineOnly })} active={mineOnly}>
+          My Tasks
         </Command>
 
         {/*
@@ -85,6 +104,8 @@ export default async function BoardPage({
 
       {view.columns.length === 0 ? (
         <EmptyState>This board has no columns yet.</EmptyState>
+      ) : mineOnly && view.total === 0 ? (
+        <EmptyState>Nothing on this board is assigned to you today.</EmptyState>
       ) : asList ? (
         <div className="space-y-8">
           {view.total === 0 ? <EmptyState>Nothing on this board today.</EmptyState> : null}
@@ -114,7 +135,11 @@ export default async function BoardPage({
             ))}
         </div>
       ) : (
-        <TaskBoard board={toBoard(view)} onMove={setTaskStatus} moreHref="/my-tasks" />
+        <TaskBoard
+          board={toBoard(view)}
+          onMove={setTaskStatus}
+          moreHref={href({ list: true })}
+        />
       )}
     </>
   );

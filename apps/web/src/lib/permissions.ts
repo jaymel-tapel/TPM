@@ -23,7 +23,6 @@ export const isSenior = (u: User) => u.role === "senior_director";
  */
 export type NavIcon =
   | "today"
-  | "myTasks"
   | "boards"
   | "docs"
   | "team"
@@ -67,7 +66,6 @@ export function navFor(role: Role): NavItem[] {
     default:
       return [
         { href: "/today", label: "Today", icon: "today" },
-        { href: "/my-tasks", label: "My Tasks", icon: "myTasks" },
         { href: "/boards", label: "Boards", icon: "boards" },
         { href: "/docs", label: "Docs", icon: "docs" },
       ];

@@ -72,7 +72,7 @@ export type TaskFilters = {
   range?: "today" | "week" | "overdue" | "all";
 };
 
-/** Backs /my-tasks and the team list — compact chips, not a query builder. */
+/** Backs the person drilldown. Kept narrow: filters, not a query builder. */
 export async function listTasks(
   scope: Scope,
   filters: TaskFilters = {},
@@ -165,6 +165,8 @@ export type BoardView = {
 export async function getBoardView(
   boardId: string,
   reference: Date = now(),
+  /** Narrows to the work this person is on. Null shows the whole board. */
+  assigneeId: string | null = null,
 ): Promise<BoardView | null> {
   const { start, end } = dayRange(reference);
 
@@ -180,8 +182,12 @@ export async function getBoardView(
     .where(eq(boardStatuses.boardId, boardId))
     .orderBy(boardStatuses.position, boardStatuses.name);
 
+  // Reuses the same `exists (…task_assignees…)` fragment every other
+  // person-scoped query uses, so "mine" means the same thing everywhere.
+  const mine = assigneeId ? sql` and ${scopeSql(userScope(assigneeId))}` : sql``;
+
   const rows = await runTaskQuery(
-    sql`${boardScopeSql(boardId)} and (
+    sql`${boardScopeSql(boardId)}${mine} and (
       (k.due_date >= ${start} and k.due_date < ${end})
       or ${overdueSql(start)}
       or (k.completed_at >= ${start} and k.completed_at < ${end})

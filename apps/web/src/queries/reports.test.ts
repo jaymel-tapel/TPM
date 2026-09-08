@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { getBoardView, type BoardView } from "./tasks";
 import { getCompletionTrend, getReportMetrics } from "./reports";
 import { departmentScope, teamScope, userScope } from "./sql";
@@ -162,5 +162,49 @@ describe("board grouping", () => {
 
   it("returns nothing for a board that does not exist", async () => {
     expect(await getBoardView(IDS.boardB.replace("2", "9"), NOW)).toBeNull();
+  });
+});
+
+describe("narrowing a board to one person", () => {
+  beforeEach(async () => {
+    await resetDb();
+    await seedOrg();
+
+    await addTask({ team: IDS.teamA, assignees: [IDS.anna], dueDay: 0, status: "todo" });
+    await addTask({ team: IDS.teamA, assignees: [IDS.james], dueDay: 0, status: "todo" });
+    // Shared work counts for both, which is what makes this a filter on
+    // assignment rather than on ownership.
+    await addTask({
+      team: IDS.teamA,
+      assignees: [IDS.anna, IDS.james],
+      dueDay: 0,
+      status: "in_progress",
+    });
+  });
+
+  it("shows the whole board by default", async () => {
+    const board = await getBoardView(IDS.boardA, NOW);
+    expect(board!.total).toBe(3);
+  });
+
+  it("keeps only the work that person is on, shared work included", async () => {
+    const anna = await getBoardView(IDS.boardA, NOW, IDS.anna);
+    expect(anna!.total).toBe(2);
+
+    const james = await getBoardView(IDS.boardA, NOW, IDS.james);
+    expect(james!.total).toBe(2);
+  });
+
+  it("keeps the board's columns even when none of them hold your work", async () => {
+    // The filter narrows the cards, not the board. A column that empties is
+    // still a column — it is where the work would go.
+    const mika = await getBoardView(IDS.boardA, NOW, IDS.mika);
+    expect(mika!.total).toBe(0);
+    expect(mika!.columns.map((c) => c.name)).toEqual([
+      "To Do",
+      "In Progress",
+      "Done",
+      "Blocked",
+    ]);
   });
 });

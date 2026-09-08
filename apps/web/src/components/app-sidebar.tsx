@@ -9,7 +9,6 @@ import {
   ChevronRight,
   Columns3,
   FileText,
-  ListChecks,
   LayoutDashboard,
   LogOut,
   Plus,
@@ -23,7 +22,6 @@ import { RoleSwitcher } from "./role-switcher";
 
 const ICONS: Record<NavIcon, typeof CalendarCheck> = {
   today: CalendarCheck,
-  myTasks: ListChecks,
   boards: Columns3,
   docs: FileText,
   team: Users,

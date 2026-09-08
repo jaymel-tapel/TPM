@@ -1,8 +1,7 @@
-import { ListChecks, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import {
   Command,
   CommandBar,
-  CommandDivider,
   EmptyState,
   Panel,
   Percent,
@@ -50,10 +49,6 @@ export default async function TodayPage() {
           <CommandBar className="mt-4">
             <Command icon={Plus} href="/tasks/new" tone="primary">
               New Task
-            </Command>
-            <CommandDivider />
-            <Command icon={ListChecks} href="/my-tasks">
-              All my tasks
             </Command>
           </CommandBar>
         </header>
