@@ -440,7 +440,7 @@ export default function DesignSystemPage() {
               <TaskRow task={TASKS.blocked} viewer="u-anna" />
             </TaskList>
 
-            <TaskList title="Carried over" tone="danger">
+            <TaskList title="Overdue" tone="danger">
               <TaskRow task={TASKS.overdue} viewer="u-anna" />
             </TaskList>
 

@@ -41,8 +41,10 @@ export default async function BoardPage({
         {isDirector(user) ? (
           <>
             <CommandDivider />
+            {/* "Columns" undersold it — the same screen renames and deletes
+                the board. A command should say what the screen does. */}
             <Command icon={Settings2} href={`/boards/${boardId}/settings`}>
-              Columns
+              Board settings
             </Command>
             <Command icon={BarChart3} href="/reports">
               Reports
