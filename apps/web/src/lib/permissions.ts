@@ -78,10 +78,37 @@ export function homeFor(role: Role): string {
   return role === "senior_director" ? "/overview" : "/today";
 }
 
+/**
+ * Whether this person may look at a team the way its director does — the Team
+ * Today rollup, everyone's workload side by side. That is a management view,
+ * so it stops at the people who manage.
+ *
+ * This is *not* the question "is this your team". A team member belongs to a
+ * team without being able to manage it, and asking this one about their own
+ * board or their own task refuses them — see `canViewTeamWork`.
+ */
 export function canViewTeam(viewer: User, teamId: string): boolean {
   if (isSenior(viewer)) return true;
   if (viewer.role === "account_director") return viewer.teamId === teamId;
   return false;
+}
+
+/**
+ * Whether this person may reach the *work* a team owns — its board, and the
+ * tasks filed on it. Everyone on the team can, because it is their own work.
+ *
+ * Kept apart from `canViewTeam` because the two questions have different
+ * answers for a team member, and one predicate answering both is what let the
+ * rail offer a board the page then refused. Anything that lists a team's work
+ * has to agree with this, or it is advertising a door that does not open.
+ */
+export function canViewTeamWork(viewer: User, teamId: string): boolean {
+  if (isSenior(viewer)) return true;
+  return Boolean(viewer.teamId) && viewer.teamId === teamId;
+}
+
+export async function assertCanViewTeamWork(viewer: User, teamId: string) {
+  if (!canViewTeamWork(viewer, teamId)) notFound();
 }
 
 /** Refusals read as 404 so one role can't probe for the existence of another's data. */

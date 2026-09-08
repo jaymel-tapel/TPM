@@ -18,7 +18,7 @@ import {
 } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
 import { syncMentionedDocs } from "@/lib/doc-links";
-import { assertCanViewTeam, assertCanViewUser, loadEditableTask } from "@/lib/permissions";
+import { assertCanViewTeamWork, assertCanViewUser, loadEditableTask } from "@/lib/permissions";
 
 const taskInput = z.object({
   title: z.string().trim().min(1, "Give the task a title").max(200),
@@ -101,7 +101,7 @@ export async function createTask(_prev: FormState, formData: FormData): Promise<
     .from(boards)
     .where(eq(boards.id, input.boardId));
   if (!board) return { error: "Pick a board." };
-  await assertCanViewTeam(viewer, board.teamId);
+  await assertCanViewTeamWork(viewer, board.teamId);
   await assertCanViewUser(viewer, input.assignees[0]);
 
   const [task] = await db
@@ -147,7 +147,7 @@ export async function updateTask(_prev: FormState, formData: FormData): Promise<
     .from(boards)
     .where(eq(boards.id, input.boardId));
   if (!board) return { error: "Pick a board." };
-  await assertCanViewTeam(viewer, board.teamId);
+  await assertCanViewTeamWork(viewer, board.teamId);
 
   await db
     .update(tasks)

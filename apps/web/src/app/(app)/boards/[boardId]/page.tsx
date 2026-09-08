@@ -10,7 +10,7 @@ import {
   TaskRow,
 } from "@meridian/ui";
 import { requireSession } from "@/lib/auth";
-import { canViewTeam, isDirector } from "@/lib/permissions";
+import { canViewTeamWork, isDirector } from "@/lib/permissions";
 import { getBoard } from "@/queries/boards";
 import { getBoardView } from "@/queries/tasks";
 import { toBoard, toTaskRow } from "@/lib/present";
@@ -37,7 +37,7 @@ export default async function BoardPage({
   const { user } = await requireSession();
 
   const board = await getBoard(boardId);
-  if (!board || !canViewTeam(user, board.teamId)) notFound();
+  if (!board || !canViewTeamWork(user, board.teamId)) notFound();
 
   const view = await getBoardView(boardId);
   if (!view) notFound();
