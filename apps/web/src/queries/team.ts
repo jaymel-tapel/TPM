@@ -163,10 +163,15 @@ export async function listAssignableUsers(teamIds?: string[]) {
  * displayed. Returns names, because "who" is what the message has to say.
  */
 export async function assigneesOutsideTeam(
-  teamId: string,
+  teamId: string | null,
   userIds: string[],
 ): Promise<string[]> {
   if (userIds.length === 0) return [];
+  /*
+   * A board with no team belongs to the department, so anybody in it may be
+   * put on the work. There is no team to be outside of.
+   */
+  if (teamId === null) return [];
   const rows = await db.execute(
     sql`select u.name from users u
         where u.id in (${sql.join(userIds.map((id) => sql`${id}::uuid`), sql`, `)})

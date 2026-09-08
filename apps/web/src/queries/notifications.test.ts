@@ -228,3 +228,33 @@ describe("an inbox", () => {
     expect(await getInbox(IDS.sarah)).toEqual([]);
   });
 });
+
+describe("work that belongs to no team", () => {
+  let root: Task;
+
+  beforeEach(async () => {
+    await resetDb();
+    await seedOrg();
+    const id = await addTask({ team: IDS.teamA, assignees: [IDS.anna], dueDay: 0 });
+    await db.execute(sql`update tasks set team_id = null where id = ${id}`);
+    root = await loadTask(id);
+  });
+
+  it("can be seen by everyone, and told to everyone", async () => {
+    /*
+     * The invariant this file exists to protect, at the one point it is
+     * easiest to break. `u.team_id = NULL` is never true, so the notification
+     * filter would quietly tell nobody while `canViewTask` said the whole
+     * department could read it.
+     */
+    const everyone = [IDS.anna, IDS.james, IDS.sarah, IDS.mika, IDS.elena];
+    const allowed = new Set(await filterUsersWhoCanSeeTask(root, everyone));
+
+    for (const id of everyone) {
+      const viewer = await load(id);
+      expect([id, allowed.has(id)]).toEqual([id, await canViewTask(viewer, root)]);
+    }
+    // And that answer is "yes" — including for someone on the other team.
+    expect(allowed.has(IDS.mika)).toBe(true);
+  });
+});

@@ -283,13 +283,15 @@ export async function getBoardView(
 export async function listBoardsForUser(user: {
   role: string;
   teamId: string | null;
-}): Promise<{ id: string; name: string; teamId: string; teamName: string }[]> {
+}): Promise<{ id: string; name: string; teamId: string | null; teamName: string | null }[]> {
   const where =
     user.role === "senior_director"
       ? undefined
       : user.teamId
-        ? eq(boards.teamId, user.teamId)
-        : sql`false`;
+        ? // Their team's boards, and the department's, which belong to nobody
+          // and so to everybody.
+          sql`(${eq(boards.teamId, user.teamId)} or ${boards.teamId} is null)`
+        : sql`${boards.teamId} is null`;
 
   return db
     .select({
@@ -299,7 +301,8 @@ export async function listBoardsForUser(user: {
       teamName: teams.name,
     })
     .from(boards)
-    .innerJoin(teams, eq(teams.id, boards.teamId))
+    // Left, or the department's own boards drop out of the rail entirely.
+    .leftJoin(teams, eq(teams.id, boards.teamId))
     .where(where)
     .orderBy(teams.name, boards.position, boards.name);
 }

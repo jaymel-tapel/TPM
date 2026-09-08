@@ -18,7 +18,7 @@ import {
   UsersRound,
 } from "lucide-react";
 import { ROLE_LABELS, UserAvatar, cn, type InboxItemData, type Role } from "@meridian/ui";
-import type { NavIcon, NavItem } from "@/lib/permissions";
+import type { NavChild, NavIcon, NavItem } from "@/lib/permissions";
 import { logout } from "@/actions/auth";
 import { NotificationBell } from "./notification-bell";
 
@@ -48,6 +48,91 @@ const itemStyles =
 function ActiveBar() {
   return (
     <span aria-hidden className="absolute inset-y-1 left-0 w-0.5 rounded-full bg-blue-700" />
+  );
+}
+
+/**
+ * A row under a nav group, and — for the Senior Director — the teams that hold
+ * the boards beneath it.
+ *
+ * Two levels and no more. One flat list of every team's boards is a list you
+ * read rather than scan; a third level would be the nested spaces the brief
+ * refuses.
+ */
+function NavChildRow({
+  child,
+  pathname,
+  depth = 0,
+}: {
+  child: NavChild;
+  pathname: string;
+  depth?: number;
+}) {
+  const active = pathname === child.href;
+  const hasChildren = Boolean(child.children?.length);
+  // Groups start open: the point of nesting the boards is to see them.
+  const [open, setOpen] = useState(true);
+
+  // pl-10 at the first level lines up under the parent's label rather than its
+  // icon; each level after that steps in by one more.
+  const indent = depth === 0 ? "pl-10" : "pl-14";
+  const shell = cn(
+    "relative block rounded-md py-1.5 pr-3 text-body transition-colors",
+    indent,
+    active
+      ? "bg-blue-100 text-blue-900"
+      : "text-gray-700 hover:bg-gray-100 hover:text-gray-1000",
+  );
+
+  const body = (
+    <>
+      {active ? <ActiveBar /> : null}
+      <span className="block truncate">{child.label}</span>
+      {/* A quieter second line — the rail is 224px and the label deserves it. */}
+      {child.note ? (
+        <span className="block truncate text-caption text-gray-600">{child.note}</span>
+      ) : null}
+    </>
+  );
+
+  if (!hasChildren) {
+    return child.href ? (
+      <Link href={child.href} aria-current={active ? "page" : undefined} className={shell}>
+        {body}
+      </Link>
+    ) : (
+      <div className={shell}>{body}</div>
+    );
+  }
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        className={cn(shell, "flex w-full items-center gap-2 text-left")}
+      >
+        <ChevronRight
+          className={cn("size-3.5 shrink-0 transition-transform", open && "rotate-90")}
+          strokeWidth={2}
+        />
+        <span className="min-w-0 flex-1 truncate">{child.label}</span>
+      </button>
+
+      {open ? (
+        <div className="mt-0.5 space-y-0.5">
+          {child.children!.map((grandchild) => (
+            <NavChildRow
+              key={grandchild.href ?? grandchild.label}
+              child={grandchild}
+              pathname={pathname}
+              depth={depth + 1}
+            />
+          ))}
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -134,33 +219,9 @@ function NavGroup({
 
       {expanded ? (
         <div className="mt-0.5 space-y-0.5">
-          {link.children!.map((child) => {
-            const active = pathname === child.href;
-            return (
-              <Link
-                key={child.href}
-                href={child.href}
-                aria-current={active ? "page" : undefined}
-                className={cn(
-                  // Indented to sit under the parent's label, not its icon.
-                  "relative block rounded-md py-1.5 pl-10 pr-3 text-body transition-colors",
-                  active
-                    ? "bg-blue-100 text-blue-900"
-                    : "text-gray-700 hover:bg-gray-100 hover:text-gray-1000",
-                )}
-              >
-                {active ? <ActiveBar /> : null}
-                <span className="block truncate">{child.label}</span>
-                {/* Which team owns it. A second line rather than a suffix: the
-                    rail is 224px wide and a board name deserves all of it. */}
-                {child.note ? (
-                  <span className="block truncate text-caption text-gray-600">
-                    {child.note}
-                  </span>
-                ) : null}
-              </Link>
-            );
-          })}
+          {link.children!.map((child) => (
+            <NavChildRow key={child.href ?? child.label} child={child} pathname={pathname} />
+          ))}
 
           {/* Creating a board sits with the boards, not in a settings screen
               somewhere else — it is the same list, one row further down. */}

@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { toAvailability, toLeaveRequest, toTaskRow } from "./present";
+import { toAvailability, toLeaveRequest, toMemberRow, toTaskRow } from "./present";
 import type { TaskCard } from "@/queries/sql";
 import type { LeaveRow } from "@/queries/leave";
+import type { MemberRollup } from "@/queries/team";
 import type { User } from "@/db/schema";
 
 const reference = new Date("2026-09-07T05:00:00Z"); // 1pm Manila, Sep 7
@@ -264,5 +265,48 @@ describe("toLeaveRequest", () => {
     expect(
       toLeaveRequest(leave({ status: "declined" }), viewer(), reference, MANILA).cancellable,
     ).toBe(false);
+  });
+});
+
+describe("toMemberRow", () => {
+  const rollup = (overrides: Partial<MemberRollup> = {}): MemberRollup => ({
+    id: "u1",
+    name: "Anna Santos",
+    role: "team_member",
+    due: 6,
+    done: 3,
+    overdue: 1,
+    remaining: 3,
+    percent: 50,
+    away: null,
+    ...overrides,
+  });
+
+  it("builds a link from the base path it is given", () => {
+    expect(toMemberRow(rollup(), "/team", reference, MANILA).href).toBe("/team/u1");
+  });
+
+  it("gives no link at all when there is nowhere to go", () => {
+    // A team member may open their own day and nobody else's, so most rows on
+    // their roster are not links. A row that looks clickable and 404s is worse
+    // than a row that does not.
+    expect(toMemberRow(rollup(), null, reference, MANILA).href).toBeNull();
+  });
+
+  it("carries the counts through untouched", () => {
+    const row = toMemberRow(rollup(), "/team", reference, MANILA);
+    expect([row.done, row.remaining, row.overdue, row.percent]).toEqual([3, 3, 1, 50]);
+  });
+
+  it("passes the away marker through as a written label", () => {
+    const row = toMemberRow(
+      rollup({ away: { away: "full", kind: "vacation", endDate: "2026-09-11" } }),
+      "/team",
+      reference,
+      MANILA,
+    );
+    expect(row.away?.label).toBe("Away until 11 Sep");
+    // Shown, never subtracted: the percentage is the one the rollup counted.
+    expect(row.percent).toBe(50);
   });
 });

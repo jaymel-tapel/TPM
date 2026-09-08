@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { and, asc, count, eq, max } from "drizzle-orm";
+import { and, asc, count, eq, isNull, max } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import { boardStatuses, boards, statusKindEnum, tasks } from "@/db/schema";
@@ -26,7 +26,12 @@ export async function createBoard(
   formData: FormData,
 ): Promise<BoardFormState> {
   const viewer = await requireUser();
-  const teamId = String(formData.get("teamId") ?? "");
+  /*
+   * An empty team is a real choice, not a missing one: it files the board with
+   * the department rather than with a team. Only the Senior Director may make
+   * it — `assertCanManageTeam` refuses a null team to everybody else.
+   */
+  const teamId = String(formData.get("teamId") ?? "") || null;
   const parsed = name.safeParse(formData.get("name"));
   if (!parsed.success) return { error: parsed.error.issues[0]!.message };
 
@@ -35,7 +40,7 @@ export async function createBoard(
   const [{ next }] = await db
     .select({ next: max(boards.position) })
     .from(boards)
-    .where(eq(boards.teamId, teamId));
+    .where(teamId === null ? isNull(boards.teamId) : eq(boards.teamId, teamId));
 
   let board;
   try {
@@ -49,8 +54,13 @@ export async function createBoard(
       })
       .returning();
   } catch {
-    // The only constraint that can fail here is (team_id, name).
-    return { error: "That team already has a board with that name." };
+    // Either (team_id, name) or, for a department board, the partial unique
+    // index on name alone.
+    return {
+      error: teamId
+        ? "That team already has a board with that name."
+        : "The department already has a board with that name.",
+    };
   }
 
   // A board with no columns cannot hold work, so it never exists in that state.
@@ -96,7 +106,8 @@ export async function deleteBoard(formData: FormData) {
 
   await db.delete(boards).where(eq(boards.id, boardId));
   revalidatePath("/", "layout");
-  redirect(`/teams/${board.teamId}`);
+  // A department board belongs to no team, so there is no team page to land on.
+  redirect(board.teamId ? `/teams/${board.teamId}` : "/boards");
 }
 
 const columnInput = z.object({

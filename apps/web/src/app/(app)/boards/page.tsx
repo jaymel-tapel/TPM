@@ -35,9 +35,13 @@ export default async function BoardsPage() {
   // Grouped in the order the query returns them, which is by team then name.
   const byTeam = new Map<string, { teamName: string; boards: typeof boards }>();
   for (const board of boards) {
-    const group = byTeam.get(board.teamId);
+    // The department's own boards group under one heading of their own rather
+    // than being filed under a team they do not belong to.
+    const key = board.teamId ?? "department";
+    const label = board.teamName ?? "Department";
+    const group = byTeam.get(key);
     if (group) group.boards.push(board);
-    else byTeam.set(board.teamId, { teamName: board.teamName, boards: [board] });
+    else byTeam.set(key, { teamName: label, boards: [board] });
   }
 
   return (

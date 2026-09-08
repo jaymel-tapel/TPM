@@ -83,19 +83,42 @@ export async function getDepartmentToday(
   const headRow = await db.execute(sql`select count(*) as n from users`);
   const headcount = Number((headRow.rows[0] as { n: string }).n);
 
-  const due = teams.reduce((n, t) => n + t.due, 0);
-  const done = teams.reduce((n, t) => n + t.done, 0);
+  /*
+   * Counted over the whole department rather than summed from the teams.
+   *
+   * The teams used to add up to it, and stopped once a board could belong to
+   * no team: that work joins to no team row and would fall out of the total
+   * entirely, so the department's own boards would be invisible in the
+   * department's own numbers.
+   *
+   * Averaging the teams' percentages would be wrong for a second reason — it
+   * weights a 14-person team the same as a 15-person one and produces a
+   * number that is nobody's.
+   */
+  const totalRow = await db.execute(sql`
+    select count(*) filter (where k.due_date >= ${start} and k.due_date < ${end}) as due,
+           count(*) filter (where k.due_date >= ${start} and k.due_date < ${end}
+                            and k.completed_at is not null) as done,
+           count(*) filter (where k.due_date < ${start} and k.completed_at is null) as overdue,
+           count(*) filter (where k.due_date >= ${weekStart} and k.due_date < ${end}) as week_due,
+           count(*) filter (where k.due_date >= ${weekStart} and k.due_date < ${end}
+                            and ${onTimeIn(zone)}) as week_done,
+           count(*) filter (where k.due_date >= ${priorStart} and k.due_date < ${weekStart}) as prior_due,
+           count(*) filter (where k.due_date >= ${priorStart} and k.due_date < ${weekStart}
+                            and ${onTimeIn(zone)}) as prior_done
+    from tasks k where ${isLeaf}
+  `);
+  const total = totalRow.rows[0] as Record<string, string>;
+  const sum = (key: string) => Number(total[key]);
 
-  // Department rates are recomputed from the raw counts. Averaging the two
-  // teams' percentages would weight a 14-person team the same as a 15-person
-  // one and quietly produce a number that is nobody's.
-  const sum = (key: string) => raw.reduce((n, r) => n + Number(r[key]), 0);
+  const due = sum("due");
+  const done = sum("done");
 
   return {
     headcount,
     due,
     done,
-    overdue: teams.reduce((n, t) => n + t.overdue, 0),
+    overdue: sum("overdue"),
     percent: pct(done, due),
     weekPercent: pct(sum("week_done"), sum("week_due")),
     priorWeekPercent: pct(sum("prior_done"), sum("prior_due")),

@@ -104,16 +104,22 @@ export const users = pgTable(
 );
 
 /**
- * A board belongs to a team and is created by its Account Director. It is a
- * container, not a view: work lives on exactly one board.
+ * A board is a container, not a view: work lives on exactly one board.
+ *
+ * `team_id` is null for a board that belongs to the department rather than to
+ * a team — a company retro, a tool trial, anything that is nobody's client
+ * work. Only the Senior Director creates those; an Account Director's boards
+ * belong to their team as they always did.
+ *
+ * The consequence, stated because it is easy to miss: work with no team is
+ * visible to everyone. A team's board is scoped by the team; a board with no
+ * team has nothing to scope by, so the department is the scope.
  */
 export const boards = pgTable(
   "boards",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    teamId: uuid("team_id")
-      .notNull()
-      .references(() => teams.id, { onDelete: "cascade" }),
+    teamId: uuid("team_id").references(() => teams.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     position: integer("position").notNull().default(0),
     createdBy: uuid("created_by")
@@ -124,8 +130,23 @@ export const boards = pgTable(
   },
   (t) => [
     index("boards_team_idx").on(t.teamId),
+    /*
+     * Two names cannot collide inside one team. Postgres treats nulls as
+     * distinct in a unique constraint, so this says nothing about the
+     * department's own boards — `uniqueIndex` below covers those.
+     */
     unique("boards_team_name_key").on(t.teamId, t.name),
-    // Lets `tasks` carry a composite key proving its team matches its board's.
+    uniqueIndex("boards_root_name_key")
+      .on(t.name)
+      .where(sql`team_id is null`),
+    /*
+     * Lets `tasks` carry a composite key proving its team matches its board's.
+     *
+     * That proof lapses for the department's own boards: a composite foreign
+     * key is satisfied automatically when any of its columns is null, so a
+     * task with no team is not checked against its board. `createTask` and
+     * `updateTask` copy the board's team either way, and a test pins it.
+     */
     unique("boards_id_team_key").on(t.id, t.teamId),
   ],
 );
@@ -183,9 +204,14 @@ export const tasks = pgTable(
     createdBy: uuid("created_by")
       .notNull()
       .references(() => users.id),
-    teamId: uuid("team_id")
-      .notNull()
-      .references(() => teams.id),
+    /*
+     * Null on work that belongs to the department rather than to a team,
+     * which is to say work on a board with no team. Every team-scoped query
+     * compares `team_id = <a team>`, so these rows fall out of team rollups on
+     * their own; the department's own totals count them, and `canViewTask`
+     * lets everybody read them.
+     */
+    teamId: uuid("team_id").references(() => teams.id),
     /*
      * The task this one is a piece of. Null for ordinary work.
      *

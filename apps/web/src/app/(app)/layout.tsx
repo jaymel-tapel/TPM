@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { demoSwitcherEnabled, getSession } from "@/lib/auth";
-import { isSenior, navFor } from "@/lib/permissions";
+import { isSenior, navFor, type NavChild } from "@/lib/permissions";
 import { listTeams } from "@/queries/team";
 import { listBoardsForUser } from "@/queries/tasks";
 import { getInbox, getUnreadCount } from "@/queries/notifications";
@@ -32,13 +32,40 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     const boards = await listBoardsForUser(session.user);
     const item = links.find((l) => l.href === "/boards");
     if (item) {
-      item.children = boards.map((b) => ({
-        href: `/boards/${b.id}`,
-        label: b.name,
-        // Only where it disambiguates: within a team the name is enough, and a
-        // second line on every row for no reason is just noise.
-        note: isSenior(session.user) ? b.teamName : undefined,
-      }));
+      if (isSenior(session.user)) {
+        /*
+         * Grouped by team, because the Senior Director is the one person who
+         * sees every team's boards at once and a flat list of them is a list
+         * you read rather than scan. The department's own boards have no team
+         * to sit under, so they sit at the top where they belong.
+         */
+        const byTeam = new Map<string, { name: string; children: NavChild[] }>();
+        const department: NavChild[] = [];
+
+        for (const board of boards) {
+          const row = { href: `/boards/${board.id}`, label: board.name };
+          if (!board.teamId) {
+            department.push(row);
+            continue;
+          }
+          const group = byTeam.get(board.teamId);
+          if (group) group.children.push(row);
+          else byTeam.set(board.teamId, { name: board.teamName ?? "Team", children: [row] });
+        }
+
+        item.children = [
+          ...department,
+          ...[...byTeam.values()].map((t) => ({ label: t.name, children: t.children })),
+        ];
+      } else {
+        item.children = boards.map((b) => ({
+          href: `/boards/${b.id}`,
+          label: b.name,
+          // The department's own boards sit alongside their team's, and a
+          // person should be able to tell which is which.
+          note: b.teamId ? undefined : "Department",
+        }));
+      }
     }
   }
 
@@ -58,7 +85,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         links={links}
         user={{ name: session.user.name, role: session.user.role }}
         // Boards are the Account Director's to create, for their own team.
-        canCreateBoard={session.user.role === "account_director"}
+        canCreateBoard={session.user.role === "account_director" || isSenior(session.user)}
         notifications={inbox.map((entry) => toInboxItem(entry))}
         unread={unread}
       />

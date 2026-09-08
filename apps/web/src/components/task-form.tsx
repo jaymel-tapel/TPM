@@ -25,7 +25,8 @@ import { useMentionSource } from "@/components/doc-mention";
 
 export type AssignableUser = { id: string; name: string; team_name: string | null };
 /** `teamId` is what decides who may be assigned or named on this board. */
-export type BoardOption = { id: string; name: string; teamId: string };
+/** `teamId` is null on a department board — one that belongs to no team. */
+export type BoardOption = { id: string; name: string; teamId: string | null };
 export type StatusOption = { id: string; name: string; kind: "open" | "done" | "blocked" };
 
 export type TaskFormValues = {

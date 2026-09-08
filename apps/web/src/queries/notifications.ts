@@ -53,7 +53,11 @@ export async function filterUsersWhoCanSeeTask(
     select u.id from users u
     where u.id in (${list}) and (
       u.role = 'senior_director'
-      or u.team_id = ${task.teamId}
+      -- Work with no team is the department's, and everybody is in the
+      -- department. Comparing a column to NULL is never true, so without this
+      -- a mention on a department board would notify nobody while
+      -- canViewTask said the whole department could read it.
+      or ${task.teamId === null ? sql`true` : sql`u.team_id = ${task.teamId}`}
       or u.id = ${task.createdBy}
       or exists (
         select 1 from task_assignees a

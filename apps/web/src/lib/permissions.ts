@@ -5,11 +5,13 @@ import { db } from "@/db";
 import {
   documents,
   folders,
+  leaveRequests,
   taskAssignees,
   tasks,
   users,
   type Doc,
   type Folder,
+  type LeaveRequest,
   type Role,
   type Task,
   type User,
@@ -33,13 +35,20 @@ export type NavIcon =
   | "overview"
   | "admin";
 export type NavChild = {
-  href: string;
+  /** Absent on a row that only groups the rows beneath it. */
+  href?: string;
   label: string;
   /**
-   * A quieter second line. Only the Senior Director needs it: they see every
-   * team's boards at once, and two teams can name a board the same thing.
+   * A quieter second line, where a label alone would be ambiguous.
    */
   note?: string;
+  /**
+   * One more level, and only one. The Senior Director sees every team's
+   * boards, and a flat list of them is a list you have to read rather than
+   * scan; grouping by team is the org chart the rest of the product already
+   * uses. A third level would be the nested spaces the brief refuses.
+   */
+  children?: NavChild[];
 };
 export type NavItem = {
   href: string;
@@ -83,6 +92,13 @@ export function navFor(role: Role): NavItem[] {
       return [
         { href: "/today", label: "Today", icon: "today" },
         { href: "/boards", label: "Boards", icon: "boards" },
+        /*
+         * A team member's Team is not the Account Director's Team. The rollup
+         * is still management's — `canViewTeam` refuses them and that has not
+         * changed. This one answers "who is here this week", which is their
+         * own team's business the same way its board is.
+         */
+        { href: "/team", label: "Team", icon: "team" },
         { href: "/docs", label: "Docs", icon: "docs" },
       ];
   }
@@ -93,9 +109,13 @@ export function homeFor(role: Role): string {
 }
 
 /**
- * Whether this person may look at a team the way its director does — the Team
- * Today rollup, everyone's workload side by side. That is a management view,
- * so it stops at the people who manage.
+ * Whether this person may look at a team the way its director does.
+ *
+ * Not the numbers — a team's workload is the team's own business and everyone
+ * on it reads the same roster, the same way they all read its board and its
+ * documents. What this gates is the management *screen*: the completion
+ * headline the department is judged on, Needs Attention, the queue of leave
+ * decisions only a director makes, and the right to open any one person's day.
  *
  * This is *not* the question "is this your team". A team member belongs to a
  * team without being able to manage it, and asking this one about their own
@@ -116,12 +136,19 @@ export function canViewTeam(viewer: User, teamId: string): boolean {
  * rail offer a board the page then refused. Anything that lists a team's work
  * has to agree with this, or it is advertising a door that does not open.
  */
-export function canViewTeamWork(viewer: User, teamId: string): boolean {
+export function canViewTeamWork(viewer: User, teamId: string | null): boolean {
   if (isSenior(viewer)) return true;
+  /*
+   * No team means the department's own work — a company retro, a tool trial.
+   * There is nothing to scope it by, so everyone sees it. Writing this as
+   * `viewer.teamId === teamId` instead would have quietly made it senior-only,
+   * because null equals null and nothing else does.
+   */
+  if (teamId === null) return true;
   return Boolean(viewer.teamId) && viewer.teamId === teamId;
 }
 
-export async function assertCanViewTeamWork(viewer: User, teamId: string) {
+export async function assertCanViewTeamWork(viewer: User, teamId: string | null) {
   if (!canViewTeamWork(viewer, teamId)) notFound();
 }
 
@@ -169,6 +196,10 @@ export async function assertCanViewReports(viewer: User) {
 /** Assignees and the creator can edit; directors can edit within their scope. */
 export async function canEditTask(viewer: User, task: Task): Promise<boolean> {
   if (isSenior(viewer)) return true;
+  // Department work is everyone's to act on, the same way a team's work is
+  // the team's. `Boolean(viewer.teamId)` below is what stops a null on both
+  // sides reading as a match by accident.
+  if (task.teamId === null) return true;
   if (Boolean(viewer.teamId) && viewer.teamId === task.teamId) return true;
   // Someone assigned work on another team's board can still act on it.
   const assignment = await db.query.taskAssignees.findFirst({
@@ -192,7 +223,8 @@ export async function canEditTask(viewer: User, task: Task): Promise<boolean> {
 /** Everyone may read a task they can see the team of, or are assigned to. */
 export async function canViewTask(viewer: User, task: Task): Promise<boolean> {
   if (isSenior(viewer)) return true;
-  if (viewer.teamId === task.teamId) return true;
+  if (task.teamId === null) return true;
+  if (Boolean(viewer.teamId) && viewer.teamId === task.teamId) return true;
   return canEditTask(viewer, task);
 }
 
@@ -215,10 +247,64 @@ export async function loadViewableTask(viewer: User, taskId: string): Promise<Ta
  * Director. A team member can move a card but not invent the column it moves
  * into — the board is the Account Director's instrument.
  */
-export async function assertCanManageTeam(viewer: User, teamId: string) {
+export async function assertCanManageTeam(viewer: User, teamId: string | null) {
   if (isSenior(viewer)) return;
+  // A board with no team is the department's, and the department is the
+  // Senior Director's to shape.
+  if (teamId === null) notFound();
   if (viewer.role === "account_director" && viewer.teamId === teamId) return;
   notFound();
+}
+
+/*
+ * Leave.
+ *
+ * Reading takes no new rule. `canViewTeamWork` already answers "may this
+ * person reach this team's own business" — true for the Senior Director and
+ * for everybody on the team, false for anyone else — which is exactly who may
+ * see who is away. Leave reads therefore go through `assertCanViewTeamWork`,
+ * and `canViewTeam` keeps refusing team members the management rollup.
+ *
+ * Deciding is the part that needs its own rule, because it follows the org
+ * chart rather than the team.
+ */
+
+/**
+ * Who decides a leave request: the person above the requester on the chart.
+ *
+ * A team member's leave is their own Account Director's to approve. An Account
+ * Director's is the Senior Director's — a director takes holiday like anyone
+ * else, and having nobody to ask is what made this a rule about the chart and
+ * not a rule about roles. Nobody decides their own at any level, which is why
+ * the self check comes before the seniority one: a Senior Director may decide
+ * every request in the department except the one they filed.
+ */
+export function canDecideLeave(viewer: User, requester: User): boolean {
+  if (viewer.id === requester.id) return false;
+  if (isSenior(viewer)) return true;
+  return (
+    viewer.role === "account_director" &&
+    requester.role === "team_member" &&
+    Boolean(requester.teamId) &&
+    requester.teamId === viewer.teamId
+  );
+}
+
+/** Loads the request and the person who filed it, or refuses as a 404. */
+export async function assertCanDecideLeave(
+  viewer: User,
+  requestId: string,
+): Promise<LeaveRequest> {
+  const request = await db.query.leaveRequests.findFirst({
+    where: eq(leaveRequests.id, requestId),
+  });
+  if (!request) notFound();
+  const requester = await db.query.users.findFirst({
+    where: eq(users.id, request.userId),
+  });
+  if (!requester) notFound();
+  if (!canDecideLeave(viewer, requester)) notFound();
+  return request;
 }
 
 export async function assertCanManageBoard(viewer: User, boardId: string) {
