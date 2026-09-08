@@ -148,6 +148,12 @@ describe("an inbox", () => {
      */
     expect(entry!.excerpt).toBe("can you take this James Cruz");
     expect(entry!.readAt).toBeNull();
+    /*
+     * A real Date, not the string Postgres printed. The feed formats this with
+     * `agoLabel`, which calls `.getTime()` — a string gets all the way to the
+     * page before it fails.
+     */
+    expect(entry!.createdAt).toBeInstanceOf(Date);
   });
 
   it("tells one person about one comment once, however often it is retried", async () => {
@@ -199,7 +205,8 @@ describe("an inbox", () => {
 
     expect(await getUnreadCount(IDS.james)).toBe(0);
     // Read, not gone — the inbox is still a list of what happened.
-    expect(await getInbox(IDS.james)).toHaveLength(1);
+    const [read] = await getInbox(IDS.james);
+    expect(read!.readAt).toBeInstanceOf(Date);
   });
 
   it("reads newest first", async () => {

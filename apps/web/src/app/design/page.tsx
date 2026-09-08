@@ -35,6 +35,7 @@ import {
   StatBandSkeleton,
   StatusBadge,
   ActivityFeed,
+  InboxList,
   AttachmentList,
   DocBacklinkList,
   DocRefList,
@@ -74,6 +75,7 @@ import {
   TASKS,
   TEAMS,
   TREND,
+  INBOX,
 } from "./fixtures";
 import { DocRefListDemo } from "./doc-refs-demo";
 
@@ -592,6 +594,34 @@ export default function DesignSystemPage() {
                 Nothing yet
               </p>
               <ActivityFeed items={[]} total={0} />
+            </div>
+          </div>
+        </Block>
+
+        <Block title="Inbox" note="What still needs you, and nothing that does not">
+          <p className="mb-6 max-w-prose text-caption text-gray-700">
+            An <code>@</code> mention is addressed to someone, so it has to leave
+            something behind. Rows carry the excerpt as plain text — an inbox
+            line is one line, and mounting an editor per row is the cost that
+            capped the activity feed. Unread is a dot and a weight, never colour
+            alone.
+          </p>
+          <div className="grid gap-6 lg:grid-cols-2">
+            <div>
+              <p className="mb-2 text-caption-strong uppercase tracking-[0.08em] text-gray-600">
+                In the bell
+              </p>
+              <div className="overflow-hidden rounded-xl border border-gray-400 bg-background-100">
+                <InboxList items={INBOX} compact />
+              </div>
+            </div>
+            <div>
+              <p className="mb-2 text-caption-strong uppercase tracking-[0.08em] text-gray-600">
+                Caught up
+              </p>
+              <div className="overflow-hidden rounded-xl border border-gray-400 bg-background-100">
+                <InboxList items={[]} />
+              </div>
             </div>
           </div>
         </Block>

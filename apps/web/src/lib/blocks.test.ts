@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { collectMentions, isEmptyDocument, toBlocks, toPlainText } from "@meridian/ui/editor";
+import {
+  collectMentions,
+  collectPeople,
+  isEmptyDocument,
+  toBlocks,
+  toPlainText,
+} from "@meridian/ui/editor";
 
 describe("toBlocks", () => {
   it("reads a stored BlockNote document back", () => {
@@ -119,5 +125,61 @@ describe("a mention counts as text", () => {
       { type: "paragraph", content: [mention("d1", "Brand guidelines")] },
     ]);
     expect(isEmptyDocument(only)).toBe(false);
+  });
+});
+
+describe("collectPeople", () => {
+  const person = (userId: string, name: string) => ({
+    type: "userMention",
+    props: { userId, name },
+  });
+
+  it("finds the people a body names, in order and without repeats", () => {
+    const doc = JSON.stringify([
+      {
+        type: "paragraph",
+        content: [
+          { type: "text", text: "over to ", styles: {} },
+          person("u1", "Anna Santos"),
+          { type: "text", text: " and ", styles: {} },
+          person("u2", "James Cruz"),
+        ],
+      },
+      { type: "bulletListItem", content: [person("u1", "Anna Santos")] },
+    ]);
+    expect(collectPeople(doc)).toEqual([
+      { userId: "u1", name: "Anna Santos" },
+      { userId: "u2", name: "James Cruz" },
+    ]);
+  });
+
+  it("looks inside nested blocks, the way the document walk does", () => {
+    const doc = JSON.stringify([
+      {
+        type: "bulletListItem",
+        content: [{ type: "text", text: "Steps", styles: {} }],
+        children: [{ type: "bulletListItem", content: [person("u9", "Mika")] }],
+      },
+    ]);
+    expect(collectPeople(doc)).toEqual([{ userId: "u9", name: "Mika" }]);
+  });
+
+  it("keeps the two kinds of mention apart", () => {
+    // A body mentioning a document must not notify anyone, and a body
+    // mentioning a person must not link a document.
+    const doc = JSON.stringify([
+      {
+        type: "paragraph",
+        content: [mention("d1", "Brand"), person("u1", "Anna Santos")],
+      },
+    ]);
+    expect(collectPeople(doc)).toEqual([{ userId: "u1", name: "Anna Santos" }]);
+    expect(collectMentions(doc)).toEqual([{ docId: "d1", title: "Brand" }]);
+  });
+
+  it("has nothing to say about prose, emptiness or broken JSON", () => {
+    expect(collectPeople("Client wants the deck by Friday.")).toEqual([]);
+    expect(collectPeople(null)).toEqual([]);
+    expect(collectPeople("[not really json")).toEqual([]);
   });
 });

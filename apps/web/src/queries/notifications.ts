@@ -108,8 +108,14 @@ export async function getInbox(userId: string, limit = 50): Promise<InboxEntry[]
     task_id: string;
     task_title: string;
     body: string | null;
-    read_at: Date | null;
-    created_at: Date;
+    /*
+     * Strings, not Dates. Drizzle replaces node-postgres' timestamp parsers so
+     * its query builder can map them itself, which leaves a raw `db.execute`
+     * handing back whatever Postgres printed. Anything reading these has to
+     * make the Date, or it gets a string that answers to nothing.
+     */
+    read_at: string | null;
+    created_at: string;
   };
 
   return (result.rows as unknown as Row[]).map((r) => {
@@ -121,8 +127,8 @@ export async function getInbox(userId: string, limit = 50): Promise<InboxEntry[]
       taskId: r.task_id,
       taskTitle: r.task_title,
       excerpt: text ? text.slice(0, EXCERPT) : null,
-      readAt: r.read_at,
-      createdAt: r.created_at,
+      readAt: r.read_at === null ? null : new Date(r.read_at),
+      createdAt: new Date(r.created_at),
     };
   });
 }

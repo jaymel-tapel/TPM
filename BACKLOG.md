@@ -7,7 +7,7 @@ Each issue there carries its own reasoning and its own definition of done. This
 file is the index, plus the decisions that belong in the repo rather than on a
 board.
 
-**50 issues · 26 shipped · 24 outstanding**, labelled by epic: Foundation,
+**50 issues · 28 shipped · 22 outstanding**, labelled by epic: Foundation,
 Auth and roles, Tasks, Team Member, Account Director, Senior Director,
 Reporting, Quality.
 
@@ -54,8 +54,6 @@ error boundary.
 | [WEB-30](https://linear.app/jaymelworkspace/issue/WEB-30) | Needs Attention: mark as handled | Medium |
 | [WEB-31](https://linear.app/jaymelworkspace/issue/WEB-31) | Session expiry UX | Low |
 | [WEB-32](https://linear.app/jaymelworkspace/issue/WEB-32) | CSV export of reports | Low |
-| [WEB-33](https://linear.app/jaymelworkspace/issue/WEB-33) | Comments on tasks | Low |
-| [WEB-34](https://linear.app/jaymelworkspace/issue/WEB-34) | Activity history on tasks | Low |
 | [WEB-35](https://linear.app/jaymelworkspace/issue/WEB-35) | Recurring tasks | Low |
 
 ---
@@ -64,6 +62,46 @@ error boundary.
 
 These are recorded here rather than on the board, because a board tracks work
 and these are the absence of work.
+
+### Notifications, and why they came before chat
+
+The brief lists notifications under *Nice to Have* and chat under *Do Not
+Build*, and that ordering turned out to be right for a reason the brief does not
+give. `@`-mentions shipped first, and for a while they notified nobody: the
+mention was a styled span inside the BlockNote JSON and nothing else. The picker,
+the chip and the link to the person's page all said "James now knows." He did
+not. A feature that *looks* finished is worse than a missing one.
+
+So the inbox is not a message centre. It answers one question — what still needs
+me — from rows written when the thing happened: mentioned, assigned, commented.
+No preferences, no digests, no channels, no email.
+
+Two things are load-bearing:
+
+- **A mentioned `userId` is a claim, not a fact.** It arrives inside a body the
+  browser composed, so a hand-written payload can name anyone in the department.
+  Every recipient goes through `filterUsersWhoCanSeeTask`, which must agree with
+  `canViewTask` exactly — the test asserts them equal person by person. Without
+  it, `@` becomes a way to push text at all thirty people and to leak another
+  team's task titles.
+- **The nudge carries nothing.** Ably delivers `{}`; the browser then re-renders
+  on the server, past the same permission checks as a cold load. A channel
+  misconfigured later leaks a wake-up, not content. The token is scoped to one
+  channel, `subscribe` only, with the id taken from the session.
+
+Real-time is a nicety, not a guarantee: with `ABLY_API_KEY` unset the rows are
+still written and still read on the next navigation. That degradation is logged,
+not silent.
+
+### A migration number to fix at merge
+
+This branch and the docs branch both generated an **0007**. Neon already has the
+docs pair (`0007_whole_living_mummy`, `0008_medical_yellowjacket`, the `folders`
+table), applied at timestamps later than this branch's, so `drizzle-kit migrate`
+skips `0007_thankful_drax` silently and reports success. Whoever merges second
+renumbers notifications to **0009** and regenerates its snapshot on top of
+folders. Until then Neon has no `notifications` table, and the app cannot run
+against it.
 
 ### Not building
 

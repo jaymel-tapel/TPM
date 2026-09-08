@@ -7,6 +7,7 @@ import type {
   AttentionItemData,
   MemberRowData,
   ActivityItemData,
+  InboxItemData,
   AttachmentData,
   BoardData,
   TaskRowData,
@@ -377,5 +378,38 @@ export const ACTIVITY: ActivityItemData[] = [
     subjectName: null,
     when: "just now",
     removable: false,
+  },
+];
+
+export const INBOX: InboxItemData[] = [
+  {
+    id: "n1",
+    kind: "mentioned",
+    actorName: "Sarah Lim",
+    taskId: "t-1",
+    taskTitle: "Nike Q4 campaign brief",
+    excerpt: "can you take the deck section? @James Cruz",
+    when: "2h ago",
+    read: false,
+  },
+  {
+    id: "n2",
+    kind: "assigned",
+    actorName: "Michael Ortega",
+    taskId: "t-2",
+    taskTitle: "Send Northline recap",
+    excerpt: null,
+    when: "4h ago",
+    read: false,
+  },
+  {
+    id: "n3",
+    kind: "commented",
+    actorName: "Anna Santos",
+    taskId: "t-3",
+    taskTitle: "Weekly meeting notes",
+    excerpt: "moved this to Thursday so we have the numbers first",
+    when: "1d ago",
+    read: true,
   },
 ];
