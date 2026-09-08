@@ -314,3 +314,11 @@ says not to make Kanban the default interface.
 - **A board column is capped, never scrolled.** Done holds seventy cards on a
   fifteen-person team. The count in the header is the real answer; the list
   view is where you read all of them.
+- **A card dragged into place outranks priority — but only on the board.** A
+  task carries a `position`, and the board sorts by it before falling back to
+  priority and due date. Zero is not a rank; it means nobody has placed the
+  card, and it sorts *after* everything placed, so a column no one has touched
+  reads exactly as it always did and new work cannot land on top of an
+  arrangement. Every other screen ignores `position` entirely: a list asks
+  "what is urgent", and hand-ranking one board should not answer that question
+  everywhere else.

@@ -7,6 +7,7 @@ const isStatusKind = (value: string): value is StatusKind =>
   (statusKindEnum.enumValues as readonly string[]).includes(value);
 import { dayRange, now, pct, type Zone } from "@/lib/date";
 import {
+  boardOrder,
   boardScopeSql,
   overdueSql,
   scopeSql,
@@ -266,6 +267,7 @@ export async function getBoardView(
       or (k.completed_at >= ${start} and k.completed_at < ${end})
     )`,
     400,
+    boardOrder,
   );
 
   const byStatus = new Map<string, TaskCard[]>(columns.map((c) => [c.id, []]));

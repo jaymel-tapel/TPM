@@ -94,6 +94,7 @@ import {
   WORK_BARS,
 } from "./fixtures";
 import { DocRefListDemo } from "./doc-refs-demo";
+import { TaskBoardDemo } from "./board-demo";
 
 export const metadata = { title: "MB Advertising — Design System" };
 
@@ -730,8 +731,23 @@ export default function DesignSystemPage() {
             default interface. Dragging is an enhancement: every card is a link to the task,
             where status can be changed with a keyboard.
           </p>
+          <Row label="Read-only">
+            <span className="text-caption text-gray-600">
+              No action passed — no drag machinery is mounted at all.
+            </span>
+          </Row>
           <TaskBoard board={BOARD} />
 
+          <div className="mt-8">
+            <Row label="Draggable">
+              <span className="text-caption text-gray-600">
+                Lift a card: the slot it leaves becomes the outline of where it will
+                land, its neighbours move aside, and dropping sets the order within
+                the column as well as which column it is in.
+              </span>
+            </Row>
+            <TaskBoardDemo board={BOARD} />
+          </div>
         </Block>
 
         <Block title="Metrics">

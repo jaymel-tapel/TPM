@@ -22,6 +22,7 @@ import {
 } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
 import { completionOnMove } from "@/lib/completion";
+import { ranksFor } from "@/lib/rank";
 import { collectPeople } from "@meridian/ui/editor";
 import { syncMentionedDocs } from "@/lib/doc-links";
 import { deliver, notify } from "@/lib/notify";
@@ -447,6 +448,103 @@ export async function toggleTaskDone(formData: FormData) {
     // The column it happened in, which is now context rather than the cause.
     toLabel: status?.name ?? null,
   });
+
+  refresh();
+}
+
+/** Twice the twelve a column shows. Anything longer is not a board drag. */
+const MAX_ORDER = 24;
+
+const moveInput = z.object({
+  taskId: z.string().uuid(),
+  statusId: z.string().uuid(),
+  order: z.array(z.string().uuid()).max(MAX_ORDER),
+});
+
+/**
+ * A card dropped somewhere — which column, and whereabouts in it.
+ *
+ * Not `setTaskStatus`, which is the keyboard's path from the task page and
+ * rightly treats "the column it is already in" as nothing happening. Here that
+ * is the ordinary case: a drop inside one column changes the arrangement and
+ * nothing else, and an arrangement is not something a task's stream should
+ * record.
+ *
+ * The destination column arrives as the ids the person saw, top first, rather
+ * than as an index. An index is a coordinate into a list this action does not
+ * have: the board is capped at twelve of a possibly longer column and scoped
+ * to one day, so index three of what was on screen is not index three of the
+ * column. The array is self-describing and cannot contradict itself.
+ */
+export async function moveTask(formData: FormData) {
+  const viewer = await requireUser();
+  const input = moveInput.parse({
+    taskId: formData.get("taskId"),
+    statusId: formData.get("statusId"),
+    order: formData.getAll("order").map(String),
+  });
+
+  const task = await loadEditableTask(viewer, input.taskId);
+  const status = await statusOnBoard(input.statusId, task.boardId);
+  if (!status) throw new Error("That status is not on this task's board");
+  const changed = status.id !== task.statusId;
+
+  /*
+   * Only rows on this task's own board and in the column it landed in. A list
+   * naming a card somebody else has since moved is stale rather than
+   * malicious, so `ranksFor` drops those ids and honours the rest.
+   */
+  const siblings = await db
+    .select({ id: tasks.id, position: tasks.position })
+    .from(tasks)
+    .where(
+      and(
+        eq(tasks.boardId, task.boardId),
+        eq(tasks.statusId, status.id),
+        inArray(tasks.id, input.order),
+      ),
+    );
+  const current = new Map(siblings.map((row) => [row.id, row.position]));
+  // The card is not in that column yet when the status is changing.
+  if (changed) current.set(task.id, task.position);
+
+  const writes = ranksFor(input.order, current);
+  // Dropped where it already was.
+  if (!changed && writes.length === 0) return;
+
+  await db.transaction(async (tx) => {
+    if (changed) {
+      await tx
+        .update(tasks)
+        .set({
+          statusId: status.id,
+          completedAt: completionOnMove(status.kind, task.completedAt),
+          updatedAt: new Date(),
+        })
+        .where(eq(tasks.id, task.id));
+    }
+    for (const write of writes) {
+      await tx.update(tasks).set({ position: write.position }).where(eq(tasks.id, write.id));
+    }
+  });
+
+  /*
+   * Only the crossing is an event. `updated_at` is not bumped for a reorder
+   * either: the stream is what happened to the work, and "Anna put this second
+   * instead of third" is not something anybody will want to read back.
+   */
+  if (changed) {
+    const from = await statusLabel(task.statusId);
+    const wasDone = task.completedAt !== null;
+    const nowDone = wasDone || status.kind === "done";
+    await recordActivity({
+      taskId: task.id,
+      actorId: viewer.id,
+      kind: nowDone && !wasDone ? "completed" : "status_changed",
+      fromLabel: from?.name ?? null,
+      toLabel: status.name,
+    });
+  }
 
   refresh();
 }

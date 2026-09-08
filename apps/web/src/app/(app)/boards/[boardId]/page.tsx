@@ -15,7 +15,7 @@ import { canViewTeamWork, isDirector, isSenior } from "@/lib/permissions";
 import { getBoard } from "@/queries/boards";
 import { getBoardView } from "@/queries/tasks";
 import { toBoard, toTaskRow } from "@/lib/present";
-import { setTaskStatus, toggleTaskDone } from "@/actions/tasks";
+import { moveTask, setTaskStatus, toggleTaskDone } from "@/actions/tasks";
 
 export const dynamic = "force-dynamic";
 
@@ -143,7 +143,7 @@ export default async function BoardPage({
       ) : (
         <TaskBoard
           board={toBoard(view)}
-          onMove={setTaskStatus}
+          onMove={moveTask}
           moreHref={href({ list: true })}
         />
       )}

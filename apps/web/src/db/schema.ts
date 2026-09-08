@@ -192,6 +192,18 @@ export const tasks = pgTable(
      * zero is a real answer that must not be confused with "nobody said".
      * Parsed and rendered by `lib/duration.ts`, where a day is eight hours.
      */
+    /**
+     * Where the card sits in its column, low first. Only the board reads it;
+     * every list is still ordered by priority and due date, which is what
+     * those screens are for.
+     *
+     * Zero is not a rank — it is "nobody has placed this", and `boardOrder`
+     * sorts it *after* everything placed. A task arrives at zero and stays
+     * there until somebody drags it, so an untouched column keeps the order it
+     * has always had, and work joining an arranged column cannot land on top
+     * of the arrangement.
+     */
+    position: integer("position").notNull().default(0),
     estimateMinutes: integer("estimate_minutes"),
     /**
      * The sum of this task's `time_logged` activity, kept here so a list or a
@@ -244,6 +256,8 @@ export const tasks = pgTable(
     index("tasks_team_due_idx").on(t.teamId, t.dueDate),
     index("tasks_completed_idx").on(t.completedAt),
     index("tasks_board_idx").on(t.boardId),
+    // Read by every board render, and by the re-rank a drop performs.
+    index("tasks_status_position_idx").on(t.statusId, t.position),
     // Read by `isLeaf`, which runs on every list and count in the product.
     index("tasks_parent_idx").on(t.parentId),
     /*

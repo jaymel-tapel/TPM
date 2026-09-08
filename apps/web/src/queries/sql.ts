@@ -152,6 +152,25 @@ export const taskOrder = sql`
   k.due_date asc
 `;
 
+/**
+ * The board's order, and only the board's.
+ *
+ * A card somebody placed keeps the place they put it. Everything nobody has
+ * placed follows `taskOrder` underneath it — `position = 0` means "nobody has
+ * said", which is why it sorts *last* rather than first: work created into a
+ * column, or drifting into the board's day window when its date changes, must
+ * not land on top of an arrangement somebody made.
+ *
+ * A column nobody has dragged in is therefore all zeroes, and reads exactly as
+ * it always did. Lists keep `taskOrder` untouched: a list has no columns to
+ * arrange, and nothing outside `getBoardView` reads `position` at all.
+ */
+export const boardOrder = sql`
+  case when k.position = 0 then 1 else 0 end,
+  k.position asc,
+  ${taskOrder}
+`;
+
 /** The joins `taskCardSelect` depends on. Kept next to it so they cannot drift. */
 export const taskCardFrom = sql`
   from tasks k
