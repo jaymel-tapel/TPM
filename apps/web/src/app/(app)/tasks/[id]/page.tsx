@@ -6,12 +6,11 @@ import { Button } from "@meridian/ui/primitives/button";
 import {
   AvatarStack,
   PageHeader,
-  Panel,
   StatusBadge,
   cn,
 } from "@meridian/ui";
 import { requireSession } from "@/lib/auth";
-import { canEditTask, canViewTask } from "@/lib/permissions";
+import { canViewTask } from "@/lib/permissions";
 import { db } from "@/db";
 import { tasks as tasksTable } from "@/db/schema";
 import { getTaskCard, listAllTags } from "@/queries/tasks";
@@ -25,7 +24,6 @@ import { TaskForm } from "@/components/task-form";
 import { TaskAttachments } from "@/components/task-attachments";
 import { TaskDocs } from "@/components/task-docs";
 import { TaskActivity } from "@/components/task-activity";
-import { RichTextView } from "@meridian/ui/editor";
 import { toActivityItem, toDocRef } from "@/lib/present";
 import { dueLabel } from "@/lib/date";
 import { formatDuration } from "@/lib/duration";
@@ -48,7 +46,6 @@ export default async function TaskDetailPage({
 
   const record = await db.query.tasks.findFirst({ where: eq(tasksTable.id, id) });
   if (!record || !(await canViewTask(user, record))) notFound();
-  const editable = await canEditTask(user, record);
 
   const [task, tags, attachments, docs, columns, options, activity] = await Promise.all([
     getTaskCard(id),
@@ -91,9 +88,8 @@ export default async function TaskDetailPage({
             <input type="hidden" name="statusId" value={status.id} />
             <button
               type="submit"
-              disabled={!editable}
               className={cn(
-                "flex cursor-pointer items-center rounded-md border px-3 py-1.5 text-body-strong transition-colors disabled:cursor-not-allowed disabled:opacity-50",
+                "flex cursor-pointer items-center rounded-md border px-3 py-1.5 text-body-strong transition-colors",
                 task.statusId === status.id
                   ? "border-blue-700 bg-blue-100 text-blue-900"
                   : "border-gray-400 bg-background-100 text-gray-700 hover:border-gray-500 hover:text-gray-1000",
@@ -105,49 +101,35 @@ export default async function TaskDetailPage({
         ))}
       </div>
 
-      {editable ? (
-        <TaskForm
-          action={updateTask}
-          submitLabel="Save changes"
-          peopleByBoard={options.peopleByBoard}
-          allTags={tags}
-          boards={options.boards}
-          statusesByBoard={options.statusesByBoard}
-          values={{
-            id: task.id,
-            title: task.title,
-            description: task.description ?? "",
-            boardId: task.boardId,
-            statusId: task.statusId,
-            estimate: formatDuration(task.estimateMinutes),
-            actual: formatDuration(task.actualMinutes),
-            type: task.type,
-            priority: task.priority,
-            dueDate: format(task.dueDate, "yyyy-MM-dd'T'HH:mm"),
-            assignees: task.assignees.map((a) => a.id),
-            tags: task.tags,
-          }}
-        />
-      ) : (
-        <Panel className="p-6">
-          {task.description ? (
-            <RichTextView value={task.description} />
-          ) : (
-            <p className="text-body text-gray-600">No description.</p>
-          )}
-          <p className="mt-4 text-caption text-gray-600">
-            Assigned to {task.assignees.map((a) => a.name).join(", ")}. You have read-only access
-            to this task.
-          </p>
-        </Panel>
-      )}
+      <TaskForm
+        action={updateTask}
+        submitLabel="Save changes"
+        peopleByBoard={options.peopleByBoard}
+        allTags={tags}
+        boards={options.boards}
+        statusesByBoard={options.statusesByBoard}
+        values={{
+          id: task.id,
+          title: task.title,
+          description: task.description ?? "",
+          boardId: task.boardId,
+          statusId: task.statusId,
+          estimate: formatDuration(task.estimateMinutes),
+          actual: formatDuration(task.actualMinutes),
+          type: task.type,
+          priority: task.priority,
+          dueDate: format(task.dueDate, "yyyy-MM-dd'T'HH:mm"),
+          assignees: task.assignees.map((a) => a.id),
+          tags: task.tags,
+        }}
+      />
 
       <div className="mt-6">
-        <TaskAttachments taskId={task.id} attachments={attachments} editable={editable} />
+        <TaskAttachments taskId={task.id} attachments={attachments} editable />
       </div>
 
       <div className="mt-6">
-        <TaskDocs taskId={task.id} docs={docs.map(toDocRef)} editable={editable} />
+        <TaskDocs taskId={task.id} docs={docs.map(toDocRef)} editable />
       </div>
 
       <div className="mt-6">
@@ -160,17 +142,13 @@ export default async function TaskDetailPage({
         />
       </div>
 
-      {editable ? (
-        <div className="mt-6">
-          <DeleteTaskButton
-            taskId={task.id}
-            title={task.title}
-            otherAssignees={task.assignees
-              .filter((a) => a.id !== user.id)
-              .map((a) => a.name)}
-          />
-        </div>
-      ) : null}
+      <div className="mt-6">
+        <DeleteTaskButton
+          taskId={task.id}
+          title={task.title}
+          otherAssignees={task.assignees.filter((a) => a.id !== user.id).map((a) => a.name)}
+        />
+      </div>
     </>
   );
 }

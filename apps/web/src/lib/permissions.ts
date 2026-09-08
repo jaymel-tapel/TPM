@@ -157,14 +157,26 @@ export async function assertCanViewReports(viewer: User) {
 /** Assignees and the creator can edit; directors can edit within their scope. */
 export async function canEditTask(viewer: User, task: Task): Promise<boolean> {
   if (isSenior(viewer)) return true;
-  if (task.createdBy === viewer.id) return true;
-  if (viewer.role === "account_director" && viewer.teamId === task.teamId) return true;
+  if (Boolean(viewer.teamId) && viewer.teamId === task.teamId) return true;
+  // Someone assigned work on another team's board can still act on it.
   const assignment = await db.query.taskAssignees.findFirst({
     where: and(eq(taskAssignees.taskId, task.id), eq(taskAssignees.userId, viewer.id)),
   });
   return Boolean(assignment);
 }
 
+/*
+ * Reading a task and changing one are the same permission.
+ *
+ * They used to differ: everyone on the team could open a task, but only its
+ * author, an assignee or the team's director could touch it — so a teammate
+ * looking at work in front of them got a read-only panel and no way to correct
+ * a date they could see was wrong. A team's work belongs to the team, which is
+ * the rule the team's documents already follow.
+ *
+ * Deleting is the one thing that is not merely an edit, but it asks first and
+ * says who else is on the task, which is the check that matters there.
+ */
 /** Everyone may read a task they can see the team of, or are assigned to. */
 export async function canViewTask(viewer: User, task: Task): Promise<boolean> {
   if (isSenior(viewer)) return true;
