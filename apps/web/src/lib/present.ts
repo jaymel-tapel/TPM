@@ -4,6 +4,7 @@ import type {
   AttentionItemData,
   BoardData,
   DocBacklinkData,
+  DocFolderData,
   DocHitData,
   DocNodeData,
   DocRefData,
@@ -21,10 +22,11 @@ import type { AttentionItem } from "@/queries/attention";
 import type { ActivityEntry } from "@/queries/activity";
 import type {
   DocBacklink,
-  DocNode,
   DocRef,
   DocSearchHit,
   DocSummary,
+  DocTreeNode,
+  FolderSummary,
 } from "@/queries/docs";
 
 /**
@@ -83,13 +85,30 @@ const scopeOf = (doc: { visibility: "org" | "team"; teamName: string | null }) =
   teamName: doc.teamName,
 });
 
-export function toDocNode(node: DocNode): DocNodeData {
+export function toDocNode(doc: DocSummary): DocNodeData {
+  return { id: doc.id, href: doc.href, title: doc.title, ...scopeOf(doc) };
+}
+
+export function toDocFolder(folder: DocTreeNode): DocFolderData {
   return {
-    id: node.id,
-    href: node.href,
-    title: node.title,
-    ...scopeOf(node),
-    children: node.children.map(toDocNode),
+    id: folder.id,
+    href: folder.href,
+    name: folder.name,
+    ...scopeOf(folder),
+    folders: folder.folders.map(toDocFolder),
+    documents: folder.documents.map(toDocNode),
+  };
+}
+
+/** A folder with nothing read into it yet — a row in a listing. */
+export function toDocFolderRow(folder: FolderSummary): DocFolderData {
+  return {
+    id: folder.id,
+    href: folder.href,
+    name: folder.name,
+    ...scopeOf(folder),
+    folders: [],
+    documents: [],
   };
 }
 
@@ -126,15 +145,7 @@ export function toDocBacklink(link: DocBacklink): DocBacklinkData {
   };
 }
 
-export function toDocSummaryNode(doc: DocSummary): DocNodeData {
-  return {
-    id: doc.id,
-    href: doc.href,
-    title: doc.title,
-    ...scopeOf(doc),
-    children: [],
-  };
-}
+
 
 /**
  * One activity row, ready to render. `removable` is decided here rather than in

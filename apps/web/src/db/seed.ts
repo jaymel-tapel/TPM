@@ -5,6 +5,7 @@ import {
   boardStatuses,
   boards,
   documents,
+  folders,
   taskDocuments,
   tags,
   taskAssignees,
@@ -275,6 +276,7 @@ async function main() {
   console.log("Clearing existing data…");
   await db.delete(taskDocuments);
   await db.delete(documents);
+  await db.delete(folders);
   await db.delete(taskTags);
   await db.delete(taskAssignees);
   await db.delete(tasks);
@@ -591,11 +593,30 @@ async function main() {
   });
   const body = (...lines: string[]) => JSON.stringify(lines.map(para));
 
+  const makeFolder = async (folder: {
+    name: string;
+    team?: string | null;
+    parentId?: string | null;
+    author: string;
+  }) => {
+    const [row] = await db
+      .insert(folders)
+      .values({
+        name: folder.name,
+        visibility: folder.team ? "team" : "org",
+        teamId: folder.team ?? null,
+        parentId: folder.parentId ?? null,
+        createdBy: idOf(folder.author),
+      })
+      .returning();
+    return row!;
+  };
+
   const writeDoc = async (doc: {
     title: string;
     lines: string[];
     team?: string | null;
-    parentId?: string | null;
+    folderId?: string | null;
     author: string;
   }) => {
     const text = body(...doc.lines);
@@ -607,36 +628,48 @@ async function main() {
         searchText: toPlainText(text),
         visibility: doc.team ? "team" : "org",
         teamId: doc.team ?? null,
-        parentId: doc.parentId ?? null,
+        folderId: doc.folderId ?? null,
         createdBy: idOf(doc.author),
       })
       .returning();
     return row!;
   };
 
-  const handbook = await writeDoc({
-    title: "How we work",
+  // Folders hold; documents say something. The department's handbook is a
+  // folder because that is what it is — a place several documents live.
+  const handbook = await makeFolder({ name: "How we work", author: "Elena Rivera" });
+
+  await writeDoc({
+    title: "Start here",
     lines: [
-      "Everything the department agrees on, in one place. If a task keeps restating it, it belongs here instead.",
+      "Everything the department agrees on lives in this folder. If a task keeps restating something, it belongs here instead.",
       "A task points at a document; it does not copy it.",
     ],
+    folderId: handbook.id,
+    author: "Elena Rivera",
+  });
+
+  // A folder inside a folder, so the demo shows that folders nest.
+  const escalationFolder = await makeFolder({
+    name: "Escalation",
+    parentId: handbook.id,
     author: "Elena Rivera",
   });
 
   const escalation = await writeDoc({
-    title: "Escalation",
+    title: "When to escalate",
     lines: [
       "Blocked for more than a day is an escalation, not a status. Say who you are waiting on.",
       "Client-facing problems go to the Account Director the same day.",
     ],
-    parentId: handbook.id,
+    folderId: escalationFolder.id,
     author: "Elena Rivera",
   });
 
   await writeDoc({
     title: "Out of hours",
     lines: ["Nothing is urgent after seven unless a client is live. Then it is the duty director."],
-    parentId: escalation.id,
+    folderId: escalationFolder.id,
     author: "Elena Rivera",
   });
 
@@ -646,28 +679,51 @@ async function main() {
       "Blue #5B88F7 carries identity and actions. Yellow #FFC72C is the single most important number on a screen, and nothing else.",
       "Never set a headline in anything but the brand grotesque.",
     ],
+    folderId: handbook.id,
     author: "Elena Rivera",
   });
 
+  const teamAFolder = await makeFolder({
+    name: "Team A",
+    team: teamA.id,
+    author: "Sarah Lim",
+  });
+
   const runbookA = await writeDoc({
-    title: "Team A runbook",
+    title: "Runbook",
     lines: ["How Team A files work, names columns and hands over on a Friday."],
     team: teamA.id,
+    folderId: teamAFolder.id,
     author: "Sarah Lim",
   });
 
   await writeDoc({
     title: "Reporting checklist",
     lines: ["Pull the numbers on Monday. Completion is measured against the day a task was due."],
-    parentId: runbookA.id,
+    team: teamA.id,
+    folderId: teamAFolder.id,
     author: "Sarah Lim",
   });
 
-  await writeDoc({
-    title: "Team B runbook",
-    lines: ["How Team B files work. Not visible to Team A."],
+  const teamBFolder = await makeFolder({
+    name: "Team B",
     team: teamB.id,
     author: "Michael Ortega",
+  });
+
+  await writeDoc({
+    title: "Runbook",
+    lines: ["How Team B files work. Not visible to Team A."],
+    team: teamB.id,
+    folderId: teamBFolder.id,
+    author: "Michael Ortega",
+  });
+
+  // One loose document, so the top level is not only folders.
+  await writeDoc({
+    title: "Holidays",
+    lines: ["Book it, tell your director, put it on the board. That is the whole process."],
+    author: "Elena Rivera",
   });
 
   /*

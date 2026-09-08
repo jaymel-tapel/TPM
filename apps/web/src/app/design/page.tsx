@@ -67,7 +67,8 @@ import {
   DOC_BACKLINKS,
   DOC_HITS,
   DOC_REFS,
-  DOC_TREE,
+  DOC_FOLDERS,
+  DOC_LOOSE,
   MEMBERS,
   MENTION_BODY,
   TASKS,
@@ -488,12 +489,13 @@ export default function DesignSystemPage() {
 
         <Block title="Documents" note="What the work refers to, and the tasks that point at it">
           <p className="mb-6 max-w-prose text-caption text-gray-700">
-            A document is a title and a body in the same editor a description uses. Where it
-            sits decides who reads it: a document is either the department&rsquo;s or one
-            team&rsquo;s, and one filed under another is whatever its parent is — which is
-            why the scope badge sits on roots only. A task can point at one deliberately or
-            name it in the prose with <code>@</code>; the two are different links and the
-            list says which is which.
+            Folders hold and documents say something — neither does the other&rsquo;s job,
+            which is what stops &ldquo;open&rdquo; and &ldquo;expand&rdquo; fighting over
+            the same row. Where a thing sits decides who reads it: a folder is either the
+            department&rsquo;s or one team&rsquo;s, and what is inside takes its place from
+            it, which is why the scope badge sits on roots only. A task can point at a
+            document deliberately or name it in the prose with <code>@</code>; the two are
+            different links and the list says which is which.
           </p>
 
           <Row label="Scope">
@@ -504,11 +506,11 @@ export default function DesignSystemPage() {
           <div className="mt-6 grid gap-6 lg:grid-cols-2">
             <div>
               <p className="mb-2 text-caption-strong uppercase tracking-[0.08em] text-gray-600">
-                The tree
+                Folders and documents
               </p>
-              <DocTree nodes={DOC_TREE} activeId="d2" />
+              <DocTree folders={DOC_FOLDERS} documents={DOC_LOOSE} activeId="d3" />
               <div className="mt-4">
-                <DocTree nodes={[]} />
+                <DocTree folders={[]} documents={[]} empty="No folders or documents yet." />
               </div>
             </div>
 

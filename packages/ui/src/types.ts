@@ -156,7 +156,7 @@ export const PRIORITIES = Object.keys(PRIORITY_LABELS) as Priority[];
 /** Whose a document is, as the reader sees it. */
 export type DocScope = "org" | "team";
 
-/** A document in a tree. `children` is what makes it a tree rather than a list. */
+/** A document, as it sits in the tree. Documents do not contain documents. */
 export type DocNodeData = {
   id: string;
   href: string;
@@ -164,7 +164,20 @@ export type DocNodeData = {
   scope: DocScope;
   /** The team's name, or null when the document is everyone's. */
   teamName: string | null;
-  children: DocNodeData[];
+};
+
+/**
+ * A folder: the thing that contains. Folders nest and hold documents, which is
+ * the whole distinction — one holds, the other says something.
+ */
+export type DocFolderData = {
+  id: string;
+  href: string;
+  name: string;
+  scope: DocScope;
+  teamName: string | null;
+  folders: DocFolderData[];
+  documents: DocNodeData[];
 };
 
 /** A document a task points at. */

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { documents, taskDocuments, users, type User } from "@/db/schema";
+import { documents, folders, taskDocuments, users, type User } from "@/db/schema";
 import {
   getDocBacklinks,
   getDocTree,
@@ -14,6 +14,7 @@ import { canCreateOrgDocs, canEditDoc, canPlaceDoc, canViewDoc } from "@/lib/per
 import {
   IDS,
   addDoc,
+  addFolder,
   addTask,
   bodyMentioning,
   linkDoc,
@@ -27,16 +28,19 @@ const load = async (id: string): Promise<User> => {
   return user;
 };
 
-/** Every title in the tree, flattened, so an assertion can name what it expects. */
-function titles(nodes: { title: string; children: { title: string }[] }[]): string[] {
-  const out: string[] = [];
-  const walk = (list: typeof nodes) => {
-    for (const node of list) {
-      out.push(node.title);
-      walk(node.children as typeof nodes);
+type Tree = Awaited<ReturnType<typeof getDocTree>>;
+
+/** Every name in the tree, folders and documents alike, flattened and sorted. */
+function names(tree: Tree): string[] {
+  const out: string[] = tree.documents.map((d) => d.title);
+  const walk = (folders: Tree["folders"]) => {
+    for (const folder of folders) {
+      out.push(folder.name);
+      out.push(...folder.documents.map((d) => d.title));
+      walk(folder.folders);
     }
   };
-  walk(nodes);
+  walk(tree.folders);
   return out.sort();
 }
 
@@ -51,17 +55,17 @@ describe("who can read a document", () => {
 
   it("shows a member the department's documents and their own team's, and nobody else's", async () => {
     const anna = await load(IDS.anna); // Team A
-    expect(titles(await getDocTree(anna))).toEqual(["Handbook", "Team A runbook"]);
+    expect(names(await getDocTree(anna))).toEqual(["Handbook", "Team A runbook"]);
   });
 
   it("scopes an account director to their own team the same way", async () => {
     const sarah = await load(IDS.sarah); // Team A's director
-    expect(titles(await getDocTree(sarah))).toEqual(["Handbook", "Team A runbook"]);
+    expect(names(await getDocTree(sarah))).toEqual(["Handbook", "Team A runbook"]);
   });
 
   it("shows the senior director everything", async () => {
     const elena = await load(IDS.elena);
-    expect(titles(await getDocTree(elena))).toEqual([
+    expect(names(await getDocTree(elena))).toEqual([
       "Handbook",
       "Team A runbook",
       "Team B runbook",
@@ -73,7 +77,7 @@ describe("who can read a document", () => {
     // through to org-wide only rather than matching `team_id = null`.
     await db.update(users).set({ role: "team_member" }).where(eq(users.id, IDS.elena));
     const loose = await load(IDS.elena);
-    expect(titles(await getDocTree(loose))).toEqual(["Handbook"]);
+    expect(names(await getDocTree(loose))).toEqual(["Handbook"]);
   });
 });
 
@@ -83,49 +87,74 @@ describe("the tree", () => {
     await seedOrg();
   });
 
-  it("nests children under their parent, and hides a subtree whose root is hidden", async () => {
-    const root = await addDoc({ title: "Team B runbook", team: IDS.teamB });
-    await addDoc({ title: "Escalation", parent: root });
+  it("puts documents inside their folder, and hides a folder the viewer cannot see", async () => {
+    const folder = await addFolder({ name: "Team B", team: IDS.teamB });
+    await addDoc({ title: "Escalation", folder });
 
     const elena = await load(IDS.elena);
-    const [node] = await getDocTree(elena);
-    expect(node.title).toBe("Team B runbook");
-    expect(node.children.map((c) => c.title)).toEqual(["Escalation"]);
+    const tree = await getDocTree(elena);
+    expect(tree.folders.map((f) => f.name)).toEqual(["Team B"]);
+    expect(tree.folders[0].documents.map((d) => d.title)).toEqual(["Escalation"]);
 
-    // Anna is on Team A. Neither the root nor the child may appear — a child
-    // must not be promoted to a root just because its parent was filtered out.
+    // Anna is on Team A. Neither the folder nor what is in it may appear — a
+    // document must not float up to the top level because its folder was
+    // filtered out.
     const anna = await load(IDS.anna);
-    expect(await getDocTree(anna)).toEqual([]);
+    const hers = await getDocTree(anna);
+    expect(hers.folders).toEqual([]);
+    expect(hers.documents).toEqual([]);
   });
 
-  it("gives a child its parent's placement rather than its own", async () => {
-    const root = await addDoc({ title: "Handbook", team: null });
-    const child = await addDoc({ title: "Expenses", team: IDS.teamB, parent: root });
+  it("keeps a document with no folder at the top level", async () => {
+    await addDoc({ title: "Holidays", team: null });
+    const tree = await getDocTree(await load(IDS.anna));
+    expect(tree.documents.map((d) => d.title)).toEqual(["Holidays"]);
+    expect(tree.folders).toEqual([]);
+  });
 
-    const row = await db.query.documents.findFirst({ where: eq(documents.id, child) });
+  it("nests folders inside folders", async () => {
+    const outer = await addFolder({ name: "How we work", team: null });
+    const inner = await addFolder({ name: "Escalation", parent: outer });
+    await addDoc({ title: "Out of hours", folder: inner });
+
+    const tree = await getDocTree(await load(IDS.anna));
+    expect(tree.folders.map((f) => f.name)).toEqual(["How we work"]);
+    expect(tree.folders[0].folders.map((f) => f.name)).toEqual(["Escalation"]);
+    expect(tree.folders[0].folders[0].documents.map((d) => d.title)).toEqual(["Out of hours"]);
+  });
+
+  it("gives what is inside a folder the folder's placement", async () => {
+    const folder = await addFolder({ name: "How we work", team: null });
+    const doc = await addDoc({ title: "Expenses", team: IDS.teamB, folder });
+
+    const row = await db.query.documents.findFirst({ where: eq(documents.id, doc) });
     expect(row?.visibility).toBe("org");
     expect(row?.teamId).toBeNull();
   });
 
-  it("takes the whole subtree when the root is deleted", async () => {
-    const root = await addDoc({ title: "Handbook", team: null });
-    const child = await addDoc({ title: "Expenses", parent: root });
-    await addDoc({ title: "Receipts", parent: child });
+  it("takes everything with it when a folder is deleted", async () => {
+    const outer = await addFolder({ name: "How we work", team: null });
+    const inner = await addFolder({ name: "Escalation", parent: outer });
+    await addDoc({ title: "Out of hours", folder: inner });
+    await addDoc({ title: "Start here", folder: outer });
 
-    await db.delete(documents).where(eq(documents.id, root));
+    await db.delete(folders).where(eq(folders.id, outer));
     expect(await db.select().from(documents)).toHaveLength(0);
+    expect(await db.select().from(folders)).toHaveLength(0);
   });
 
-  it("takes a team's documents when the team goes", async () => {
-    await addDoc({ title: "Team A runbook", team: IDS.teamA });
-    // Only `documents` is under test here; the team's other dependants have
-    // their own arrangements and are cleared first so the delete can land.
+  it("takes a team's folders when the team goes", async () => {
+    const folder = await addFolder({ name: "Team A", team: IDS.teamA });
+    await addDoc({ title: "Runbook", folder });
+    // Only folders are under test; the team's other dependants are cleared
+    // first so the delete can land.
     await db.execute(`delete from tasks where team_id = '${IDS.teamA}'`);
     await db.execute(`delete from boards where team_id = '${IDS.teamA}'`);
     await db.execute(`update users set team_id = null where team_id = '${IDS.teamA}'`);
     await db.execute(`update teams set account_director_id = null where id = '${IDS.teamA}'`);
     await db.execute(`delete from teams where id = '${IDS.teamA}'`);
 
+    expect(await db.select().from(folders)).toHaveLength(0);
     expect(await db.select().from(documents)).toHaveLength(0);
   });
 });

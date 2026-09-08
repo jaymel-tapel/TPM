@@ -4,10 +4,12 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import {
   documents,
+  folders,
   taskAssignees,
   tasks,
   users,
   type Doc,
+  type Folder,
   type Role,
   type Task,
   type User,
@@ -247,6 +249,20 @@ export async function loadViewableDoc(viewer: User, docId: string): Promise<Doc>
   if (!doc) notFound();
   if (!canViewDoc(viewer, doc)) notFound();
   return doc;
+}
+
+export async function loadViewableFolder(viewer: User, folderId: string): Promise<Folder> {
+  const folder = await db.query.folders.findFirst({ where: eq(folders.id, folderId) });
+  if (!folder) notFound();
+  if (!canViewDoc(viewer, folder)) notFound();
+  return folder;
+}
+
+export async function loadEditableFolder(viewer: User, folderId: string): Promise<Folder> {
+  const folder = await db.query.folders.findFirst({ where: eq(folders.id, folderId) });
+  if (!folder) notFound();
+  if (!canEditDoc(viewer, folder)) notFound();
+  return folder;
 }
 
 export async function loadEditableDoc(viewer: User, docId: string): Promise<Doc> {

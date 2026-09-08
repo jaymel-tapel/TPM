@@ -6,7 +6,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { toPlainText } from "@meridian/ui/editor";
 import { db } from "@/db";
-import { docVisibilityEnum, documents, taskDocuments } from "@/db/schema";
+import { docVisibilityEnum, documents, folders, taskDocuments } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
 import { listAssignableUsers } from "@/queries/team";
 import type { MentionItem } from "@meridian/ui/editor";
@@ -14,6 +14,7 @@ import {
   assertMayPlaceDoc,
   canCreateDocs,
   canViewTeamWork,
+  loadEditableFolder,
   loadEditableDoc,
   loadEditableTask,
 } from "@/lib/permissions";
@@ -26,7 +27,7 @@ const docInput = z.object({
   body: z.string().trim().max(200_000).optional().nullable(),
   visibility: z.enum(docVisibilityEnum.enumValues),
   teamId: z.string().uuid().optional().nullable(),
-  parentId: z.string().uuid().optional().nullable(),
+  folderId: z.string().uuid().optional().nullable(),
 });
 
 function parse(formData: FormData) {
@@ -35,7 +36,7 @@ function parse(formData: FormData) {
     body: formData.get("body") || null,
     visibility: formData.get("visibility"),
     teamId: formData.get("teamId") || null,
-    parentId: formData.get("parentId") || null,
+    folderId: formData.get("folderId") || null,
   });
 }
 
@@ -52,41 +53,55 @@ function refresh() {
  * breadcrumb, and the reverse leaks by link.
  */
 async function rootPlacement(
-  parentId: string | null,
+  folderId: string | null,
   chosen: { visibility: "org" | "team"; teamId: string | null },
 ) {
-  if (!parentId) return chosen;
-  const parent = await db.query.documents.findFirst({ where: eq(documents.id, parentId) });
-  if (!parent) return null;
-  return { visibility: parent.visibility, teamId: parent.teamId };
+  if (!folderId) return chosen;
+  const folder = await db.query.folders.findFirst({ where: eq(folders.id, folderId) });
+  if (!folder) return null;
+  return { visibility: folder.visibility, teamId: folder.teamId };
 }
 
-/** Applies a placement to a document and everything beneath it. */
+/** Applies a placement to a folder and everything beneath it. */
 async function cascadePlacement(
-  docId: string,
+  folderId: string,
   placement: { visibility: "org" | "team"; teamId: string | null },
 ) {
   await db.execute(sql`
     with recursive subtree as (
-      select id from documents where id = ${docId}::uuid
+      select id from folders where id = ${folderId}::uuid
       union all
-      select c.id from documents c join subtree s on c.parent_id = s.id
+      select c.id from folders c join subtree s on c.parent_id = s.id
     )
-    update documents
+    update folders
        set visibility = ${placement.visibility}::doc_visibility,
            team_id = ${placement.teamId}::uuid,
            updated_at = now()
      where id in (select id from subtree)
   `);
+  // The documents inside them come along: a document is read by whoever can
+  // read the folder it sits in.
+  await db.execute(sql`
+    with recursive subtree as (
+      select id from folders where id = ${folderId}::uuid
+      union all
+      select c.id from folders c join subtree s on c.parent_id = s.id
+    )
+    update documents
+       set visibility = ${placement.visibility}::doc_visibility,
+           team_id = ${placement.teamId}::uuid,
+           updated_at = now()
+     where folder_id in (select id from subtree)
+  `);
 }
 
-/** Whether `candidate` sits inside `docId`'s own subtree. */
-async function wouldCycle(docId: string, candidate: string): Promise<boolean> {
+/** Whether `candidate` sits inside `folderId`'s own subtree. */
+async function wouldCycle(folderId: string, candidate: string): Promise<boolean> {
   const result = await db.execute(sql`
     with recursive subtree as (
-      select id from documents where id = ${docId}::uuid
+      select id from folders where id = ${folderId}::uuid
       union all
-      select c.id from documents c join subtree s on c.parent_id = s.id
+      select c.id from folders c join subtree s on c.parent_id = s.id
     )
     select 1 from subtree where id = ${candidate}::uuid
   `);
@@ -105,7 +120,7 @@ export async function createDoc(_prev: FormState, formData: FormData): Promise<F
     visibility: input.visibility,
     teamId: input.visibility === "org" ? null : (input.teamId ?? viewer.teamId),
   };
-  const placement = await rootPlacement(input.parentId ?? null, chosen);
+  const placement = await rootPlacement(input.folderId ?? null, chosen);
   if (!placement) return { error: "That parent document no longer exists." };
   if (placement.visibility === "team" && !placement.teamId) {
     return { error: "Pick the team this document belongs to." };
@@ -121,7 +136,7 @@ export async function createDoc(_prev: FormState, formData: FormData): Promise<F
       searchText: toPlainText(input.body),
       visibility: placement.visibility,
       teamId: placement.teamId,
-      parentId: input.parentId ?? null,
+      folderId: input.folderId ?? null,
       createdBy: viewer.id,
     })
     .returning();
@@ -139,18 +154,13 @@ export async function updateDoc(_prev: FormState, formData: FormData): Promise<F
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Check the form" };
   const input = parsed.data;
 
-  const nextParent = input.parentId ?? null;
-  if (nextParent && nextParent !== existing.parentId) {
-    if (nextParent === docId || (await wouldCycle(docId, nextParent))) {
-      return { error: "A document cannot be filed under itself." };
-    }
-  }
+  const nextFolder = input.folderId ?? null;
 
   const chosen = {
     visibility: input.visibility,
     teamId: input.visibility === "org" ? null : (input.teamId ?? existing.teamId),
   };
-  const placement = await rootPlacement(nextParent, chosen);
+  const placement = await rootPlacement(nextFolder, chosen);
   if (!placement) return { error: "That parent document no longer exists." };
   if (placement.visibility === "team" && !placement.teamId) {
     return { error: "Pick the team this document belongs to." };
@@ -163,18 +173,131 @@ export async function updateDoc(_prev: FormState, formData: FormData): Promise<F
       title: input.title,
       body: input.body ?? null,
       searchText: toPlainText(input.body),
-      parentId: nextParent,
+      folderId: nextFolder,
       updatedAt: new Date(),
     })
     .where(eq(documents.id, docId));
 
-  // Placement last, and down the whole subtree: moving a document moves
-  // everything under it, so its children cannot be left behind in a scope
-  // their parent has left.
-  await cascadePlacement(docId, placement);
+  await db
+    .update(documents)
+    .set({ visibility: placement.visibility, teamId: placement.teamId })
+    .where(eq(documents.id, docId));
 
   refresh();
   redirect(`/docs/${docId}`);
+}
+
+const folderInput = z.object({
+  name: z.string().trim().min(1, "Give the folder a name").max(200),
+  visibility: z.enum(docVisibilityEnum.enumValues),
+  teamId: z.string().uuid().optional().nullable(),
+  parentId: z.string().uuid().optional().nullable(),
+});
+
+function parseFolder(formData: FormData) {
+  return folderInput.safeParse({
+    name: formData.get("name"),
+    visibility: formData.get("visibility"),
+    teamId: formData.get("teamId") || null,
+    parentId: formData.get("parentId") || null,
+  });
+}
+
+/** A folder's placement, from its parent if it has one. */
+async function folderPlacement(
+  parentId: string | null,
+  chosen: { visibility: "org" | "team"; teamId: string | null },
+) {
+  if (!parentId) return chosen;
+  const parent = await db.query.folders.findFirst({ where: eq(folders.id, parentId) });
+  if (!parent) return null;
+  return { visibility: parent.visibility, teamId: parent.teamId };
+}
+
+export async function createFolder(_prev: FormState, formData: FormData): Promise<FormState> {
+  const viewer = await requireUser();
+  if (!canCreateDocs(viewer)) notFound();
+
+  const parsed = parseFolder(formData);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Check the form" };
+  const input = parsed.data;
+
+  const chosen = {
+    visibility: input.visibility,
+    teamId: input.visibility === "org" ? null : (input.teamId ?? viewer.teamId),
+  };
+  const placement = await folderPlacement(input.parentId ?? null, chosen);
+  if (!placement) return { error: "That folder no longer exists." };
+  if (placement.visibility === "team" && !placement.teamId) {
+    return { error: "Pick the team this folder belongs to." };
+  }
+  await assertMayPlaceDoc(viewer, placement);
+
+  const [folder] = await db
+    .insert(folders)
+    .values({
+      name: input.name,
+      visibility: placement.visibility,
+      teamId: placement.teamId,
+      parentId: input.parentId ?? null,
+      createdBy: viewer.id,
+    })
+    .returning();
+
+  refresh();
+  redirect(`/docs/folders/${folder.id}`);
+}
+
+export async function updateFolder(_prev: FormState, formData: FormData): Promise<FormState> {
+  const viewer = await requireUser();
+  const folderId = String(formData.get("folderId") ?? "");
+  const existing = await loadEditableFolder(viewer, folderId);
+
+  const parsed = parseFolder(formData);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Check the form" };
+  const input = parsed.data;
+
+  const nextParent = input.parentId ?? null;
+  if (nextParent && nextParent !== existing.parentId) {
+    if (nextParent === folderId || (await wouldCycle(folderId, nextParent))) {
+      return { error: "A folder cannot be filed inside itself." };
+    }
+  }
+
+  const chosen = {
+    visibility: input.visibility,
+    teamId: input.visibility === "org" ? null : (input.teamId ?? existing.teamId),
+  };
+  const placement = await folderPlacement(nextParent, chosen);
+  if (!placement) return { error: "That folder no longer exists." };
+  if (placement.visibility === "team" && !placement.teamId) {
+    return { error: "Pick the team this folder belongs to." };
+  }
+  await assertMayPlaceDoc(viewer, placement);
+
+  await db
+    .update(folders)
+    .set({ name: input.name, parentId: nextParent, updatedAt: new Date() })
+    .where(eq(folders.id, folderId));
+
+  // Placement last, and down the whole subtree: moving a folder moves what is
+  // in it, so nothing is left behind in a scope its folder has left.
+  await cascadePlacement(folderId, placement);
+
+  refresh();
+  redirect(`/docs/folders/${folderId}`);
+}
+
+export async function deleteFolder(formData: FormData) {
+  const viewer = await requireUser();
+  const folderId = String(formData.get("folderId") ?? "");
+  const folder = await loadEditableFolder(viewer, folderId);
+
+  // Everything inside goes with it, by foreign key.
+  await db.delete(folders).where(eq(folders.id, folder.id));
+
+  refresh();
+  redirect(folder.parentId ? `/docs/folders/${folder.parentId}` : "/docs");
 }
 
 export async function deleteDoc(formData: FormData) {
@@ -182,11 +305,11 @@ export async function deleteDoc(formData: FormData) {
   const docId = String(formData.get("docId") ?? "");
   const doc = await loadEditableDoc(viewer, docId);
 
-  // The subtree and every reference to it go with it, by foreign key.
+  // Every reference to it goes with it, by foreign key.
   await db.delete(documents).where(eq(documents.id, doc.id));
 
   refresh();
-  redirect("/docs");
+  redirect(doc.folderId ? `/docs/folders/${doc.folderId}` : "/docs");
 }
 
 /** Reference a document from a task, deliberately rather than in passing. */

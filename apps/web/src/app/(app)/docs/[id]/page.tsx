@@ -20,10 +20,9 @@ import { listTeams } from "@/queries/team";
 import {
   getDoc,
   getDocBacklinks,
-  listDocChildren,
-  listDocParentOptions,
+  listFolderOptions,
 } from "@/queries/docs";
-import { toDocBacklink, toDocSummaryNode } from "@/lib/present";
+import { toDocBacklink } from "@/lib/present";
 import { updateDoc, deleteDoc } from "@/actions/docs";
 import { DocForm } from "@/components/doc-form";
 
@@ -51,26 +50,22 @@ export default async function DocPage({
    */
   const editing = editable && (await searchParams).edit !== undefined;
 
-  const [children, backlinks, teams, parents] = await Promise.all([
-    listDocChildren(user, id),
+  const [backlinks, teams, folderOptions] = await Promise.all([
     getDocBacklinks(user, id),
     editing ? listTeams() : Promise.resolve([]),
-    // Never its own subtree: a document filed under its own child has no root.
-    editing ? listDocParentOptions(user, id) : Promise.resolve([]),
+    editing ? listFolderOptions(user) : Promise.resolve([]),
   ]);
-  const scoped = isSenior(user) ? teams : teams.filter((t) => t.id === user.teamId);
-  // Filing under a document adopts its scope, so only offer parents whose
-  // scope this person is allowed to write in — otherwise the form offers a
-  // choice the save would refuse.
-  const placeable = parents.filter((p) => canPlaceDoc(user, p));
+  const scoped = isSenior(user) ? teams : teams.filter((t: { id: string }) => t.id === user.teamId);
+  // A document takes its folder's scope, so only offer folders this person is
+  // allowed to write in — otherwise the form offers a choice the save refuses.
+  const placeable = folderOptions.filter((f) => canPlaceDoc(user, f));
   // A reader with no verbs gets no strip: an empty command bar is a rule under
   // the title with nothing above it.
-  const canAddChild = canPlaceDoc(user, doc);
-  const hasCommands = editable || canAddChild;
+  const hasCommands = editable;
 
   return (
     <>
-      <DocBreadcrumb trail={doc.trail} />
+      <DocBreadcrumb trail={doc.trail} current={doc.title} />
       <PageHeader
         title={doc.title}
         subtitle={
@@ -96,15 +91,7 @@ export default async function DocPage({
                 {editing ? "Done editing" : "Edit"}
               </Command>
             ) : null}
-            {canAddChild ? (
-              <>
-                {editable ? <CommandDivider /> : null}
-                <Command icon={Plus} href={`/docs/new?parent=${doc.id}`}>
-                  Add a child
-                </Command>
-              </>
-            ) : null}
-          </CommandBar>
+                      </CommandBar>
           ) : null
         }
       />
@@ -114,7 +101,7 @@ export default async function DocPage({
           action={updateDoc}
           submitLabel="Save changes"
           teams={scoped}
-          parents={placeable.map((p) => ({ id: p.id, title: p.title }))}
+          folders={placeable.map((f) => ({ id: f.id, name: f.name }))}
           canPublishOrgWide={canCreateOrgDocs(user)}
           values={{
             id: doc.id,
@@ -122,7 +109,7 @@ export default async function DocPage({
             body: doc.body ?? "",
             visibility: doc.visibility,
             teamId: doc.teamId ?? "",
-            parentId: doc.parentId ?? "",
+            folderId: doc.folderId ?? "",
           }}
         />
       ) : (
@@ -139,15 +126,6 @@ export default async function DocPage({
         </Panel>
       )}
 
-      {children.length > 0 ? (
-        <div className="mt-6">
-          <h2 className="mb-2 text-caption-strong uppercase tracking-[0.08em] text-gray-600">
-            Filed under this
-          </h2>
-          <DocTree nodes={children.map(toDocSummaryNode)} />
-        </div>
-      ) : null}
-
       <div className="mt-6">
         <DocBacklinkList tasks={backlinks.map(toDocBacklink)} />
       </div>
@@ -159,9 +137,7 @@ export default async function DocPage({
             type="submit"
             className="rounded-md border border-red-400 px-3 py-1.5 text-body-strong text-red-900 transition-colors hover:bg-red-100"
           >
-            {children.length > 0
-              ? `Delete this and the ${children.length} document${children.length === 1 ? "" : "s"} under it`
-              : "Delete document"}
+            Delete document
           </button>
         </form>
       ) : null}

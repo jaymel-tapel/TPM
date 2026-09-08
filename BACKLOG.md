@@ -89,11 +89,14 @@ only thing that makes it worth building is the join to the work — attach one t
 a task, type `@` in a description to name one, and read off the document which
 tasks point at it.
 
-Folders are the part that most looks like what the brief refused, so be exact:
-there is no folder object. A document can be filed under another document,
-which is the same nesting the rail already does for the org chart, and the tree
-is a way of reading the list rather than a place to configure before anything
-can be written.
+Folders are the part that most looks like what the brief refused, so be exact
+about what they are. A folder holds; a document says something. Neither does
+the other's job — the first cut let a document contain documents, which is the
+model Notion uses and the one people trip over, because a thing you click to
+read is also a thing that holds other things and "open" and "expand" end up
+fighting over the same row. There is nothing to configure: a folder is a name
+and a place, and the tree is a way of reading the list rather than a structure
+you have to build before you can write anything.
 
 Also no custom status builder and no task-type creation flow — task types are a
 fixed set of six.
@@ -138,13 +141,13 @@ says not to make Kanban the default interface.
   team, and reusing it would have locked members out of their own runbooks.
   There is no per-document author check: a runbook only one person may correct
   is a runbook that goes stale.
-- **A document's visibility belongs to its subtree, not its row.** A document
-  is the department's or one team's, and one filed under another is whatever
-  its parent is. Per-document visibility inside a tree makes holes: a team-only
-  child under an org-wide parent is a gap in everyone else's tree and a broken
-  breadcrumb, and the reverse publishes something reachable only by search. The
-  scope is copied down the whole subtree on every move, and the check
-  constraint keeps `visibility` and `team_id` from ever disagreeing.
+- **Visibility belongs to the tree, not the row.** A folder is the
+  department's or one team's, and everything inside takes its placement from
+  it. Per-item visibility inside a tree makes holes: a team-only document in an
+  org-wide folder is a gap in everyone else's tree and a broken breadcrumb, and
+  the reverse publishes something reachable only by search. The scope is copied
+  down the whole subtree on every move, and a check constraint on both tables
+  keeps `visibility` and `team_id` from ever disagreeing.
 - **A mention and an attachment are different rows.** `task_documents.source`
   is part of the key. Prose owns the links it makes and rewrites them on every
   save; the attach button owns its own. Neither can undo the other — otherwise

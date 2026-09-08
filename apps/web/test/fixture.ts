@@ -5,6 +5,7 @@ import {
   boards,
   taskActivity,
   documents,
+  folders,
   taskAssignees,
   taskDocuments,
   tasks,
@@ -136,17 +137,49 @@ export async function addTask(opts: {
 }
 
 let docSeq = 0;
+let folderSeq = 0;
 
 /**
- * A document. `team: null` is org-wide; anything filed under a parent takes the
- * parent's placement, exactly as the action does, so a test cannot accidentally
- * build a tree the app could never produce.
+ * A folder. `team: null` is org-wide; one inside another takes its parent's
+ * placement, exactly as the action does, so a test cannot build a tree the app
+ * could never produce.
  */
+export async function addFolder(opts: {
+  name: string;
+  team?: string | null;
+  parent?: string | null;
+  createdBy?: string;
+}) {
+  folderSeq += 1;
+  const id = `0f000000-${String(folderSeq).padStart(4, "0")}-4000-a000-000000000000`;
+
+  let visibility: "org" | "team" = opts.team ? "team" : "org";
+  let teamId = opts.team ?? null;
+  if (opts.parent) {
+    const parent = await db.query.folders.findFirst({ where: sql`id = ${opts.parent}` });
+    if (parent) {
+      visibility = parent.visibility;
+      teamId = parent.teamId;
+    }
+  }
+
+  await db.insert(folders).values({
+    id,
+    name: opts.name,
+    visibility,
+    teamId,
+    parentId: opts.parent ?? null,
+    createdBy: opts.createdBy ?? IDS.elena,
+  });
+  return id;
+}
+
+/** A document. It takes its folder's placement when it is in one. */
 export async function addDoc(opts: {
   title: string;
   body?: string;
   team?: string | null;
-  parent?: string | null;
+  folder?: string | null;
   createdBy?: string;
 }) {
   docSeq += 1;
@@ -154,13 +187,11 @@ export async function addDoc(opts: {
 
   let visibility: "org" | "team" = opts.team ? "team" : "org";
   let teamId = opts.team ?? null;
-  if (opts.parent) {
-    const parent = await db.query.documents.findFirst({
-      where: sql`id = ${opts.parent}`,
-    });
-    if (parent) {
-      visibility = parent.visibility;
-      teamId = parent.teamId;
+  if (opts.folder) {
+    const folder = await db.query.folders.findFirst({ where: sql`id = ${opts.folder}` });
+    if (folder) {
+      visibility = folder.visibility;
+      teamId = folder.teamId;
     }
   }
 
@@ -171,7 +202,7 @@ export async function addDoc(opts: {
     searchText: toPlainText(opts.body ?? null),
     visibility,
     teamId,
-    parentId: opts.parent ?? null,
+    folderId: opts.folder ?? null,
     createdBy: opts.createdBy ?? IDS.elena,
   });
   return id;

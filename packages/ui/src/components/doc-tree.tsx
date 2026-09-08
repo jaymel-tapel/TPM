@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ChevronRight, FileText, Globe, Users } from "lucide-react";
+import { ChevronRight, FileText, Folder, FolderOpen, Globe, Users } from "lucide-react";
 import { cn } from "../lib/utils";
-import type { DocNodeData, DocScope } from "../types";
+import type { DocFolderData, DocNodeData, DocScope } from "../types";
 
 /**
  * Whose a document is, said once and the same way everywhere. Org-wide is the
@@ -39,45 +39,92 @@ export function ScopeBadge({
  * readable — past that the tree is telling you the document is filed too deep,
  * and the breadcrumb is the better answer.
  */
+/*
+ * Indent by step, not by arithmetic: every value in this system cites a token,
+ * and `depth * 16px` cites none. Four steps is also as deep as an indent stays
+ * readable — past that the tree is telling you the thing is filed too deep,
+ * and the breadcrumb is the better answer.
+ */
 const INDENT = ["pl-0", "pl-4", "pl-8", "pl-12"] as const;
+const indentAt = (depth: number) => INDENT[Math.min(depth, INDENT.length - 1)];
 
-function TreeNode({
-  node,
+const rowStyles = "flex items-center gap-1 rounded-md pr-1 transition-colors";
+
+function DocRow({
+  doc,
   activeId,
   depth,
 }: {
-  node: DocNodeData;
+  doc: DocNodeData;
   activeId?: string;
   depth: number;
 }) {
-  const hasChildren = node.children.length > 0;
-  const inSubtree = containsId(node, activeId);
+  const active = doc.id === activeId;
+  return (
+    <li>
+      <div
+        className={cn(
+          rowStyles,
+          active ? "bg-blue-100" : "hover:bg-gray-100",
+          indentAt(depth),
+        )}
+      >
+        {/* No chevron: a document holds no documents, so there is nothing to
+            open. The gap keeps every title on one left edge. */}
+        <span aria-hidden className="size-5 shrink-0" />
+        <Link
+          href={doc.href}
+          aria-current={active ? "page" : undefined}
+          className={cn(
+            "flex min-w-0 flex-1 items-center gap-2 py-1.5 text-body",
+            active ? "text-blue-900" : "text-gray-1000",
+          )}
+        >
+          <FileText className="size-4 shrink-0 text-gray-600" strokeWidth={1.75} />
+          <span className="truncate">{doc.title}</span>
+        </Link>
+      </div>
+    </li>
+  );
+}
+
+function FolderRow({
+  folder,
+  activeId,
+  depth,
+}: {
+  folder: DocFolderData;
+  activeId?: string;
+  depth: number;
+}) {
+  const holdsSomething = folder.folders.length > 0 || folder.documents.length > 0;
+  const inSubtree = contains(folder, activeId);
+  const active = folder.id === activeId;
 
   /*
-   * null means "follow the route" — the branch holding the open document is
-   * open, and closes when you leave it. Working the chevron makes it your
+   * null means "follow the route" — the branch holding what you are looking at
+   * is open, and closes when you leave it. Working the chevron makes it your
    * choice from then on, which is what a disclosure you operated yourself is
    * expected to do. The same rule the rail groups follow.
    */
   const [open, setOpen] = useState<boolean | null>(null);
   const expanded = open ?? inSubtree;
-  const active = node.id === activeId;
 
   return (
     <li>
       <div
         className={cn(
-          "flex items-center gap-1 rounded-md pr-1 transition-colors",
+          rowStyles,
           active ? "bg-blue-100" : "hover:bg-gray-100",
-          INDENT[Math.min(depth, INDENT.length - 1)],
+          indentAt(depth),
         )}
       >
-        {hasChildren ? (
+        {holdsSomething ? (
           <button
             type="button"
             onClick={() => setOpen(!expanded)}
             aria-expanded={expanded}
-            aria-label={`${expanded ? "Collapse" : "Expand"} ${node.title}`}
+            aria-label={`${expanded ? "Collapse" : "Expand"} ${folder.name}`}
             className="rounded-md p-0.5 text-gray-600 transition-colors hover:bg-gray-200 hover:text-gray-1000"
           >
             <ChevronRight
@@ -86,29 +133,37 @@ function TreeNode({
             />
           </button>
         ) : (
-          // Keeps titles on one left edge whether or not a row can open.
           <span aria-hidden className="size-5 shrink-0" />
         )}
 
+        {/* The name navigates and the chevron discloses — a row that does both
+            makes one of them a surprise. */}
         <Link
-          href={node.href}
+          href={folder.href}
           aria-current={active ? "page" : undefined}
           className={cn(
-            "flex min-w-0 flex-1 items-center gap-2 py-1.5 text-body",
+            "flex min-w-0 flex-1 items-center gap-2 py-1.5 text-body-strong",
             active ? "text-blue-900" : "text-gray-1000",
           )}
         >
-          <FileText className="size-4 shrink-0 text-gray-600" strokeWidth={1.75} />
-          <span className="truncate">{node.title}</span>
+          {expanded && holdsSomething ? (
+            <FolderOpen className="size-4 shrink-0 text-gray-700" strokeWidth={1.75} />
+          ) : (
+            <Folder className="size-4 shrink-0 text-gray-700" strokeWidth={1.75} />
+          )}
+          <span className="truncate">{folder.name}</span>
         </Link>
 
-        {depth === 0 ? <ScopeBadge scope={node.scope} teamName={node.teamName} /> : null}
+        {depth === 0 ? <ScopeBadge scope={folder.scope} teamName={folder.teamName} /> : null}
       </div>
 
-      {hasChildren && expanded ? (
+      {holdsSomething && expanded ? (
         <ul>
-          {node.children.map((child) => (
-            <TreeNode key={child.id} node={child} activeId={activeId} depth={depth + 1} />
+          {folder.folders.map((child) => (
+            <FolderRow key={child.id} folder={child} activeId={activeId} depth={depth + 1} />
+          ))}
+          {folder.documents.map((doc) => (
+            <DocRow key={doc.id} doc={doc} activeId={activeId} depth={depth + 1} />
           ))}
         </ul>
       ) : null}
@@ -116,66 +171,78 @@ function TreeNode({
   );
 }
 
-function containsId(node: DocNodeData, id?: string): boolean {
+function contains(folder: DocFolderData, id?: string): boolean {
   if (!id) return false;
-  if (node.id === id) return true;
-  return node.children.some((child) => containsId(child, id));
+  if (folder.id === id) return true;
+  if (folder.documents.some((d) => d.id === id)) return true;
+  return folder.folders.some((f) => contains(f, id));
 }
 
 /**
- * The whole set of documents, as the tree it is.
+ * Folders, and the documents in them.
  *
- * The scope badge sits on roots only: visibility belongs to a subtree, so
+ * Folders come before documents at every level: a folder is a place and a
+ * document is a thing, and a list reads better when the places are together.
+ * The scope badge sits on roots only — visibility belongs to a subtree, so
  * repeating it on every child would be four ways of saying one thing.
  */
 export function DocTree({
-  nodes,
+  folders,
+  documents,
   activeId,
+  empty = "Nothing here yet.",
 }: {
-  nodes: DocNodeData[];
+  folders: DocFolderData[];
+  /** Documents at this level — the top of the tree, or a folder's own. */
+  documents: DocNodeData[];
   activeId?: string;
+  empty?: string;
 }) {
-  if (nodes.length === 0) {
+  if (folders.length === 0 && documents.length === 0) {
     return (
       <p className="rounded-lg border border-gray-400 bg-background-100 px-4 py-6 text-body text-gray-600">
-        No documents yet.
+        {empty}
       </p>
     );
   }
 
   return (
     <ul className="rounded-lg border border-gray-400 bg-background-100 p-2">
-      {nodes.map((node) => (
-        <TreeNode key={node.id} node={node} activeId={activeId} depth={0} />
+      {folders.map((folder) => (
+        <FolderRow key={folder.id} folder={folder} activeId={activeId} depth={0} />
+      ))}
+      {documents.map((doc) => (
+        <DocRow key={doc.id} doc={doc} activeId={activeId} depth={0} />
       ))}
     </ul>
   );
 }
 
-/** Root first, this document last — where you are, and how you got here. */
+/** The folders above this, root first — where you are, and how you got here. */
 export function DocBreadcrumb({
   trail,
+  current,
 }: {
-  trail: { id: string; title: string; href: string }[];
+  trail: { id: string; name: string; href: string }[];
+  /** The thing you are looking at. It is where you are, so it is not a link. */
+  current: string;
 }) {
-  if (trail.length < 2) return null;
+  if (trail.length === 0) return null;
   return (
     <nav aria-label="Breadcrumb" className="mb-2 flex flex-wrap items-center gap-1 text-caption">
-      {trail.map((step, i) => {
-        const last = i === trail.length - 1;
-        return (
-          <span key={step.id} className="flex items-center gap-1">
-            {last ? (
-              <span className="text-gray-700">{step.title}</span>
-            ) : (
-              <Link href={step.href} className="text-blue-700 hover:text-blue-800">
-                {step.title}
-              </Link>
-            )}
-            {last ? null : <span className="text-gray-600">/</span>}
-          </span>
-        );
-      })}
+      <Link href="/docs" className="text-blue-700 hover:text-blue-800">
+        Docs
+      </Link>
+      {trail.map((step) => (
+        <span key={step.id} className="flex items-center gap-1">
+          <span className="text-gray-600">/</span>
+          <Link href={step.href} className="text-blue-700 hover:text-blue-800">
+            {step.name}
+          </Link>
+        </span>
+      ))}
+      <span className="text-gray-600">/</span>
+      <span className="text-gray-700">{current}</span>
     </nav>
   );
 }

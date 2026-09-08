@@ -4,7 +4,7 @@ import { ButtonLink, DocSearchResults, DocTree, PageHeader } from "@meridian/ui"
 import { requireSession } from "@/lib/auth";
 import { canCreateDocs } from "@/lib/permissions";
 import { getDocTree, searchDocs } from "@/queries/docs";
-import { toDocHit, toDocNode } from "@/lib/present";
+import { toDocFolder, toDocHit, toDocNode } from "@/lib/present";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +25,7 @@ export default async function DocsPage({
   const query = q?.trim() ?? "";
 
   const [tree, hits] = await Promise.all([
-    query ? Promise.resolve([]) : getDocTree(user),
+    query ? Promise.resolve({ folders: [], documents: [] }) : getDocTree(user),
     query ? searchDocs(user, query) : Promise.resolve([]),
   ]);
 
@@ -35,7 +35,14 @@ export default async function DocsPage({
         title="Docs"
         subtitle="What the work refers to, written down once."
         aside={
-          canCreateDocs(user) ? <ButtonLink href="/docs/new">New document</ButtonLink> : null
+          canCreateDocs(user) ? (
+            <div className="flex items-center gap-3">
+              <ButtonLink href="/docs/folders/new" variant="ghost">
+                New folder
+              </ButtonLink>
+              <ButtonLink href="/docs/new">New document</ButtonLink>
+            </div>
+          ) : null
         }
         commands={
           <form action="/docs" className="flex max-w-md items-center gap-2">
@@ -61,7 +68,11 @@ export default async function DocsPage({
       {query ? (
         <DocSearchResults hits={hits.map(toDocHit)} query={query} />
       ) : (
-        <DocTree nodes={tree.map(toDocNode)} />
+        <DocTree
+          folders={tree.folders.map(toDocFolder)}
+          documents={tree.documents.map(toDocNode)}
+          empty="No folders or documents yet."
+        />
       )}
     </>
   );

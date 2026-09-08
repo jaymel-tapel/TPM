@@ -4,7 +4,7 @@ import { PageHeader } from "@meridian/ui";
 import { requireSession } from "@/lib/auth";
 import { canCreateDocs, canCreateOrgDocs, canPlaceDoc, isSenior } from "@/lib/permissions";
 import { listTeams } from "@/queries/team";
-import { listDocParentOptions } from "@/queries/docs";
+import { listFolderOptions } from "@/queries/docs";
 import { createDoc } from "@/actions/docs";
 import { DocForm } from "@/components/doc-form";
 
@@ -13,19 +13,19 @@ export const dynamic = "force-dynamic";
 export default async function NewDocPage({
   searchParams,
 }: {
-  searchParams: Promise<{ parent?: string }>;
+  searchParams: Promise<{ folder?: string }>;
 }) {
   const { user } = await requireSession();
   if (!canCreateDocs(user)) notFound();
 
-  const { parent } = await searchParams;
-  const [teams, parents] = await Promise.all([listTeams(), listDocParentOptions(user)]);
+  const { folder } = await searchParams;
+  const [teams, folderOptions] = await Promise.all([listTeams(), listFolderOptions(user)]);
   // Everyone below the Senior Director writes for their own team, so there is
   // nothing to pick between.
-  const scoped = isSenior(user) ? teams : teams.filter((t) => t.id === user.teamId);
-  // Filing under a document adopts its scope, so only offer parents whose
-  // scope this person is allowed to write in.
-  const placeable = parents.filter((p) => canPlaceDoc(user, p));
+  const scoped = isSenior(user) ? teams : teams.filter((t: { id: string }) => t.id === user.teamId);
+  // A document takes its folder's scope, so only offer folders this person is
+  // allowed to write in.
+  const placeable = folderOptions.filter((f) => canPlaceDoc(user, f));
 
   return (
     <>
@@ -42,7 +42,7 @@ export default async function NewDocPage({
         action={createDoc}
         submitLabel="Create document"
         teams={scoped}
-        parents={placeable.map((p) => ({ id: p.id, title: p.title }))}
+        folders={placeable.map((f) => ({ id: f.id, name: f.name }))}
         canPublishOrgWide={canCreateOrgDocs(user)}
         values={{
           title: "",
@@ -55,7 +55,7 @@ export default async function NewDocPage({
            */
           visibility: user.teamId ? "team" : "org",
           teamId: user.teamId ?? scoped[0]?.id ?? "",
-          parentId: parent ?? "",
+          folderId: folder ?? "",
         }}
       />
     </>

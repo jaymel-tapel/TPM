@@ -11,19 +11,41 @@ export type DocSummary = {
   visibility: DocVisibility;
   teamId: string | null;
   teamName: string | null;
-  parentId: string | null;
+  folderId: string | null;
   updatedAt: Date;
 };
 
 export type DocDetail = DocSummary & {
   body: string | null;
   authorName: string;
-  /** Root first, this document last. */
-  trail: { id: string; title: string; href: string }[];
+  /** The folders above it, root first. Empty for one at the top level. */
+  trail: { id: string; name: string; href: string }[];
 };
 
-/** A document node with its children beneath it. */
-export type DocNode = DocSummary & { children: DocNode[] };
+/** A folder, as the tree and the pickers render it. */
+export type FolderSummary = {
+  id: string;
+  name: string;
+  href: string;
+  visibility: DocVisibility;
+  teamId: string | null;
+  teamName: string | null;
+  parentId: string | null;
+};
+
+export type FolderDetail = FolderSummary & {
+  /** Root first, this folder last. */
+  trail: { id: string; name: string; href: string }[];
+};
+
+/**
+ * A folder and everything under it. Folders nest and documents sit inside
+ * them, so a node has both — the tree is one shape, not two interleaved.
+ */
+export type DocTreeNode = FolderSummary & {
+  folders: DocTreeNode[];
+  documents: DocSummary[];
+};
 
 /** A run of snippet text, and whether it matched. */
 export type SnippetRun = { text: string; hit: boolean };
@@ -69,10 +91,33 @@ export function docScopeSql(viewer: User): SQL {
     : sql`d.visibility = 'org'`;
 }
 
+/** The same rule as `docScopeSql`, applied to a `folders` row aliased `f`. */
+export function folderScopeSql(viewer: User): SQL {
+  if (viewer.role === "senior_director") return sql`true`;
+  return viewer.teamId
+    ? sql`(f.visibility = 'org' or f.team_id = ${viewer.teamId})`
+    : sql`f.visibility = 'org'`;
+}
+
 const summarySelect = sql`
   d.id, d.title, d.visibility, d.team_id as "teamId", t.name as "teamName",
-  d.parent_id as "parentId", d.updated_at as "updatedAt"
+  d.folder_id as "folderId", d.updated_at as "updatedAt"
 `;
+
+const folderSelect = sql`
+  f.id, f.name, f.visibility, f.team_id as "teamId", t.name as "teamName",
+  f.parent_id as "parentId"
+`;
+
+const folderFrom = sql`
+  from folders f
+  left join teams t on t.id = f.team_id
+`;
+
+const withFolderHref = <T extends { id: string }>(row: T) => ({
+  ...row,
+  href: `/docs/folders/${row.id}`,
+});
 
 const summaryFrom = sql`
   from documents d
@@ -85,66 +130,143 @@ const withHref = <T extends { id: string }>(row: T) => ({
 });
 
 /**
- * Every document this person may see, as a tree.
+ * Everything this person may see, as one tree of folders with their documents
+ * inside.
  *
  * Read flat and assembled here rather than with a recursive CTE: visibility is
- * a property of the whole tree, so a viewer either sees a root and everything
+ * a property of the whole tree, so a viewer either sees a folder and what is
  * under it or sees none of it, and one pass over the rows is cheaper than
- * teaching Postgres the same thing. A child whose parent is missing would be
- * an orphan; it is dropped rather than promoted, because a document's meaning
- * lives in where it sits.
+ * teaching Postgres the same thing. A folder whose parent is missing is
+ * dropped rather than promoted — where a thing sits is part of what it means.
  */
-export async function getDocTree(viewer: User): Promise<DocNode[]> {
-  const result = await db.execute(sql`
-    select ${summarySelect} ${summaryFrom}
-    where ${docScopeSql(viewer)}
-    order by d.position asc, d.title asc
-  `);
-  const rows = result.rows as unknown as Omit<DocSummary, "href">[];
+export async function getDocTree(viewer: User): Promise<{
+  folders: DocTreeNode[];
+  documents: DocSummary[];
+}> {
+  const [folderRows, docRows] = await Promise.all([
+    db.execute(sql`
+      select ${folderSelect} ${folderFrom}
+      where ${folderScopeSql(viewer)}
+      order by f.position asc, f.name asc
+    `),
+    db.execute(sql`
+      select ${summarySelect} ${summaryFrom}
+      where ${docScopeSql(viewer)}
+      order by d.position asc, d.title asc
+    `),
+  ]);
 
-  const byId = new Map<string, DocNode>();
-  for (const row of rows) byId.set(row.id, { ...withHref(row), children: [] });
+  const byId = new Map<string, DocTreeNode>();
+  for (const row of folderRows.rows as unknown as Omit<FolderSummary, "href">[]) {
+    byId.set(row.id, { ...withFolderHref(row), folders: [], documents: [] });
+  }
 
-  const roots: DocNode[] = [];
+  const roots: DocTreeNode[] = [];
   for (const node of byId.values()) {
     const parent = node.parentId ? byId.get(node.parentId) : undefined;
     if (node.parentId && !parent) continue;
-    (parent ? parent.children : roots).push(node);
+    (parent ? parent.folders : roots).push(node);
   }
-  return roots;
+
+  // Documents with no folder sit at the top level, beside the root folders.
+  const loose: DocSummary[] = [];
+  for (const row of docRows.rows as unknown as Omit<DocSummary, "href">[]) {
+    const doc = withHref(row);
+    const folder = doc.folderId ? byId.get(doc.folderId) : undefined;
+    if (doc.folderId && !folder) continue;
+    (folder ? folder.documents : loose).push(doc);
+  }
+
+  return { folders: roots, documents: loose };
 }
 
-/** Documents this person may file another one under. */
-export async function listDocParentOptions(
+/** Folders this person may see, flat — for the "which folder" picker. */
+export async function listFolderOptions(
   viewer: User,
   excludeSubtreeOf?: string,
-): Promise<DocSummary[]> {
+): Promise<FolderSummary[]> {
   const result = await db.execute(sql`
     with recursive subtree as (
-      select d.id from documents d where d.id = ${excludeSubtreeOf ?? null}::uuid
+      select f.id from folders f where f.id = ${excludeSubtreeOf ?? null}::uuid
       union all
-      select c.id from documents c join subtree s on c.parent_id = s.id
+      select c.id from folders c join subtree s on c.parent_id = s.id
     )
-    select ${summarySelect} ${summaryFrom}
-    where ${docScopeSql(viewer)}
-      and d.id not in (select id from subtree)
-    order by d.title asc
+    select ${folderSelect} ${folderFrom}
+    where ${folderScopeSql(viewer)}
+      and f.id not in (select id from subtree)
+    order by f.name asc
   `);
-  return (result.rows as unknown as Omit<DocSummary, "href">[]).map(withHref);
+  return (result.rows as unknown as Omit<FolderSummary, "href">[]).map(withFolderHref);
+}
+
+/** A folder's own row, plus the folders above it. */
+export async function getFolder(
+  viewer: User,
+  folderId: string,
+): Promise<FolderDetail | null> {
+  const result = await db.execute(sql`
+    with recursive trail as (
+      select f.id, f.parent_id, f.name, 0 as depth
+      from folders f where f.id = ${folderId}::uuid
+      union all
+      select p.id, p.parent_id, p.name, tr.depth + 1
+      from folders p join trail tr on p.id = tr.parent_id
+    )
+    select ${folderSelect},
+      (select coalesce(
+         jsonb_agg(jsonb_build_object('id', tr.id, 'name', tr.name) order by tr.depth desc),
+         '[]'::jsonb)
+       from trail tr) as trail
+    ${folderFrom}
+    where f.id = ${folderId}::uuid and ${folderScopeSql(viewer)}
+  `);
+  const row = (result.rows as unknown as (Omit<FolderDetail, "href" | "trail"> & {
+    trail: { id: string; name: string }[];
+  })[])[0];
+  if (!row) return null;
+
+  return {
+    ...withFolderHref(row),
+    trail: row.trail.map((step) => ({ ...step, href: `/docs/folders/${step.id}` })),
+  };
+}
+
+/** What is directly inside a folder: its subfolders, then its documents. */
+export async function listFolderContents(
+  viewer: User,
+  folderId: string,
+): Promise<{ folders: FolderSummary[]; documents: DocSummary[] }> {
+  const [folderRows, docRows] = await Promise.all([
+    db.execute(sql`
+      select ${folderSelect} ${folderFrom}
+      where ${folderScopeSql(viewer)} and f.parent_id = ${folderId}::uuid
+      order by f.position asc, f.name asc
+    `),
+    db.execute(sql`
+      select ${summarySelect} ${summaryFrom}
+      where ${docScopeSql(viewer)} and d.folder_id = ${folderId}::uuid
+      order by d.position asc, d.title asc
+    `),
+  ]);
+  return {
+    folders: (folderRows.rows as unknown as Omit<FolderSummary, "href">[]).map(withFolderHref),
+    documents: (docRows.rows as unknown as Omit<DocSummary, "href">[]).map(withHref),
+  };
 }
 
 export async function getDoc(viewer: User, docId: string): Promise<DocDetail | null> {
   const result = await db.execute(sql`
     with recursive trail as (
-      select d.id, d.parent_id, d.title, 0 as depth
-      from documents d where d.id = ${docId}::uuid
+      select f.id, f.parent_id, f.name, 0 as depth
+      from folders f
+      where f.id = (select folder_id from documents where id = ${docId}::uuid)
       union all
-      select p.id, p.parent_id, p.title, tr.depth + 1
-      from documents p join trail tr on p.id = tr.parent_id
+      select p.id, p.parent_id, p.name, tr.depth + 1
+      from folders p join trail tr on p.id = tr.parent_id
     )
     select ${summarySelect}, d.body, u.name as "authorName",
       (select coalesce(
-         jsonb_agg(jsonb_build_object('id', tr.id, 'title', tr.title) order by tr.depth desc),
+         jsonb_agg(jsonb_build_object('id', tr.id, 'name', tr.name) order by tr.depth desc),
          '[]'::jsonb)
        from trail tr) as trail
     ${summaryFrom}
@@ -152,24 +274,14 @@ export async function getDoc(viewer: User, docId: string): Promise<DocDetail | n
     where d.id = ${docId}::uuid and ${docScopeSql(viewer)}
   `);
   const row = (result.rows as unknown as (Omit<DocDetail, "href" | "trail"> & {
-    trail: { id: string; title: string }[];
+    trail: { id: string; name: string }[];
   })[])[0];
   if (!row) return null;
 
   return {
     ...withHref(row),
-    trail: row.trail.map((step) => ({ ...step, href: `/docs/${step.id}` })),
+    trail: row.trail.map((step) => ({ ...step, href: `/docs/folders/${step.id}` })),
   };
-}
-
-/** The documents directly under this one. */
-export async function listDocChildren(viewer: User, docId: string): Promise<DocSummary[]> {
-  const result = await db.execute(sql`
-    select ${summarySelect} ${summaryFrom}
-    where ${docScopeSql(viewer)} and d.parent_id = ${docId}::uuid
-    order by d.position asc, d.title asc
-  `);
-  return (result.rows as unknown as Omit<DocSummary, "href">[]).map(withHref);
 }
 
 /**

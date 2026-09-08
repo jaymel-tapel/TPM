@@ -327,6 +327,49 @@ export const docVisibilityEnum = pgEnum("doc_visibility", ["org", "team"]);
  */
 export const docLinkSourceEnum = pgEnum("doc_link_source", ["attached", "mentioned"]);
 
+/**
+ * A place to put documents. Folders nest; documents do not.
+ *
+ * The first cut let a document contain other documents, which is the model
+ * Notion uses and the one people trip over: a thing you click to read is also
+ * a thing that holds other things, so "open" and "expand" fight over the same
+ * row. A folder holds and a document says something, and neither does the
+ * other's job.
+ *
+ * Visibility works exactly as it does on a document, and for the same reason:
+ * it belongs to the whole tree and is copied down on every move, so a query
+ * never has to walk upwards to find out who may read a row.
+ */
+export const folders = pgTable(
+  "folders",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    parentId: uuid("parent_id"),
+    visibility: docVisibilityEnum("visibility").notNull(),
+    teamId: uuid("team_id").references(() => teams.id, { onDelete: "cascade" }),
+    position: integer("position").notNull().default(0),
+    createdBy: uuid("created_by")
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    foreignKey({
+      columns: [t.parentId],
+      foreignColumns: [t.id],
+      name: "folders_parent_fk",
+    }).onDelete("cascade"),
+    index("folders_parent_idx").on(t.parentId),
+    index("folders_team_idx").on(t.teamId),
+    check(
+      "folders_visibility_team_ck",
+      sql`(visibility = 'org') = (team_id is null)`,
+    ),
+  ],
+);
+
 export const documents = pgTable(
   "documents",
   {
@@ -349,7 +392,8 @@ export const documents = pgTable(
      */
     visibility: docVisibilityEnum("visibility").notNull(),
     teamId: uuid("team_id").references(() => teams.id, { onDelete: "cascade" }),
-    parentId: uuid("parent_id"),
+    /** The folder it lives in, or null for one sitting at the top level. */
+    folderId: uuid("folder_id").references(() => folders.id, { onDelete: "cascade" }),
     position: integer("position").notNull().default(0),
     createdBy: uuid("created_by")
       .notNull()
@@ -362,12 +406,7 @@ export const documents = pgTable(
       .defaultNow(),
   },
   (t) => [
-    foreignKey({
-      columns: [t.parentId],
-      foreignColumns: [t.id],
-      name: "documents_parent_fk",
-    }).onDelete("cascade"),
-    index("documents_parent_idx").on(t.parentId),
+    index("documents_folder_idx").on(t.folderId),
     index("documents_team_idx").on(t.teamId),
     // Org-wide means no team and team-scoped means a team. Enforced here so no
     // query has to defend against the third, meaningless combination.
@@ -411,3 +450,4 @@ export type Task = typeof tasks.$inferSelect;
 export type DocVisibility = (typeof docVisibilityEnum.enumValues)[number];
 export type DocLinkSource = (typeof docLinkSourceEnum.enumValues)[number];
 export type Doc = typeof documents.$inferSelect;
+export type Folder = typeof folders.$inferSelect;

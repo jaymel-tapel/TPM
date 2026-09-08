@@ -50,6 +50,20 @@
       "when": 1788871640944,
       "tag": "0006_misty_vision",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1788874319929,
+      "tag": "0007_whole_living_mummy",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1788874347513,
+      "tag": "0008_medical_yellowjacket",
+      "breakpoints": true
     }
   ]
 }

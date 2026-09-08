@@ -1,5 +1,6 @@
 import type {
   DocBacklinkData,
+  DocFolderData,
   DocHitData,
   DocNodeData,
   DocRefData,
@@ -174,37 +175,48 @@ export const ATTACHMENTS: AttachmentData[] = [
 
 /* ── documents ────────────────────────────────────────────────────────── */
 
-export const DOC_TREE: DocNodeData[] = [
+export const DOC_FOLDERS: DocFolderData[] = [
   {
-    id: "d1",
+    id: "f1",
     href: "#",
-    title: "How we work",
+    name: "How we work",
     scope: "org",
     teamName: null,
-    children: [
+    folders: [
       {
-        id: "d2",
+        id: "f2",
         href: "#",
-        title: "Escalation",
+        name: "Escalation",
         scope: "org",
         teamName: null,
-        children: [
-          { id: "d3", href: "#", title: "Out of hours", scope: "org", teamName: null, children: [] },
+        folders: [],
+        documents: [
+          { id: "d3", href: "#", title: "Out of hours", scope: "org", teamName: null },
         ],
       },
-      { id: "d4", href: "#", title: "Brand guidelines", scope: "org", teamName: null, children: [] },
+    ],
+    documents: [
+      { id: "d1", href: "#", title: "Start here", scope: "org", teamName: null },
+      { id: "d4", href: "#", title: "Brand guidelines", scope: "org", teamName: null },
     ],
   },
   {
-    id: "d5",
+    id: "f3",
     href: "#",
-    title: "Team A runbook",
+    name: "Team A",
     scope: "team",
     teamName: "Team A",
-    children: [
-      { id: "d6", href: "#", title: "Reporting checklist", scope: "team", teamName: "Team A", children: [] },
+    folders: [],
+    documents: [
+      { id: "d5", href: "#", title: "Runbook", scope: "team", teamName: "Team A" },
+      { id: "d6", href: "#", title: "Reporting checklist", scope: "team", teamName: "Team A" },
     ],
   },
+];
+
+/** A document sitting at the top level, in no folder at all. */
+export const DOC_LOOSE: DocNodeData[] = [
+  { id: "d7", href: "#", title: "Holidays", scope: "org", teamName: null },
 ];
 
 export const DOC_REFS: DocRefData[] = [
