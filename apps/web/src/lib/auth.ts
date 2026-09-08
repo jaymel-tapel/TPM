@@ -17,7 +17,19 @@ function secret(): Uint8Array {
   return new TextEncoder().encode(value);
 }
 
-type Payload = { sub: string; viewAs?: string };
+type Payload = { sub: string; viewAs?: string; issuedAt: number };
+
+/**
+ * Whether a token predates the password it was issued against.
+ *
+ * `iat` is whole seconds and the column is not, so a token minted in the same
+ * second as the change would round to just before it and be thrown away. A
+ * second of slack costs nothing — the window it reopens is the second the
+ * administrator was already holding the new password in their hand.
+ */
+export function sessionOutdated(issuedAtMs: number, passwordChangedAt: Date): boolean {
+  return issuedAtMs + 1000 < passwordChangedAt.getTime();
+}
 
 export function hashPassword(plain: string) {
   return bcrypt.hash(plain, 10);
@@ -27,7 +39,7 @@ export function verifyPassword(plain: string, hash: string) {
   return bcrypt.compare(plain, hash);
 }
 
-async function sign(payload: Payload) {
+async function sign(payload: Omit<Payload, "issuedAt">) {
   return new SignJWT({ viewAs: payload.viewAs })
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(payload.sub)
@@ -62,7 +74,11 @@ async function readToken(): Promise<Payload | null> {
   if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, secret());
-    return { sub: payload.sub as string, viewAs: payload.viewAs as string | undefined };
+    return {
+      sub: payload.sub as string,
+      viewAs: payload.viewAs as string | undefined,
+      issuedAt: (payload.iat ?? 0) * 1000,
+    };
   } catch {
     return null;
   }
@@ -88,6 +104,14 @@ export const getSession = cache(async (): Promise<Session | null> => {
     where: eq(users.id, payload.sub),
   });
   if (!account) return null;
+
+  /*
+   * A session is a signed cookie, so changing a password would not end one on
+   * its own — the person stays signed in on whatever device they are already
+   * on. A token issued before the password last changed is refused, which is
+   * what makes a reset actually reset something.
+   */
+  if (sessionOutdated(payload.issuedAt, account.passwordChangedAt)) return null;
 
   if (payload.viewAs && payload.viewAs !== account.id) {
     const viewed = await db.query.users.findFirst({

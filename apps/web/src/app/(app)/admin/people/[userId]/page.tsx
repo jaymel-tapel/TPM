@@ -6,6 +6,7 @@ import { assertCanAdminister } from "@/lib/permissions";
 import { getPerson, listTeamOptions } from "@/queries/admin";
 import { updatePerson } from "@/actions/admin";
 import { PersonForm } from "@/components/person-form";
+import { ResetPassword } from "@/components/reset-password";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +49,10 @@ export default async function EditPersonPage({
           teamId: person.teamId ?? teams[0]?.id ?? "",
         }}
       />
+
+      <div className="mt-6">
+        <ResetPassword userId={person.id} name={person.name} isSelf={person.id === user.id} />
+      </div>
     </>
   );
 }

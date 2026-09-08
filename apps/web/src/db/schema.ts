@@ -66,6 +66,15 @@ export const users = pgTable(
     role: roleEnum("role").notNull().default("team_member"),
     // Null for the Senior Director, who sits above both teams.
     teamId: uuid("team_id").references(() => teams.id),
+    /**
+     * When the password last changed. A session is a signed cookie, so
+     * changing the hash alone would not end one — the person stays signed in
+     * on whatever device they are on until it expires, which is exactly what a
+     * reset is meant to stop. Tokens issued before this are refused.
+     */
+    passwordChangedAt: timestamp("password_changed_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

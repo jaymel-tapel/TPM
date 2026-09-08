@@ -92,6 +92,35 @@ export async function createPerson(
   return { created: { name: input.name, password } };
 }
 
+/**
+ * A new first password, for somebody who has lost theirs.
+ *
+ * The old one stops working immediately, and so does every session opened with
+ * it — `passwordChangedAt` moves forward and tokens issued before it are
+ * refused. That includes the administrator's own session if they reset
+ * themselves, which is the correct outcome and the reason the form says so.
+ */
+export async function resetPassword(
+  _prev: NewPersonState,
+  formData: FormData,
+): Promise<NewPersonState> {
+  const viewer = await requireUser();
+  await assertCanAdminister(viewer);
+
+  const userId = String(formData.get("userId") ?? "");
+  const person = await db.query.users.findFirst({ where: eq(users.id, userId) });
+  if (!person) return { error: "That person no longer exists." };
+
+  const password = initialPassword();
+  await db
+    .update(users)
+    .set({ passwordHash: await hashPassword(password), passwordChangedAt: new Date() })
+    .where(eq(users.id, userId));
+
+  refresh();
+  return { created: { name: person.name, password } };
+}
+
 export async function updatePerson(_prev: FormState, formData: FormData): Promise<FormState> {
   const viewer = await requireUser();
   await assertCanAdminister(viewer);
