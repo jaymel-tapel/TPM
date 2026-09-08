@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { demoSwitcherEnabled, getSession } from "@/lib/auth";
 import { isSenior, navFor } from "@/lib/permissions";
 import { listTeams } from "@/queries/team";
+import { listBoardsForUser } from "@/queries/tasks";
 import { AppSidebar } from "@/components/app-sidebar";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -11,17 +12,18 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const links = navFor(session.user.role);
 
   /*
-   * The Senior Director's Teams item expands to the teams themselves. They
-   * come from the org chart that already exists — there is no way to add one
-   * here, and nothing to configure. An Account Director has exactly one team
-   * and it is already their Team item, so nothing expands for them.
+   * Rail groups are filled from the org chart, not configured: the Senior
+   * Director's Teams item opens to the teams, and everyone else's Boards item
+   * opens to the boards they can reach.
    */
   if (isSenior(session.user)) {
     const teams = await listTeams();
     const item = links.find((l) => l.href === "/teams");
-    if (item) {
-      item.children = teams.map((t) => ({ href: `/teams/${t.id}`, label: t.name }));
-    }
+    if (item) item.children = teams.map((t) => ({ href: `/teams/${t.id}`, label: t.name }));
+  } else {
+    const boards = await listBoardsForUser(session.user);
+    const item = links.find((l) => l.href === "/boards");
+    if (item) item.children = boards.map((b) => ({ href: `/boards/${b.id}`, label: b.name }));
   }
 
   return (

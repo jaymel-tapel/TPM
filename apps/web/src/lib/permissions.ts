@@ -2,7 +2,7 @@ import "server-only";
 import { notFound } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { taskAssignees, tasks, users, type Role, type Task, type User } from "@/db/schema";
+import { taskAssignees, tasks, users, type Role, type Task, type User, boards } from "@/db/schema";
 
 export const isDirector = (u: User) => u.role !== "team_member";
 export const isSenior = (u: User) => u.role === "senior_director";
@@ -11,7 +11,7 @@ export const isSenior = (u: User) => u.role === "senior_director";
  * `icon` is a name, not a component: this module is imported by server code
  * that has no business holding React elements. The sidebar maps it.
  */
-export type NavIcon = "today" | "myTasks" | "team" | "teams" | "reports" | "overview";
+export type NavIcon = "today" | "myTasks" | "boards" | "team" | "teams" | "reports" | "overview";
 export type NavChild = { href: string; label: string };
 export type NavItem = {
   href: string;
@@ -40,6 +40,7 @@ export function navFor(role: Role): NavItem[] {
     case "account_director":
       return [
         { href: "/today", label: "Today", icon: "today" },
+        { href: "/boards", label: "Boards", icon: "boards" },
         { href: "/team", label: "Team", icon: "team" },
         { href: "/reports", label: "Reports", icon: "reports" },
       ];
@@ -47,6 +48,7 @@ export function navFor(role: Role): NavItem[] {
       return [
         { href: "/today", label: "Today", icon: "today" },
         { href: "/my-tasks", label: "My Tasks", icon: "myTasks" },
+        { href: "/boards", label: "Boards", icon: "boards" },
       ];
   }
 }
@@ -115,4 +117,22 @@ export async function loadViewableTask(viewer: User, taskId: string): Promise<Ta
   if (!task) notFound();
   if (!(await canViewTask(viewer, task))) notFound();
   return task;
+}
+
+/**
+ * Who may shape a team's work: its own Account Director, or the Senior
+ * Director. A team member can move a card but not invent the column it moves
+ * into — the board is the Account Director's instrument.
+ */
+export async function assertCanManageTeam(viewer: User, teamId: string) {
+  if (isSenior(viewer)) return;
+  if (viewer.role === "account_director" && viewer.teamId === teamId) return;
+  notFound();
+}
+
+export async function assertCanManageBoard(viewer: User, boardId: string) {
+  const board = await db.query.boards.findFirst({ where: eq(boards.id, boardId) });
+  if (!board) notFound();
+  await assertCanManageTeam(viewer, board.teamId);
+  return board;
 }

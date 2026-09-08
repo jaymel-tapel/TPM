@@ -7,6 +7,7 @@ import {
   BarChart3,
   CalendarCheck,
   ChevronRight,
+  Columns3,
   ListChecks,
   LayoutDashboard,
   LogOut,
@@ -21,6 +22,7 @@ import { RoleSwitcher } from "./role-switcher";
 const ICONS: Record<NavIcon, typeof CalendarCheck> = {
   today: CalendarCheck,
   myTasks: ListChecks,
+  boards: Columns3,
   team: Users,
   teams: UsersRound,
   reports: BarChart3,
