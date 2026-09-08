@@ -32,11 +32,10 @@
 
 /*
  * The editor sits in a field alongside Input and Textarea, so it is bordered
- * like one. The border goes on the container and the horizontal padding stays
- * on `.bn-editor`: BlockNote draws the block handles (+ and the drag dots) in
- * that left gutter, so zeroing it puts them outside the border, straddling the
- * rounded corner. 54px is BlockNote's own gutter and the width the handles are
- * positioned against.
+ * and padded like one — 10px, the same as Input's px-2.5, so the description
+ * text starts on the same vertical line as the title above it. That is only
+ * possible because the side menu is off (see rich-text.tsx); with it on,
+ * BlockNote needs a 54px gutter for the handles.
  */
 .meridian-editor:not(.meridian-editor--read-only) .bn-container {
   border: 1px solid var(--color-gray-400);
@@ -51,7 +50,7 @@
 }
 
 .meridian-editor:not(.meridian-editor--read-only) .bn-editor {
-  padding-inline: 54px calc(var(--spacing) * 4);
+  padding-inline: 10px;
   /* Roughly the four rows the textarea had. A description is somewhere to
      write, and a single-line field invites a single line. Clicking anywhere in
      the box puts the caret in the last block rather than missing the editor. */
@@ -77,9 +76,13 @@
   letter-spacing: -0.02em;
 }
 
-/* Type comes off our ramp rather than BlockNote's. */
-.meridian-editor .bn-block-content[data-content-type="paragraph"],
-.meridian-editor .bn-inline-content {
+/*
+ * Type comes off our ramp rather than BlockNote's. The override has to land on
+ * `.bn-default-styles`, which is where BlockNote sets 16px and its own font
+ * stack; setting it on the blocks alone loses to that.
+ */
+.meridian-editor .bn-default-styles {
+  font-family: var(--font-sans);
   font-size: var(--text-copy-14);
   line-height: var(--text-copy-14--line-height);
 }

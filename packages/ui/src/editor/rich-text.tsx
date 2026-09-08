@@ -59,16 +59,28 @@ export function RichTextEditor({
 
   const editor = useCreateBlockNote({
     initialContent: initial as never,
-    placeholders: { emptyDocument: placeholder },
+    // Only the empty document prompts. BlockNote's per-block default
+    // ("Enter text or type '/' for commands") sits under every paragraph you
+    // finish, which in a form field reads as an unfilled second input.
+    placeholders: { emptyDocument: placeholder, default: "" },
     uploadFile: uploadFile ? handleUpload : undefined,
   });
 
   return (
     <div className={cn("meridian-editor", className)}>
       <input type="hidden" name={name} value={value} />
+      {/*
+        No side menu. Its + and drag handles live in a 54px gutter, which
+        pushed the description text a hundred pixels right of the Title field
+        directly above it — the field stopped looking like the others. This is
+        a description, not a document: the formatting toolbar on selection and
+        the slash menu both stay, and reordering paragraphs by dragging is not
+        worth breaking the form's alignment for.
+      */}
       <BlockNoteView
         editor={editor}
         theme="light"
+        sideMenu={false}
         onChange={() => setValue(JSON.stringify(editor.document))}
       />
       {uploadError ? (

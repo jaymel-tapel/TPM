@@ -3,7 +3,6 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { GetObjectCommand, PutObjectCommand, S3Client, DeleteObjectCommand } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 /**
  * Object storage for task attachments.
@@ -14,6 +13,12 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
  * without credentials. Which driver runs is decided by whether R2 is
  * configured, never by NODE_ENV: a misconfigured production should fail
  * loudly rather than quietly start writing files onto a container's disk.
+ *
+ * Bytes go through the app in both directions. Neither a presigned PUT nor a
+ * presigned GET works from a browser until the bucket carries a CORS policy,
+ * and a redirect to the bucket also hands the browser a URL that outlives the
+ * permission check that produced it. Proxying costs bandwidth and buys back
+ * one place where access is decided.
  */
 
 /** Anything larger is rejected before an upload URL is issued. */
@@ -75,18 +80,15 @@ export function keyFor(taskId: string, filename: string): string {
   return `tasks/${taskId}/${randomUUID()}${safeExt}`;
 }
 
-export type UploadTarget = {
-  /** Where the browser PUTs the bytes. */
-  url: string;
-  /** Headers the PUT must carry for the signature to hold. */
-  headers: Record<string, string>;
-};
-
 type Driver = {
   name: "r2" | "local";
-  uploadTarget(key: string, contentType: string): Promise<UploadTarget>;
-  /** A short-lived URL the browser can follow, or null to stream instead. */
-  downloadUrl(key: string, filename: string, contentType: string): Promise<string | null>;
+  /**
+   * Writes the bytes. Uploads go through the app rather than straight to the
+   * bucket from the browser: a presigned PUT is cross-origin, so it needs a
+   * CORS policy on the bucket, and it puts the one place that checks
+   * permissions outside the request that actually moves the bytes.
+   */
+  put(key: string, body: Uint8Array, contentType: string): Promise<void>;
   read(key: string): Promise<Uint8Array>;
   remove(key: string): Promise<void>;
 };
@@ -126,32 +128,14 @@ function r2Driver(config: NonNullable<ReturnType<typeof r2Config>>): Driver {
 
   return {
     name: "r2",
-    async uploadTarget(key, contentType) {
-      const url = await getSignedUrl(
-        client,
+    async put(key, body, contentType) {
+      await client.send(
         new PutObjectCommand({
           Bucket: config.bucket,
           Key: key,
+          Body: body,
           ContentType: contentType,
         }),
-        { expiresIn: 300 },
-      );
-      // The signature covers Content-Type, so the browser must send exactly
-      // the type that was signed.
-      return { url, headers: { "content-type": contentType } };
-    },
-    async downloadUrl(key, filename, contentType) {
-      return getSignedUrl(
-        client,
-        new GetObjectCommand({
-          Bucket: config.bucket,
-          Key: key,
-          // The stored type, which is the one that was checked at upload —
-          // never what the object happens to claim now.
-          ResponseContentType: contentType,
-          ResponseContentDisposition: dispositionFor(contentType, filename),
-        }),
-        { expiresIn: 300 },
       );
     },
     async read(key) {
@@ -178,13 +162,10 @@ function localPath(key: string) {
 function localDriver(): Driver {
   return {
     name: "local",
-    async uploadTarget(key) {
-      // No presigning on disk: the browser PUTs to a route in this app, which
-      // is the same shape of request it would send to R2.
-      return { url: `/api/attachments/local/${key}`, headers: {} };
-    },
-    async downloadUrl() {
-      return null; // Streamed by the download route instead.
+    async put(key, body) {
+      const file = localPath(key);
+      await mkdir(path.dirname(file), { recursive: true });
+      await writeFile(file, body);
     },
     async read(key) {
       return new Uint8Array(await readFile(localPath(key)));
@@ -193,13 +174,6 @@ function localDriver(): Driver {
       await unlink(localPath(key)).catch(() => {});
     },
   };
-}
-
-/** Only used by the local driver's upload route. */
-export async function writeLocalObject(key: string, body: Uint8Array) {
-  const file = localPath(key);
-  await mkdir(path.dirname(file), { recursive: true });
-  await writeFile(file, body);
 }
 
 export function storage(): Driver {

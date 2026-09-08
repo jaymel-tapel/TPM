@@ -7,8 +7,10 @@ import { dispositionFor, storage } from "@/lib/storage";
 
 /**
  * Every attachment read comes through here so it can be checked against the
- * same permission as the task. R2 hands back a short-lived signed URL and we
- * redirect; on disk we stream the bytes ourselves.
+ * same permission as the task, and the bytes are streamed rather than
+ * redirected to a signed bucket URL: that URL is cross-origin (so a browser
+ * will not fetch it without a CORS policy) and it stays valid after the check
+ * that produced it. Same reasoning as the upload route.
  */
 export async function GET(
   _request: Request,
@@ -28,11 +30,7 @@ export async function GET(
   // the right answer: they should not learn the attachment exists.
   await loadViewableTask(user, row.taskId);
 
-  const driver = storage();
-  const signed = await driver.downloadUrl(row.key, row.filename, row.contentType);
-  if (signed) return Response.redirect(signed, 302);
-
-  const body = await driver.read(row.key);
+  const body = await storage().read(row.key);
   return new Response(body as BodyInit, {
     headers: {
       "content-type": row.contentType,

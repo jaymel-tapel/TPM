@@ -2,38 +2,30 @@
 
 import { useRouter } from "next/navigation";
 import { AttachmentList, type AttachmentData } from "@meridian/ui";
-import { beginUpload, deleteAttachment, finishUpload } from "@/actions/attachments";
+import { deleteAttachment } from "@/actions/attachments";
 
 /**
- * The upload conversation, in one place: ask the server for a target, PUT the
- * bytes straight at it, then tell the server they landed. The editor's
- * drag-and-drop and this list both go through `uploadAttachment`, so a file is
- * recorded the same way whether it was dropped into the prose or onto the list.
+ * One POST carries the file, and the response carries back where to read it.
+ * The editor's drag-and-drop and the attachment list both call this, so a file
+ * is recorded the same way whether it was dropped into the prose or onto the
+ * list.
  */
 export async function uploadAttachment(taskId: string, file: File) {
-  const contentType = file.type || "application/octet-stream";
-  const begun = await beginUpload({
-    taskId,
-    filename: file.name,
-    contentType,
-    sizeBytes: file.size,
-  });
-  if (!begun.ok) throw new Error(begun.error);
+  const body = new FormData();
+  body.set("taskId", taskId);
+  body.set("file", file);
 
-  const response = await fetch(begun.url, {
-    method: "PUT",
-    headers: begun.headers,
-    body: file,
-  });
-  if (!response.ok) throw new Error("The file could not be uploaded.");
+  const response = await fetch("/api/attachments/upload", { method: "POST", body });
+  if (!response.ok) {
+    // The route explains itself in `error`; fall back only if it could not.
+    const message = await response
+      .json()
+      .then((d: { error?: string }) => d.error)
+      .catch(() => null);
+    throw new Error(message ?? "The file could not be uploaded.");
+  }
 
-  return finishUpload({
-    taskId,
-    key: begun.key,
-    filename: file.name,
-    contentType,
-    sizeBytes: file.size,
-  });
+  return (await response.json()) as { id: string; href: string };
 }
 
 export function TaskAttachments({
