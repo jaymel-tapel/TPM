@@ -29,6 +29,20 @@
       "when": 1788866990471,
       "tag": "0003_amazing_joseph",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788869606133,
+      "tag": "0004_salty_puff_adder",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1788869611841,
+      "tag": "0005_shocking_puck",
+      "breakpoints": true
     }
   ]
 }

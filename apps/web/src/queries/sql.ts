@@ -60,6 +60,8 @@ export type TaskCard = {
   type: string;
   priority: string;
   dueDate: Date;
+  estimateMinutes: number | null;
+  actualMinutes: number | null;
   completedAt: Date | null;
   teamId: string;
   boardId: string;
@@ -86,6 +88,7 @@ export type TaskCard = {
 export const taskCardSelect = sql`
   k.id, k.title, k.description, k.type, k.priority,
   k.due_date as "dueDate", k.completed_at as "completedAt",
+  k.estimate_minutes as "estimateMinutes", k.actual_minutes as "actualMinutes",
   k.team_id as "teamId", k.created_by as "createdBy",
   k.board_id as "boardId", b.name as "boardName",
   k.status_id as "statusId", s.name as "statusName", s.kind as "statusKind",

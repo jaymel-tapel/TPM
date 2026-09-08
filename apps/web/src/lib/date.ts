@@ -63,6 +63,22 @@ export function dueLabel(due: Date, reference: Date = now()): string {
   return `${fmt(due, "MMM d")}, ${fmtTime(due)}`;
 }
 
+/**
+ * "just now" / "2h ago" / "Sep 6". Coarse on purpose: a feed wants to convey
+ * recency, and a minute's precision on something from last week is noise.
+ */
+export function agoLabel(at: Date, reference: Date = now()): string {
+  const seconds = Math.max(0, Math.round((reference.getTime() - at.getTime()) / 1000));
+  if (seconds < 60) return "just now";
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.round(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return fmt(at, "MMM d");
+}
+
 export function greeting(reference: Date = now()): string {
   const hour = Number(fmt(reference, "H"));
   if (hour < 12) return "Good morning";

@@ -17,6 +17,7 @@ import {
   type TaskType,
 } from "@meridian/ui";
 import { RichTextEditor } from "@meridian/ui/editor";
+import { formatDuration, parseDuration } from "@/lib/duration";
 import type { FormState } from "@/actions/tasks";
 import { uploadAttachment } from "@/components/task-attachments";
 import { useDocMentionSource } from "@/components/doc-mention";
@@ -32,6 +33,9 @@ export type TaskFormValues = {
   type: string;
   boardId: string;
   statusId: string;
+  /** As typed — "2d 4h" — not minutes. The server parses it. */
+  estimate: string;
+  actual: string;
   priority: string;
   /** `datetime-local` string. */
   dueDate: string;
@@ -40,6 +44,13 @@ export type TaskFormValues = {
 };
 
 const label = "mb-2 block text-caption-strong uppercase tracking-[0.08em] text-gray-600";
+
+/** Echoes back what the server will understand, so nobody guesses. */
+function durationHint(value: string): string {
+  if (!value.trim()) return "e.g. 90m, 3h, 2d 4h, 1w";
+  const minutes = parseDuration(value);
+  return minutes === null ? "Not a duration" : `= ${formatDuration(minutes)}`;
+}
 
 /**
  * Screen 2, kept deliberately thin: the eight fields the brief lists and
@@ -71,7 +82,14 @@ export function TaskForm({
   const [type, setType] = useState(values.type);
   const [priority, setPriority] = useState(values.priority);
   const [boardId, setBoardId] = useState(values.boardId);
+  /*
+   * Still tracked, no longer shown. Status is set by the picker above the form
+   * on an existing task, and a new one lands in its board's first column — but
+   * the value still has to post, because that is what files the work.
+   */
   const [statusId, setStatusId] = useState(values.statusId);
+  const [estimate, setEstimate] = useState(values.estimate);
+  const [actual, setActual] = useState(values.actual);
   const mentionSource = useDocMentionSource();
 
   const columns = statusesByBoard[boardId] ?? [];
@@ -219,22 +237,42 @@ export function TaskForm({
               </SelectContent>
             </Select>
           </div>
+          {/*
+            Effort, not elapsed time: "1d" is a day's work. `lib/duration.ts`
+            owns that convention and the server parses the same way, so what is
+            echoed underneath is exactly what will be stored.
+          */}
           <div>
-            <Label className={label}>Status</Label>
-            <Select value={statusId} onValueChange={(v) => v && setStatusId(v)}>
-              <SelectTrigger className="w-full">
-                <SelectValue>
-                  {(v) => columns.find((c) => c.id === v)?.name ?? "Pick a status"}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {columns.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    <StatusBadge status={c} />
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label htmlFor="estimate" className={label}>
+              Estimated
+            </Label>
+            <Input
+              id="estimate"
+              name="estimate"
+              value={estimate}
+              onChange={(e) => setEstimate(e.target.value)}
+              placeholder="2d 4h"
+              aria-describedby="estimate-hint"
+            />
+            <p id="estimate-hint" className="mt-1 text-caption text-gray-600">
+              {durationHint(estimate)}
+            </p>
+          </div>
+          <div>
+            <Label htmlFor="actual" className={label}>
+              Actual
+            </Label>
+            <Input
+              id="actual"
+              name="actual"
+              value={actual}
+              onChange={(e) => setActual(e.target.value)}
+              placeholder="1d 6h"
+              aria-describedby="actual-hint"
+            />
+            <p id="actual-hint" className="mt-1 text-caption text-gray-600">
+              {durationHint(actual)}
+            </p>
           </div>
         </div>
 

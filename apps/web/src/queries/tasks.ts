@@ -1,7 +1,10 @@
 import "server-only";
 import { eq, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { boardStatuses, boards, teams, type StatusKind } from "@/db/schema";
+import { boardStatuses, boards, statusKindEnum, teams, type StatusKind } from "@/db/schema";
+
+const isStatusKind = (value: string): value is StatusKind =>
+  (statusKindEnum.enumValues as readonly string[]).includes(value);
 import { dayRange, now, pct } from "@/lib/date";
 import {
   boardScopeSql,
@@ -78,7 +81,18 @@ export async function listTasks(
   const { start, end } = dayRange(reference);
   const clauses = [scopeSql(scope)];
 
-  if (filters.status) clauses.push(sql`k.status = ${filters.status}`);
+  /*
+   * `s` is the joined board_statuses row. Filtering on a *kind* rather than a
+   * column id is what makes this work across boards that name things
+   * differently — the column this used to read was retired in 0005.
+   *
+   * The value is checked against the enum first: it arrives from a query
+   * string, and an unknown one would reach Postgres as an invalid enum literal
+   * and turn a typo in the URL into a 500.
+   */
+  if (filters.status && isStatusKind(filters.status)) {
+    clauses.push(sql`s.kind = ${filters.status}`);
+  }
   if (filters.type) clauses.push(sql`k.type = ${filters.type}`);
   if (filters.priority) clauses.push(sql`k.priority = ${filters.priority}`);
   if (filters.person) {

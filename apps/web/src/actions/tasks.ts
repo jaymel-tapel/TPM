@@ -4,16 +4,20 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
+import { parseDuration } from "@/lib/duration";
 import { db } from "@/db";
 import {
   boardStatuses,
   boards,
+  taskActivity,
   priorityEnum,
   taskAssignees,
   taskTags,
   taskTypeEnum,
   tags,
   tasks,
+  users,
+  type ActivityKind,
   type StatusKind,
 } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
@@ -33,6 +37,13 @@ const taskInput = z.object({
   boardId: z.string().uuid("Pick a board"),
   /** datetime-local value, read in the browser's own zone. */
   dueDate: z.string().min(1, "Pick a due date"),
+  /*
+   * Typed as people say it — "2d 4h" — and stored as minutes. An unparseable
+   * string is rejected rather than quietly dropped: somebody who typed
+   * something meant something by it.
+   */
+  estimate: z.string().trim().optional().nullable(),
+  actual: z.string().trim().optional().nullable(),
   assignees: z.array(z.string().uuid()).min(1, "Assign the task to someone"),
   tags: z.array(z.string().trim()).default([]),
 });
@@ -46,6 +57,8 @@ function parse(formData: FormData) {
     statusId: formData.get("statusId"),
     boardId: formData.get("boardId"),
     dueDate: formData.get("dueDate"),
+    estimate: formData.get("estimate"),
+    actual: formData.get("actual"),
     assignees: formData.getAll("assignees").map(String),
     tags: formData
       .getAll("tags")
@@ -83,6 +96,42 @@ function refresh() {
   revalidatePath("/", "layout");
 }
 
+/** "" and null both mean "not estimated"; anything else must actually parse. */
+function readDuration(value: string | null | undefined) {
+  if (value === null || value === undefined || value.trim() === "") {
+    return { ok: true as const, minutes: null };
+  }
+  const minutes = parseDuration(value);
+  return minutes === null
+    ? { ok: false as const, minutes: null }
+    : { ok: true as const, minutes };
+}
+
+/**
+ * One row on the task's stream. Labels are snapshots — the name a column had
+ * when this happened — so renaming or deleting it later cannot rewrite the
+ * past. See the note on `taskActivity` in the schema.
+ */
+async function recordActivity(entry: {
+  taskId: string;
+  actorId: string;
+  kind: ActivityKind;
+  fromLabel?: string | null;
+  toLabel?: string | null;
+  subjectName?: string | null;
+}) {
+  await db.insert(taskActivity).values(entry);
+}
+
+/** The column's name and kind, for both the write and the record of it. */
+async function statusLabel(statusId: string) {
+  const [row] = await db
+    .select({ name: boardStatuses.name, kind: boardStatuses.kind })
+    .from(boardStatuses)
+    .where(eq(boardStatuses.id, statusId));
+  return row ?? null;
+}
+
 export type FormState = { error?: string } | null;
 
 export async function createTask(_prev: FormState, formData: FormData): Promise<FormState> {
@@ -93,6 +142,11 @@ export async function createTask(_prev: FormState, formData: FormData): Promise<
 
   const status = await statusOnBoard(input.statusId, input.boardId);
   if (!status) return { error: "That status is not on that board." };
+
+  const estimate = readDuration(input.estimate);
+  const actual = readDuration(input.actual);
+  if (!estimate.ok) return { error: "Estimate should read like 2d 4h." };
+  if (!actual.ok) return { error: "Actual should read like 2d 4h." };
 
   // The task belongs to the team that owns the board it is filed on, so the
   // denormalised copy can never disagree with it.
@@ -114,6 +168,8 @@ export async function createTask(_prev: FormState, formData: FormData): Promise<
       boardId: input.boardId,
       statusId: status.id,
       dueDate: new Date(input.dueDate),
+      estimateMinutes: estimate.minutes,
+      actualMinutes: actual.minutes,
       completedAt: completionStamp(status.kind, null),
       createdBy: viewer.id,
       teamId: board.teamId,
@@ -125,6 +181,12 @@ export async function createTask(_prev: FormState, formData: FormData): Promise<
     .values(input.assignees.map((userId) => ({ taskId: task.id, userId })));
   await linkTags(task.id, input.tags);
   await syncMentionedDocs(viewer, task.id, input.description ?? null);
+  await recordActivity({
+    taskId: task.id,
+    actorId: viewer.id,
+    kind: "created",
+    toLabel: status.name,
+  });
 
   refresh();
   redirect(`/tasks/${task.id}`);
@@ -142,12 +204,30 @@ export async function updateTask(_prev: FormState, formData: FormData): Promise<
   const status = await statusOnBoard(input.statusId, input.boardId);
   if (!status) return { error: "That status is not on that board." };
 
+  const estimate = readDuration(input.estimate);
+  const actual = readDuration(input.actual);
+  if (!estimate.ok) return { error: "Estimate should read like 2d 4h." };
+  if (!actual.ok) return { error: "Actual should read like 2d 4h." };
+
   const [board] = await db
     .select({ teamId: boards.teamId })
     .from(boards)
     .where(eq(boards.id, input.boardId));
   if (!board) return { error: "Pick a board." };
   await assertCanViewTeam(viewer, board.teamId);
+
+  /*
+   * What actually changed, worked out before the write. Save rewrites every
+   * field whether or not it differs, so without this a save with no edits
+   * would post a handful of events saying nothing happened.
+   */
+  const wasStatus = existing.statusId === status.id ? null : await statusLabel(existing.statusId);
+  const boardMoved = existing.boardId !== input.boardId;
+  const before = await db
+    .select({ userId: taskAssignees.userId, name: users.name })
+    .from(taskAssignees)
+    .innerJoin(users, eq(users.id, taskAssignees.userId))
+    .where(eq(taskAssignees.taskId, taskId));
 
   await db
     .update(tasks)
@@ -160,6 +240,8 @@ export async function updateTask(_prev: FormState, formData: FormData): Promise<
       statusId: status.id,
       teamId: board.teamId,
       dueDate: new Date(input.dueDate),
+      estimateMinutes: estimate.minutes,
+      actualMinutes: actual.minutes,
       completedAt: completionStamp(status.kind, existing.completedAt),
       updatedAt: new Date(),
     })
@@ -171,6 +253,58 @@ export async function updateTask(_prev: FormState, formData: FormData): Promise<
     .values(input.assignees.map((userId) => ({ taskId, userId })));
   await linkTags(taskId, input.tags);
   await syncMentionedDocs(viewer, taskId, input.description ?? null);
+
+  if (wasStatus) {
+    await recordActivity({
+      taskId,
+      actorId: viewer.id,
+      kind: "status_changed",
+      fromLabel: wasStatus.name,
+      toLabel: status.name,
+    });
+  }
+  if (boardMoved) {
+    const [from] = await db
+      .select({ name: boards.name })
+      .from(boards)
+      .where(eq(boards.id, existing.boardId));
+    const [to] = await db
+      .select({ name: boards.name })
+      .from(boards)
+      .where(eq(boards.id, input.boardId));
+    await recordActivity({
+      taskId,
+      actorId: viewer.id,
+      kind: "board_changed",
+      fromLabel: from?.name ?? null,
+      toLabel: to?.name ?? null,
+    });
+  }
+
+  const had = new Map(before.map((a) => [a.userId, a.name]));
+  const now = new Set(input.assignees);
+  for (const userId of input.assignees) {
+    if (had.has(userId)) continue;
+    const [person] = await db
+      .select({ name: users.name })
+      .from(users)
+      .where(eq(users.id, userId));
+    await recordActivity({
+      taskId,
+      actorId: viewer.id,
+      kind: "assigned",
+      subjectName: person?.name ?? null,
+    });
+  }
+  for (const [userId, name] of had) {
+    if (now.has(userId)) continue;
+    await recordActivity({
+      taskId,
+      actorId: viewer.id,
+      kind: "unassigned",
+      subjectName: name,
+    });
+  }
 
   refresh();
   redirect(`/tasks/${taskId}`);
@@ -193,7 +327,12 @@ function completionStamp(kind: StatusKind, current: Date | null): Date | null {
  */
 async function statusOnBoard(statusId: string, boardId: string) {
   const [row] = await db
-    .select({ id: boardStatuses.id, kind: boardStatuses.kind, boardId: boardStatuses.boardId })
+    .select({
+      id: boardStatuses.id,
+      name: boardStatuses.name,
+      kind: boardStatuses.kind,
+      boardId: boardStatuses.boardId,
+    })
     .from(boardStatuses)
     .where(and(eq(boardStatuses.id, statusId), eq(boardStatuses.boardId, boardId)));
   return row ?? null;
@@ -202,7 +341,7 @@ async function statusOnBoard(statusId: string, boardId: string) {
 /** The column a board sends work to, by kind and then by its own order. */
 async function firstStatusOfKind(boardId: string, kind: StatusKind) {
   const [row] = await db
-    .select({ id: boardStatuses.id, kind: boardStatuses.kind })
+    .select({ id: boardStatuses.id, name: boardStatuses.name, kind: boardStatuses.kind })
     .from(boardStatuses)
     .where(and(eq(boardStatuses.boardId, boardId), eq(boardStatuses.kind, kind)))
     .orderBy(boardStatuses.position, boardStatuses.name)
@@ -226,6 +365,8 @@ export async function toggleTaskDone(formData: FormData) {
   const target = await firstStatusOfKind(task.boardId, done ? "open" : "done");
   if (!target) throw new Error(`Board has no ${done ? "open" : "done"} column`);
 
+  const from = await statusLabel(task.statusId);
+
   await db
     .update(tasks)
     .set({
@@ -234,6 +375,14 @@ export async function toggleTaskDone(formData: FormData) {
       updatedAt: new Date(),
     })
     .where(eq(tasks.id, taskId));
+
+  await recordActivity({
+    taskId,
+    actorId: viewer.id,
+    kind: done ? "reopened" : "completed",
+    fromLabel: from?.name ?? null,
+    toLabel: target.name,
+  });
 
   refresh();
 }
@@ -248,6 +397,12 @@ export async function setTaskStatus(formData: FormData) {
   // someone else's board, and the composite key would refuse it if it tried.
   const status = await statusOnBoard(statusId, task.boardId);
   if (!status) throw new Error("That status is not on this task's board");
+  // Clicking the column a task is already in is not an event.
+  if (status.id === task.statusId) return;
+
+  const from = await statusLabel(task.statusId);
+  const wasDone = task.completedAt !== null;
+  const nowDone = status.kind === "done";
 
   await db
     .update(tasks)
@@ -257,6 +412,16 @@ export async function setTaskStatus(formData: FormData) {
       updatedAt: new Date(),
     })
     .where(eq(tasks.id, taskId));
+
+  // Crossing into or out of done is the more interesting fact; a move between
+  // two open columns is just a move.
+  await recordActivity({
+    taskId,
+    actorId: viewer.id,
+    kind: nowDone && !wasDone ? "completed" : !nowDone && wasDone ? "reopened" : "status_changed",
+    fromLabel: from?.name ?? null,
+    toLabel: status.name,
+  });
 
   refresh();
 }

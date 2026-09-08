@@ -31,17 +31,6 @@ export const roleEnum = pgEnum("role", [
  */
 export const statusKindEnum = pgEnum("status_kind", ["open", "done", "blocked"]);
 
-/**
- * Retired. Still declared so the migration that introduces `status_kind` is
- * unambiguous — dropped on its own in the migration right after, once nothing
- * references it. Do not use.
- */
-export const taskStatusEnum = pgEnum("task_status", [
-  "todo",
-  "in_progress",
-  "done",
-  "blocked",
-]);
 
 export const priorityEnum = pgEnum("priority", ["normal", "high", "urgent"]);
 
@@ -139,8 +128,6 @@ export const tasks = pgTable(
     description: text("description"),
     type: taskTypeEnum("type").notNull().default("internal"),
     priority: priorityEnum("priority").notNull().default("normal"),
-    /** Retired alongside `taskStatusEnum` in the next migration. Do not use. */
-    status: taskStatusEnum("status").notNull().default("todo"),
     boardId: uuid("board_id")
       .notNull()
       .references(() => boards.id),
@@ -148,6 +135,13 @@ export const tasks = pgTable(
       .notNull()
       .references(() => boardStatuses.id),
     dueDate: timestamp("due_date", { withTimezone: true }).notNull(),
+    /*
+     * Effort, in minutes. Nullable because most work is never estimated, and
+     * zero is a real answer that must not be confused with "nobody said".
+     * Parsed and rendered by `lib/duration.ts`, where a day is eight hours.
+     */
+    estimateMinutes: integer("estimate_minutes"),
+    actualMinutes: integer("actual_minutes"),
     createdBy: uuid("created_by")
       .notNull()
       .references(() => users.id),
@@ -230,6 +224,58 @@ export const taskAttachments = pgTable(
       .defaultNow(),
   },
   (t) => [index("task_attachments_task_idx").on(t.taskId)],
+);
+
+export const activityKindEnum = pgEnum("activity_kind", [
+  "comment",
+  "created",
+  "status_changed",
+  "completed",
+  "reopened",
+  "assigned",
+  "unassigned",
+  "board_changed",
+]);
+
+/**
+ * One task's history: what people said and what happened, in one stream.
+ *
+ * One table rather than comments and events kept apart. The feed is a single
+ * ordered list, and two tables would mean a UNION ordered by time on every
+ * read — the shape that gets slow and awkward exactly as it grows.
+ *
+ * Event detail is *snapshotted as text*, never referenced. `fromLabel` and
+ * `toLabel` hold a column's name as it read at the time. An Account Director
+ * can rename a column or delete it outright, and `deleteColumn` only checks
+ * whether tasks sit in it *now* — so a foreign key here would either block
+ * that delete or cascade the history away. "Sarah moved this to In Progress"
+ * has to keep reading correctly afterwards. The docs feature made the same
+ * call, denormalising a document's title into its mention chip.
+ */
+export const taskActivity = pgTable(
+  "task_activity",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    taskId: uuid("task_id")
+      .notNull()
+      .references(() => tasks.id, { onDelete: "cascade" }),
+    // No cascade: people are not deleted out from under the record of what
+    // they did.
+    actorId: uuid("actor_id")
+      .notNull()
+      .references(() => users.id),
+    kind: activityKindEnum("kind").notNull(),
+    /** BlockNote JSON, on comments only. Null on every event. */
+    body: text("body"),
+    fromLabel: text("from_label"),
+    toLabel: text("to_label"),
+    /** Who an assignment was about, as their name read at the time. */
+    subjectName: text("subject_name"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("task_activity_task_idx").on(t.taskId, t.createdAt)],
 );
 
 export const tags = pgTable("tags", {
@@ -340,6 +386,8 @@ export const taskDocuments = pgTable(
 
 export type Role = (typeof roleEnum.enumValues)[number];
 export type StatusKind = (typeof statusKindEnum.enumValues)[number];
+export type ActivityKind = (typeof activityKindEnum.enumValues)[number];
+export type Activity = typeof taskActivity.$inferSelect;
 export type Priority = (typeof priorityEnum.enumValues)[number];
 export type TaskType = (typeof taskTypeEnum.enumValues)[number];
 
