@@ -1,6 +1,8 @@
 import "server-only";
 import type {
   ActivityItemData,
+  ChatMessageData,
+  RoomListItemData,
   SubtaskData,
   AvailabilityData,
   LeaveRequestData,
@@ -18,7 +20,16 @@ import type {
   TaskRowData,
   TaskType,
 } from "@meridian/ui";
-import { agoLabel, dueLabel, fmtTime, now, startOfAppDay, type Zone } from "@/lib/date";
+import {
+  agoLabel,
+  dueLabel,
+  fmt,
+  fmtTime,
+  isSameAppDay,
+  now,
+  startOfAppDay,
+  type Zone,
+} from "@/lib/date";
 import { dayKey, leaveDays, lengthText, rangeText, spanDays } from "@/lib/leave";
 import type { Role, User } from "@/db/schema";
 import { formatDuration } from "@/lib/duration";
@@ -31,6 +42,7 @@ import type { AttentionItem } from "@/queries/attention";
 import type { ActivityEntry } from "@/queries/activity";
 import type { InboxEntry } from "@/queries/notifications";
 import type { PlanEntry } from "@/queries/schedule";
+import type { ChatMessageRow, RoomSummary } from "@/queries/chat";
 import type {
   DocBacklink,
   DocRef,
@@ -339,4 +351,69 @@ export function toSubtask(task: TaskCard, reference: Date = now(), zone?: Zone):
     overdue: !done && task.dueDate < startOfAppDay(reference, zone),
     assignees: task.assignees,
   };
+}
+
+/** One room in the list beside a conversation. */
+export function toRoomListItem(
+  room: RoomSummary,
+  activeId: string | null,
+  reference: Date = now(),
+  zone?: Zone,
+): RoomListItemData {
+  return {
+    id: room.id,
+    href: `/chat/${room.id}`,
+    title: room.title,
+    kind: room.kind,
+    excerpt: room.excerpt,
+    when: room.lastAt ? agoLabel(room.lastAt, reference, zone) : "",
+    unread: room.unread,
+    active: room.id === activeId,
+  };
+}
+
+/** Messages a run at a time: the same person, minutes apart, reads as one turn. */
+const RUN_MINUTES = 5;
+
+/**
+ * The heading a day divider carries.
+ *
+ * Named where a name is what people use, dated where it is not — nobody says
+ * "the fourteenth" about this morning, and nobody says "Tuesday" about a
+ * Tuesday three weeks ago.
+ */
+export function chatDayLabel(at: Date, reference: Date = now(), zone?: Zone): string {
+  if (isSameAppDay(at, reference, zone)) return "Today";
+  const yesterday = new Date(startOfAppDay(reference, zone).getTime() - 1);
+  if (isSameAppDay(at, yesterday, zone)) return "Yesterday";
+  // Within the week just gone, the weekday is the most useful name it has.
+  const weekAgo = startOfAppDay(reference, zone).getTime() - 6 * 86_400_000;
+  if (at.getTime() >= weekAgo) return fmt(at, "EEEE", zone);
+  return fmt(at, "EEEE, MMMM d", zone);
+}
+
+export function toChatMessages(
+  rows: ChatMessageRow[],
+  viewerId: string,
+  reference: Date = now(),
+  zone?: Zone,
+): ChatMessageData[] {
+  return rows.map((row, i) => {
+    const before = rows[i - 1];
+    const newDay = !before || !isSameAppDay(before.createdAt, row.createdAt, zone);
+    return {
+      id: row.id,
+      authorName: row.authorName,
+      body: row.body,
+      // The clock time, not "3 hours ago": in a conversation you want to know
+      // when it was said, and the day divider above already says which day.
+      when: fmtTime(row.createdAt, zone),
+      mine: row.authorId === viewerId,
+      continues:
+        Boolean(before) &&
+        before!.authorId === row.authorId &&
+        row.createdAt.getTime() - before!.createdAt.getTime() < RUN_MINUTES * 60_000,
+      dayLabel: newDay ? chatDayLabel(row.createdAt, reference, zone) : null,
+    };
+  });
 }

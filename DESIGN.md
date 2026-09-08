@@ -148,6 +148,32 @@ In Tailwind: `1 2 3 4 6 8 12 16 24`. Half steps (`1.5`, `3.5`), `5`, `7`, `9`,
 
 ---
 
+## Motion
+
+Fluent's durations and curves. Three steps, because a tool people keep open all
+day should move enough to acknowledge what they did and then stop.
+
+```
+duration-faster   100ms   a state change — colour, opacity, a tick
+duration-fast     150ms   a thing moving aside to make room
+duration-normal   200ms   a thing arriving or leaving
+
+ease-standard     cubic-bezier(.33, 0, .67, 1)   Fluent's easy-ease
+ease-decelerate   cubic-bezier(.1, .9, .2, 1)    entering: fast in, settles
+```
+
+Nothing is animated for decoration. Movement earns its place by telling you
+something happened — a card moving aside is saying where the one you are
+dragging will land.
+
+**Reduced motion is honoured, and not only in CSS.** `theme.css` flattens every
+transition and animation to `0.01ms` under `prefers-reduced-motion`, which
+covers class-based and inline styles alike. Anything scripted — a drag overlay's
+drop animation, say — has to check `matchMedia` itself and skip the animation
+rather than shorten it.
+
+---
+
 ## Radius
 
 Fluent's four steps. Squarer than a consumer system, which is what keeps a

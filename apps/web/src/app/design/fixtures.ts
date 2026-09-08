@@ -6,12 +6,13 @@ import type {
   DocRefData,
   AttentionItemData,
   MemberRowData,
-  AvailabilityRowData,
   LeaveRequestData,
   ActivityItemData,
   InboxItemData,
   PlanBlockData,
   SubtaskData,
+  ChatMessageData,
+  RoomListItemData,
   DayChipData,
   AttachmentData,
   BoardData,
@@ -100,10 +101,23 @@ export const TASKS: Record<string, TaskRowData> = {
 
 export const MEMBERS: MemberRowData[] = [
   { id: "m1", href: "#", name: "Sarah Lim", role: "account_director", due: 4, done: 3, overdue: 0, remaining: 1, percent: 75 },
-  { id: "m2", href: "#", name: "Anna Santos", role: "team_member", due: 6, done: 5, overdue: 0, remaining: 1, percent: 83 },
+  { id: "m2", href: "#", name: "Anna Santos", role: "team_member", due: 6, done: 6, overdue: 0, remaining: 0, percent: 100 },
   { id: "m3", href: "#", name: "James Cruz", role: "team_member", due: 7, done: 3, overdue: 7, remaining: 4, percent: 43 },
+  { id: "m4", href: "#", name: "Paolo Rivera", role: "team_member", due: 0, done: 0, overdue: 0, remaining: 0, percent: 0 },
   {
-    id: "m4",
+    id: "m5",
+    // Not a link: a team member may open their own day and nobody else's.
+    href: null,
+    name: "Camille Yap",
+    role: "team_member",
+    due: 5,
+    done: 2,
+    overdue: 1,
+    remaining: 3,
+    percent: 40,
+  },
+  {
+    id: "m6",
     href: "#",
     name: "Sofia Reyes",
     role: "team_member",
@@ -118,24 +132,21 @@ export const MEMBERS: MemberRowData[] = [
   },
 ];
 
-export const AVAILABILITY: AvailabilityRowData[] = [
-  { id: "a1", href: "#", name: "Sarah Lim", role: "account_director", away: null },
-  {
-    id: "a2",
-    href: "#",
-    name: "Anna Santos",
-    role: "team_member",
-    away: { away: "full", kind: "vacation", label: "Away today" },
-  },
-  {
-    id: "a3",
-    // Not a link: a team member may open their own day and nobody else's.
-    href: null,
-    name: "James Cruz",
-    role: "team_member",
-    away: { away: "am", kind: "personal", label: "Away this morning" },
-  },
-  { id: "a4", href: null, name: "Sofia Reyes", role: "team_member", away: null },
+/** The bar on its own, so every proportion can be read side by side. */
+export const WORK_BARS: {
+  label: string;
+  done: number;
+  remaining: number;
+  overdue: number;
+  muted?: boolean;
+}[] = [
+  { label: "A day in progress", done: 3, remaining: 2, overdue: 1 },
+  { label: "Nothing done, half late", done: 0, remaining: 2, overdue: 2 },
+  { label: "Finished", done: 6, remaining: 0, overdue: 0 },
+  { label: "All carried over", done: 0, remaining: 0, overdue: 4 },
+  { label: "All still to do", done: 0, remaining: 5, overdue: 0 },
+  { label: "Nothing due", done: 0, remaining: 0, overdue: 0 },
+  { label: "Away", done: 0, remaining: 2, overdue: 1, muted: true },
 ];
 
 export const LEAVE_REQUESTS: LeaveRequestData[] = [
@@ -583,5 +594,79 @@ export const SUBTASKS: SubtaskData[] = [
     dueText: "Yesterday, 5:00 PM",
     overdue: true,
     assignees: [{ id: "u-sofia", name: "Sofia Reyes" }],
+  },
+];
+
+export const CHAT_ROOMS: RoomListItemData[] = [
+  {
+    id: "r1",
+    href: "#",
+    title: "Sarah Lim",
+    kind: "direct",
+    excerpt: "Are we still on for Thursday?",
+    when: "2m ago",
+    unread: 2,
+    active: true,
+  },
+  {
+    id: "r2",
+    href: "#",
+    title: "Company retro",
+    kind: "channel",
+    excerpt: "Anna: I'll put the notes in Docs",
+    when: "1h ago",
+    unread: 0,
+    active: false,
+  },
+  {
+    id: "r3",
+    href: "#",
+    title: "Michael Ortega",
+    kind: "direct",
+    excerpt: null,
+    when: "",
+    unread: 0,
+    active: false,
+  },
+];
+
+export const CHAT_MESSAGES: ChatMessageData[] = [
+  {
+    id: "m0",
+    authorName: "Sarah Lim",
+    body: "Sending you the Northline notes now.",
+    when: "4:20 PM",
+    mine: false,
+    continues: false,
+    // The first message of a day carries the divider above it.
+    dayLabel: "Yesterday",
+  },
+  {
+    id: "m1",
+    authorName: "Sarah Lim",
+    body: "Northline moved the review to Thursday.",
+    when: "9:04 AM",
+    mine: false,
+    continues: false,
+    dayLabel: "Today",
+  },
+  {
+    // A run from one person: the face and the name appear once.
+    id: "m2",
+    authorName: "Sarah Lim",
+    body: "Are we still on for Thursday?",
+    when: "9:04 AM",
+    mine: false,
+    continues: true,
+    dayLabel: null,
+  },
+  {
+    id: "m3",
+    authorName: "Anna Santos",
+    body: "Yes — I'll have the deck by Wednesday evening.",
+    when: "9:12 AM",
+    mine: true,
+    continues: false,
+    dayLabel: null,
   },
 ];

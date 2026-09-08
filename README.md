@@ -68,8 +68,9 @@ levels from a single login. It is gated behind
 | `/design` | **Design system** | Every component, in every state. No auth required. |
 | `/today` | **My Day** | What's left, what's done, one honest percentage. |
 | `/my-tasks` | My Tasks | Everything open plus today's completions, with compact filters. |
-| `/team` | **Team Today** | An Account Director's team in one screen. |
+| `/team` | **Team Today** | An Account Director's team in one screen. A team member opens the same route and gets the same roster, without the management screen around it. |
 | `/team/[id]` | Person | Anyone's day, for a director who can see them. |
+| `/leave` | Leave | File for time off, and settle what is waiting on you. |
 | `/overview` | **Department** | The Senior Director's hero, team comparison and exceptions. |
 | `/teams` | Teams | Both teams side by side. |
 | `/reports` | Report | Six metrics and exactly one chart. |
@@ -105,10 +106,24 @@ UI can never disagree about where a day begins.
 ## Data model
 
 `users`, `teams`, `tasks`, `task_assignees`, `tags`, `task_tags` — the tables
-the brief names, and no others. Assignment is many-to-many through
+the brief names. Assignment is many-to-many through
 `task_assignees`; there is deliberately no `assignee_id` on `tasks`, because one
 task can belong to several people. Completing a shared task completes it for
 everyone assigned.
+
+`leave_requests` is the one table here the brief does not name. Its dates are
+`date` columns rather than timestamps, which is the opposite choice to
+`task_schedule` and deliberately so: a plan block is a moment on somebody's
+clock, and two people in different zones may honestly disagree about whether a
+task was late. Leave is the other case — "Anna is off on the 14th" has to be
+true for her director in London and for her in Manila, or a rota is a rumour.
+
+**Leave says who is in, never how much they can take on.** It does not enter
+`queries/reports.ts`, does not adjust a completion rate and does not weight a
+workload. A person's percentage is dimmed on a day they were away, because that
+figure is not a fact about them — but it is the same number the rollup counted.
+The moment a screen reads "Anna is at 60% capacity this week because she is off
+Thursday", this has become the workload forecasting the brief refuses.
 
 ---
 

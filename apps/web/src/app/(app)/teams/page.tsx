@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Progress } from "@meridian/ui/primitives/progress";
 import {
+  LeaveRequestList,
+  LeaveRequestRow,
   MemberList,
   MemberRow,
   PageHeader,
@@ -14,7 +16,9 @@ import { requireSession } from "@/lib/auth";
 import { isSenior } from "@/lib/permissions";
 import { getDepartmentToday } from "@/queries/department";
 import { getTeamToday } from "@/queries/team";
-import { toMemberRow } from "@/lib/present";
+import { toLeaveRequest, toMemberRow } from "@/lib/present";
+import { listPendingFor } from "@/queries/leave";
+import { LeaveDecision } from "@/components/leave-buttons";
 import { fmtLongDate, now } from "@/lib/date";
 
 export const dynamic = "force-dynamic";
@@ -24,8 +28,15 @@ export default async function TeamsPage() {
   const { user, zone } = await requireSession();
   if (!isSenior(user)) notFound();
 
+  const reference = now(zone);
   const dept = await getDepartmentToday(undefined, zone);
-  const rosters = await Promise.all(dept.teams.map((t) => getTeamToday(t.id, undefined, zone)));
+  const [rosters, pending] = await Promise.all([
+    Promise.all(dept.teams.map((t) => getTeamToday(t.id, undefined, zone))),
+    // Whose leave only the Senior Director can settle: both Account
+    // Directors'. Nobody signs off their own, so this queue exists precisely
+    // because the org chart runs out above them.
+    listPendingFor(user),
+  ]);
 
   return (
     <>
@@ -74,12 +85,29 @@ export default async function TeamsPage() {
               </SectionHeader>
               <MemberList>
                 {team.members.map((m) => (
-                  <MemberRow key={m.id} member={toMemberRow(m)} />
+                  <MemberRow key={m.id} member={toMemberRow(m, "/team", reference, zone)} />
                 ))}
               </MemberList>
             </section>
           ) : null,
         )}
+
+        {pending.length > 0 ? (
+          <section>
+            <SectionHeader aside={`${pending.length} awaiting you`}>
+              Leave requests
+            </SectionHeader>
+            <LeaveRequestList empty="Nothing is waiting on you.">
+              {pending.map((row) => (
+                <LeaveRequestRow
+                  key={row.id}
+                  request={toLeaveRequest(row, user, reference, zone)}
+                  actions={<LeaveDecision id={row.id} />}
+                />
+              ))}
+            </LeaveRequestList>
+          </section>
+        ) : null}
       </div>
     </>
   );

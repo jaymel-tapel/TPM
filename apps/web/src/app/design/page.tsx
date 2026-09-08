@@ -21,13 +21,12 @@ import {
   Eyebrow,
   HeroPanel,
   HighlightMetric,
-  AvailabilityList,
-  AvailabilityRow,
   LeaveRequestList,
   LeaveRequestRow,
   MemberList,
   MemberListSkeleton,
   MemberRow,
+  WorkBar,
   NeedsAttention,
   PageHeader,
   Panel,
@@ -43,6 +42,8 @@ import {
   DayPlan,
   DayStrip,
   SubtaskList,
+  ChatThread,
+  RoomList,
   AttachmentList,
   DocBacklinkList,
   DocRefList,
@@ -86,9 +87,11 @@ import {
   DAY_PLAN,
   DAY_CHIPS,
   SUBTASKS,
+  CHAT_ROOMS,
+  CHAT_MESSAGES,
   DAY_PLAN_HOURS,
-  AVAILABILITY,
   LEAVE_REQUESTS,
+  WORK_BARS,
 } from "./fixtures";
 import { DocRefListDemo } from "./doc-refs-demo";
 
@@ -671,6 +674,27 @@ export default function DesignSystemPage() {
           </div>
         </Block>
 
+        <Block title="Chat" note="For the things that are not about one task">
+          <p className="mb-6 max-w-prose text-caption text-gray-700">
+            The brief rules chat out, and is right about what it was aiming at:
+            a messaging product bolted on, with threads and reactions and
+            presence to learn. It was not aiming at &ldquo;are we still on for
+            Thursday&rdquo;, which today has nowhere to go and so goes somewhere
+            else, taking the context with it. So: plain text, two kinds of room,
+            an unread count, and nothing else. A run of messages from one person
+            shows their face once. Unread is a weight and a dot, never colour
+            alone.
+          </p>
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
+            <div className="overflow-hidden rounded-xl border border-gray-400 bg-background-100">
+              <RoomList rooms={CHAT_ROOMS} />
+            </div>
+            <div className="h-80">
+              <ChatThread messages={CHAT_MESSAGES} />
+            </div>
+          </div>
+        </Block>
+
         <Block title="Inbox" note="What still needs you, and nothing that does not">
           <p className="mb-6 max-w-prose text-caption text-gray-700">
             An <code>@</code> mention is addressed to someone, so it has to leave
@@ -727,20 +751,28 @@ export default function DesignSystemPage() {
           </Row>
         </Block>
 
-        <Block title="Team roster" note="The whole row is the click target">
+        <Block title="Work bar" note="Done and overdue are painted; what is left is the gap">
+          <div className="space-y-4">
+            {WORK_BARS.map((b) => (
+              <div key={b.label} className="grid gap-2 sm:grid-cols-[200px_minmax(0,1fr)] sm:items-center sm:gap-6">
+                <div className="text-caption text-gray-600">{b.label}</div>
+                <WorkBar
+                  done={b.done}
+                  remaining={b.remaining}
+                  overdue={b.overdue}
+                  muted={b.muted}
+                />
+              </div>
+            ))}
+          </div>
+        </Block>
+
+        <Block title="Team roster" note="A row is a link only where there is somewhere to go">
           <MemberList>
             {MEMBERS.map((m) => (
               <MemberRow key={m.id} member={m} />
             ))}
           </MemberList>
-        </Block>
-
-        <Block title="Availability" note="Being off is a state, not a warning, so it is grey">
-          <AvailabilityList>
-            {AVAILABILITY.map((p) => (
-              <AvailabilityRow key={p.id} person={p} />
-            ))}
-          </AvailabilityList>
         </Block>
 
         <Block title="Leave requests" note="Every state, including the two nobody wants">

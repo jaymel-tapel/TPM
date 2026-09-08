@@ -25,7 +25,14 @@ export function DayStrip({ days }: { days: DayChipData[] }) {
     <nav aria-label="Pick a day" className="mb-3 flex gap-1">
       {days.map((d) => (
         <Link
-          key={d.href}
+          /*
+           * Keyed by the day, not by the href. A chip's identity is the date
+           * it stands for; the link is only where clicking it goes, and any
+           * caller that renders a strip without distinct hrefs — the design
+           * gallery does, with seven `#` — silently collapses six of the
+           * seven chips into one.
+           */
+          key={`${d.weekday}-${d.day}`}
           href={d.href}
           aria-current={d.active ? "page" : undefined}
           className={cn(

@@ -33,7 +33,8 @@ export type NavIcon =
   | "teams"
   | "reports"
   | "overview"
-  | "admin";
+  | "admin"
+  | "chat";
 export type NavChild = {
   /** Absent on a row that only groups the rows beneath it. */
   href?: string;
@@ -55,6 +56,12 @@ export type NavItem = {
   label: string;
   icon: NavIcon;
   /**
+   * An unread badge. Filled in by the layout, like `children` — this module
+   * runs no queries. Chat is the only item that carries one; everything else
+   * in the rail is a place rather than a queue.
+   */
+  count?: number;
+  /**
    * Filled in by the layout from the org chart, not declared here — this
    * module has no business running a query. A group with no children renders
    * as a plain link, so a role that has nothing to expand shows no chevron.
@@ -71,6 +78,12 @@ export function navFor(role: Role): NavItem[] {
     case "senior_director":
       return [
         { href: "/overview", label: "Overview", icon: "overview" },
+        /*
+         * Above the groups that open. Teams and Boards each expand into a list,
+         * so anything under them moves as those lists grow — and the one item
+         * carrying an unread count is the one that has to sit still.
+         */
+        { href: "/chat", label: "Chat", icon: "chat" },
         // Every team's boards, not one team's. The rail is the quickest way
         // into a client's work, and the person who spans both teams is the one
         // who most often has to cross between them — so it comes before the
@@ -85,6 +98,9 @@ export function navFor(role: Role): NavItem[] {
     case "account_director":
       return [
         { href: "/today", label: "Today", icon: "today" },
+        // Above Boards, which expands into a list that pushes everything under
+        // it down as boards are made.
+        { href: "/chat", label: "Chat", icon: "chat" },
         { href: "/boards", label: "Boards", icon: "boards" },
         { href: "/team", label: "Team", icon: "team" },
         { href: "/docs", label: "Docs", icon: "docs" },
@@ -93,6 +109,7 @@ export function navFor(role: Role): NavItem[] {
     default:
       return [
         { href: "/today", label: "Today", icon: "today" },
+        { href: "/chat", label: "Chat", icon: "chat" },
         { href: "/boards", label: "Boards", icon: "boards" },
         /*
          * A team member's Team is not the Account Director's Team. The rollup

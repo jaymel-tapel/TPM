@@ -1,6 +1,9 @@
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
+  chatMembers,
+  chatMessages,
+  chatRooms,
   boardStatuses,
   boards,
   taskActivity,
@@ -53,7 +56,7 @@ export const statusId = (boardId: string, column: Column) =>
 
 export async function resetDb() {
   await db.execute(
-    sql`truncate leave_requests, task_schedule, notifications, task_activity, task_documents, documents, task_tags, task_assignees, task_attachments, tasks, board_statuses, boards, tags, users, teams restart identity cascade`,
+    sql`truncate chat_messages, chat_members, chat_rooms, leave_requests, task_schedule, notifications, task_activity, task_documents, documents, task_tags, task_assignees, task_attachments, tasks, board_statuses, boards, tags, users, teams restart identity cascade`,
   );
 }
 
@@ -328,4 +331,48 @@ export async function addLeave(opts: {
   });
 
   return id;
+}
+
+/** A room and its members. `direct` pairs are keyed the way the action keys them. */
+export async function addRoom(opts: {
+  kind: "direct" | "channel";
+  members: string[];
+  name?: string;
+}) {
+  const directKey =
+    opts.kind === "direct" ? [...opts.members].sort().join(":") : null;
+  const [room] = await db
+    .insert(chatRooms)
+    .values({
+      kind: opts.kind,
+      name: opts.name ?? null,
+      directKey,
+      createdBy: opts.members[0]!,
+    })
+    .returning({ id: chatRooms.id });
+
+  await db
+    .insert(chatMembers)
+    .values(opts.members.map((userId) => ({ roomId: room!.id, userId })));
+  return room!.id;
+}
+
+/** One message, at a chosen moment so unread cursors can be tested. */
+export async function addMessage(opts: {
+  roomId: string;
+  authorId: string;
+  body?: string;
+  minutesAgo?: number;
+}) {
+  const at = new Date(NOW.getTime() - (opts.minutesAgo ?? 0) * 60_000);
+  const [row] = await db
+    .insert(chatMessages)
+    .values({
+      roomId: opts.roomId,
+      authorId: opts.authorId,
+      body: opts.body ?? "hello",
+      createdAt: at,
+    })
+    .returning({ id: chatMessages.id });
+  return row!.id;
 }

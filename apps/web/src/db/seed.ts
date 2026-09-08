@@ -7,6 +7,7 @@ import {
   documents,
   folders,
   taskDocuments,
+  leaveRequests,
   tags,
   taskAssignees,
   taskTags,
@@ -19,6 +20,7 @@ import {
 import { eq } from "drizzle-orm";
 import { DEMO_PASSWORD } from "../lib/constants";
 import { lastNDays, now, startOfAppDay } from "../lib/date";
+import { dayKey } from "../lib/leave";
 import { toPlainText } from "@meridian/ui/editor";
 
 /**
@@ -274,6 +276,7 @@ async function main() {
   const days = lastNDays(HISTORY_DAYS, reference); // oldest first, today last
 
   console.log("Clearing existing data…");
+  await db.delete(leaveRequests);
   await db.delete(taskDocuments);
   await db.delete(documents);
   await db.delete(folders);
@@ -324,12 +327,22 @@ async function main() {
    * One board per team, with the four columns that used to be the status
    * enum. Boards are now where work lives, so the seed has to create them
    * before it can create a task.
+   *
+   * Named for the work, not for the team that owns it. A board called "Team A"
+   * sitting inside a group called "Team A" reads as a mistake, and in the
+   * Senior Director's rail — where both teams' boards are listed under their
+   * teams — it was one line saying the same word twice.
    */
   const boardRows = await db
     .insert(boards)
     .values([
-      { teamId: teamA.id, name: "Team A", position: 0, createdBy: idOf("Sarah Lim") },
-      { teamId: teamB.id, name: "Team B", position: 0, createdBy: idOf("Michael Ortega") },
+      { teamId: teamA.id, name: "Brand & Creative", position: 0, createdBy: idOf("Sarah Lim") },
+      {
+        teamId: teamB.id,
+        name: "Performance & Media",
+        position: 0,
+        createdBy: idOf("Michael Ortega"),
+      },
     ])
     .returning();
   const boardOf = { A: boardRows[0]!, B: boardRows[1]! } as const;
@@ -722,7 +735,7 @@ async function main() {
   // One loose document, so the top level is not only folders.
   await writeDoc({
     title: "Holidays",
-    lines: ["Book it, tell your director, put it on the board. That is the whole process."],
+    lines: ["File it under Leave. Your director approves it. That is the whole process."],
     author: "Elena Rivera",
   });
 
@@ -768,6 +781,109 @@ async function main() {
       .values({ taskId: teamATasks[1].id!, documentId: runbookA.id, source: "attached" as const })
       .onConflictDoNothing();
   }
+
+  console.log("Booking leave…");
+
+  /*
+   * Enough leave that the feature is visible the moment you sign in, and
+   * shaped so the org chart explains itself: somebody is off right now on
+   * both teams, Sarah has a queue, and Sarah's own request can only be
+   * settled by Elena.
+   *
+   * Offsets are days from the seed's own today, so the demo is always
+   * relative to when it was built rather than to a date in the past.
+   */
+  const on = (offset: number) => dayKey(new Date(today.getTime() + offset * 24 * HOUR));
+
+  await db.insert(leaveRequests).values([
+    // Away right now, so `/team` and `/teams` both show a marker on load.
+    {
+      userId: idOf("Sofia Reyes"),
+      kind: "vacation" as const,
+      startDate: on(0),
+      endDate: on(1),
+      status: "approved" as const,
+      decidedBy: idOf("Sarah Lim"),
+      decidedAt: new Date(today.getTime() - 5 * 24 * HOUR),
+    },
+    // The half-day marker, without anyone having to click for it.
+    {
+      userId: idOf("Rafael Ong"),
+      kind: "personal" as const,
+      startDate: on(0),
+      endDate: on(0),
+      half: "am" as const,
+      status: "approved" as const,
+      decidedBy: idOf("Sarah Lim"),
+      decidedAt: new Date(today.getTime() - 2 * 24 * HOUR),
+    },
+    // Sarah's queue, one of each shape.
+    {
+      userId: idOf("Marco Ilagan"),
+      kind: "vacation" as const,
+      startDate: on(7),
+      endDate: on(9),
+      status: "pending" as const,
+      note: "Booked flights back in June.",
+    },
+    {
+      userId: idOf("Bea Fernandez"),
+      kind: "personal" as const,
+      startDate: on(10),
+      endDate: on(10),
+      half: "pm" as const,
+      status: "pending" as const,
+    },
+    // Something in "Coming up" that is not also away today.
+    {
+      userId: idOf("Nadine Chua"),
+      kind: "vacation" as const,
+      startDate: on(10),
+      endDate: on(12),
+      status: "approved" as const,
+      decidedBy: idOf("Sarah Lim"),
+      decidedAt: new Date(today.getTime() - 9 * 24 * HOUR),
+    },
+    // The two outcomes nobody wants, so every state is reachable on /leave.
+    {
+      userId: idOf("Kevin Dizon"),
+      kind: "unpaid" as const,
+      startDate: on(-9),
+      endDate: on(-7),
+      status: "declined" as const,
+      decidedBy: idOf("Sarah Lim"),
+      decidedAt: new Date(today.getTime() - 14 * 24 * HOUR),
+      decisionNote: "Two people already off that week — try the week after?",
+    },
+    {
+      userId: idOf("Trina Bautista"),
+      kind: "sick" as const,
+      startDate: on(-4),
+      endDate: on(-4),
+      status: "cancelled" as const,
+    },
+    // Team B, so the Senior Director sees availability on both rosters.
+    {
+      userId: idOf("Leo Mendoza"),
+      kind: "vacation" as const,
+      startDate: on(0),
+      endDate: on(2),
+      status: "approved" as const,
+      decidedBy: idOf("Michael Ortega"),
+      decidedAt: new Date(today.getTime() - 6 * 24 * HOUR),
+    },
+    /*
+     * The row that tells the whole story without a word of explanation:
+     * Sarah cannot decide her own, so it sits in Elena's queue on /teams.
+     */
+    {
+      userId: idOf("Sarah Lim"),
+      kind: "vacation" as const,
+      startDate: on(14),
+      endDate: on(15),
+      status: "pending" as const,
+    },
+  ]);
 
   console.log("");
   console.log(`Seeded ${inserted.length} people, ${taskRows.length} tasks.`);

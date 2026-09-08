@@ -13,11 +13,11 @@ export default async function TeamDetailPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { teamId } = await params;
-  const { user } = await requireSession();
+  const { user, zone } = await requireSession();
   await assertCanViewTeam(user, teamId);
 
   const view = (await searchParams).view === "board" ? "board" : "list";
   return (
-    <TeamTodayView teamId={teamId} showTeamName />
+    <TeamTodayView viewer={user} teamId={teamId} zone={zone} showTeamName />
   );
 }

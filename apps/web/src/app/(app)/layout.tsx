@@ -4,6 +4,7 @@ import { isSenior, navFor, type NavChild } from "@/lib/permissions";
 import { listTeams } from "@/queries/team";
 import { listBoardsForUser } from "@/queries/tasks";
 import { getInbox, getUnreadCount } from "@/queries/notifications";
+import { getUnreadTotal } from "@/queries/chat";
 import { toInboxItem } from "@/lib/present";
 import { realtimeEnabled } from "@/lib/realtime";
 import { AppSidebar } from "@/components/app-sidebar";
@@ -72,10 +73,18 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // The bell's contents come down with the page, like the rail's boards — no
   // client fetch, and nothing reaches the browser that this render did not
   // already authorize.
-  const [unread, inbox] = await Promise.all([
+  const [unread, inbox, chatUnread] = await Promise.all([
     getUnreadCount(session.user.id),
     getInbox(session.user.id, 8),
+    getUnreadTotal(session.user.id),
   ]);
+
+  // The rail's one badge. Chat keeps its own count rather than joining the
+  // bell's: "Sarah said hi" and "you were assigned a task" are different
+  // errands, and merging them would stop the inbox being the place for things
+  // that need doing.
+  const chat = links.find((l) => l.href === "/chat");
+  if (chat) chat.count = chatUnread;
 
   return (
     <div className="flex min-h-screen bg-background">

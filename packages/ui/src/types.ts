@@ -111,6 +111,37 @@ export type SubtaskData = {
   assignees: Person[];
 };
 
+/** One room in the list beside a conversation. */
+export type RoomListItemData = {
+  id: string;
+  href: string;
+  title: string;
+  kind: "direct" | "channel";
+  excerpt: string | null;
+  /** Already formatted; this package has no clock. */
+  when: string;
+  unread: number;
+  active: boolean;
+};
+
+/** One message in a conversation. */
+export type ChatMessageData = {
+  id: string;
+  authorName: string;
+  body: string;
+  /** Clock time, already formatted; this package has no clock. */
+  when: string;
+  mine: boolean;
+  /** True when the message above is from the same person, minutes earlier. */
+  continues: boolean;
+  /**
+   * Set on the first message of each day — "Today", "Yesterday", a date. Null
+   * on every other message, so the thread draws one divider per day without
+   * having to know which day it is.
+   */
+  dayLabel: string | null;
+};
+
 /** What a task row needs. Due text and overdue are resolved by the app, which
  *  owns the clock and the timezone. */
 export type TaskRowData = {

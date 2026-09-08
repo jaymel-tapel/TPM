@@ -180,3 +180,23 @@ export async function assigneesOutsideTeam(
   );
   return (rows.rows as unknown as { name: string }[]).map((r) => r.name);
 }
+
+/**
+ * Everybody, for the chat picker.
+ *
+ * Deliberately not `listAssignableUsers`, which joins `teams` — so the Senior
+ * Director, the one person with no team, does not appear in it at all. Reusing
+ * it here would have meant nobody in the department could message their
+ * director, and nothing would have said so.
+ */
+export async function listChatPeople(): Promise<{ id: string; name: string; teamName: string | null }[]> {
+  const rows = await db.execute(sql`
+    select u.id, u.name, t.name as team_name
+    from users u
+    left join teams t on t.id = u.team_id
+    order by u.name
+  `);
+  return (rows.rows as unknown as { id: string; name: string; team_name: string | null }[]).map(
+    (r) => ({ id: r.id, name: r.name, teamName: r.team_name }),
+  );
+}
