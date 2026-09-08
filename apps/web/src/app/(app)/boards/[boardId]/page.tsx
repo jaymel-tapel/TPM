@@ -1,12 +1,20 @@
 import { notFound } from "next/navigation";
-import { BarChart3, Plus, Settings2 } from "lucide-react";
-import { Command, CommandBar, CommandDivider, EmptyState, TaskBoard } from "@meridian/ui";
+import { Columns3, List, Plus, Settings2 } from "lucide-react";
+import {
+  Command,
+  CommandBar,
+  CommandDivider,
+  EmptyState,
+  TaskBoard,
+  TaskList,
+  TaskRow,
+} from "@meridian/ui";
 import { requireSession } from "@/lib/auth";
 import { canViewTeam, isDirector } from "@/lib/permissions";
 import { getBoard } from "@/queries/boards";
 import { getBoardView } from "@/queries/tasks";
-import { toBoard } from "@/lib/present";
-import { setTaskStatus } from "@/actions/tasks";
+import { toBoard, toTaskRow } from "@/lib/present";
+import { setTaskStatus, toggleTaskDone } from "@/actions/tasks";
 
 export const dynamic = "force-dynamic";
 
@@ -18,10 +26,14 @@ export const dynamic = "force-dynamic";
  */
 export default async function BoardPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ boardId: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { boardId } = await params;
+  const query = await searchParams;
+  const asList = query.view === "list";
   const { user } = await requireSession();
 
   const board = await getBoard(boardId);
@@ -35,32 +47,74 @@ export default async function BoardPage({
       <CommandBar className="sticky top-0 z-20 -mx-8 mb-6 border-b border-gray-300 bg-background px-8 py-3">
         <span className="mr-2 text-subtitle-2 text-gray-1000">{board.name}</span>
         <CommandDivider />
-        <Command icon={Plus} href="/tasks/new" tone="primary">
-          New Task
+        {/*
+          Columns or a list — of the same board. The switch means something
+          again now that a board is a place: before, "list" and "board" were
+          two lenses on a whole team's day and the pairing was arbitrary. The
+          list keeps the board's own columns as its headings, so the vocabulary
+          an Account Director chose survives the switch.
+        */}
+        <Command icon={List} href={`/boards/${boardId}?view=list`} active={asList}>
+          List
         </Command>
-        {isDirector(user) ? (
-          <>
-            <CommandDivider />
-            {/* "Columns" undersold it — the same screen renames and deletes
-                the board. A command should say what the screen does. */}
-            <Command icon={Settings2} href={`/boards/${boardId}/settings`}>
-              Board settings
-            </Command>
-            <Command icon={BarChart3} href="/reports">
-              Reports
-            </Command>
-          </>
-        ) : null}
+        <Command icon={Columns3} href={`/boards/${boardId}`} active={!asList}>
+          Board
+        </Command>
+
+        {/*
+          What you do to the board sits at the far end, away from what you use
+          to read it. New Task is the one thing everyone here does, so it takes
+          the corner; shaping the board is the Account Director's job and sits
+          beside it. Reports is not a board action and is already in the rail
+          for everyone who can reach it.
+        */}
+        <div className="ml-auto flex items-center gap-1">
+          {isDirector(user) ? (
+            <>
+              <Command icon={Settings2} href={`/boards/${boardId}/settings`}>
+                Board settings
+              </Command>
+              <CommandDivider />
+            </>
+          ) : null}
+          <Command icon={Plus} href="/tasks/new" tone="primary">
+            New Task
+          </Command>
+        </div>
       </CommandBar>
 
       {view.columns.length === 0 ? (
         <EmptyState>This board has no columns yet.</EmptyState>
+      ) : asList ? (
+        <div className="space-y-8">
+          {view.total === 0 ? <EmptyState>Nothing on this board today.</EmptyState> : null}
+          {view.columns
+            .filter((column) => column.tasks.length > 0)
+            .map((column) => (
+              <TaskList
+                key={column.id}
+                title={column.name}
+                tone={
+                  column.kind === "blocked"
+                    ? "danger"
+                    : column.kind === "done"
+                      ? "quiet"
+                      : "default"
+                }
+              >
+                {column.tasks.map((task) => (
+                  <TaskRow
+                    key={task.id}
+                    task={toTaskRow(task)}
+                    onToggle={toggleTaskDone}
+                    quiet={column.kind === "done"}
+                  />
+                ))}
+              </TaskList>
+            ))}
+        </div>
       ) : (
-        <TaskBoard
-          board={toBoard(view)}
-          onMove={setTaskStatus}
-          moreHref="/my-tasks"
-        />
+        <TaskBoard board={toBoard(view)} onMove={setTaskStatus} moreHref="/my-tasks" />
       )}
     </>
   );
