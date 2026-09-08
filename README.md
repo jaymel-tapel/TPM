@@ -121,3 +121,14 @@ pnpm typecheck    # both packages
 pnpm db:seed      # rebuild the demo department
 pnpm db:reset     # drop, migrate and reseed
 ```
+
+### A build and a dev server share `.next`
+
+`pnpm build` writes to `apps/web/.next`, which is the directory `pnpm dev` is
+already serving from. Running a build while dev is up leaves the dev server
+pointing at vendor chunks the build has deleted, and every page renders
+unstyled with `Cannot find module './vendor-chunks/…'`.
+
+`build` clears `.next` first so the *build* is always clean, but that does not
+rescue a dev server that was running at the time. Stop dev before building, or
+restart it afterwards.

@@ -32,6 +32,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         links={links}
         user={{ name: session.user.name, role: session.user.role }}
         showRoleSwitcher={demoSwitcherEnabled}
+        // Boards are the Account Director's to create, for their own team.
+        canCreateBoard={session.user.role === "account_director"}
       />
       {/* min-w-0 so a wide table inside can scroll instead of pushing the rail. */}
       <main className="min-w-0 flex-1 px-8 py-8">{children}</main>

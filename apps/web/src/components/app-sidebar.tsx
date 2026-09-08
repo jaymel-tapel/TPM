@@ -8,6 +8,7 @@ import {
   CalendarCheck,
   ChevronRight,
   Columns3,
+  Plus,
   ListChecks,
   LayoutDashboard,
   LogOut,
@@ -47,7 +48,18 @@ function ActiveBar() {
   );
 }
 
-function NavGroup({ link, pathname }: { link: NavItem; pathname: string }) {
+function NavGroup({
+  link,
+  pathname,
+  addHref,
+  addLabel,
+}: {
+  link: NavItem;
+  pathname: string;
+  /** Renders a create affordance at the foot of an expanded group. */
+  addHref?: string;
+  addLabel?: string;
+}) {
   const Icon = ICONS[link.icon];
   const onSelf = pathname === link.href;
   const inSection = onSelf || pathname.startsWith(`${link.href}/`);
@@ -135,6 +147,18 @@ function NavGroup({ link, pathname }: { link: NavItem; pathname: string }) {
               </Link>
             );
           })}
+
+          {/* Creating a board sits with the boards, not in a settings screen
+              somewhere else — it is the same list, one row further down. */}
+          {addHref ? (
+            <Link
+              href={addHref}
+              className="flex items-center gap-2 rounded-md py-1.5 pl-10 pr-3 text-body text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-1000"
+            >
+              <Plus className="size-3.5 shrink-0" strokeWidth={2} />
+              {addLabel}
+            </Link>
+          ) : null}
         </div>
       ) : null}
     </div>
@@ -145,10 +169,12 @@ export function AppSidebar({
   links,
   user,
   showRoleSwitcher,
+  canCreateBoard = false,
 }: {
   links: NavItem[];
   user: { name: string; role: Role };
   showRoleSwitcher: boolean;
+  canCreateBoard?: boolean;
 }) {
   const pathname = usePathname();
 
@@ -166,7 +192,13 @@ export function AppSidebar({
 
       <nav className="flex-1 overflow-y-auto p-2">
         {links.map((link) => (
-          <NavGroup key={link.href} link={link} pathname={pathname} />
+          <NavGroup
+            key={link.href}
+            link={link}
+            pathname={pathname}
+            addHref={canCreateBoard && link.href === "/boards" ? "/boards/new" : undefined}
+            addLabel="New board"
+          />
         ))}
       </nav>
 
