@@ -2,6 +2,10 @@ import "server-only";
 import type {
   AttentionItemData,
   BoardData,
+  DocBacklinkData,
+  DocHitData,
+  DocNodeData,
+  DocRefData,
   MemberRowData,
   Priority,
   TaskRowData,
@@ -12,6 +16,13 @@ import type { TaskCard } from "@/queries/sql";
 import type { BoardView } from "@/queries/tasks";
 import type { MemberRollup } from "@/queries/team";
 import type { AttentionItem } from "@/queries/attention";
+import type {
+  DocBacklink,
+  DocNode,
+  DocRef,
+  DocSearchHit,
+  DocSummary,
+} from "@/queries/docs";
 
 /**
  * The seam between the database and the design system.
@@ -36,6 +47,7 @@ export function toTaskRow(task: TaskCard, reference: Date = now()): TaskRowData 
     done,
     assignees: task.assignees,
     tags: task.tags,
+    docs: task.docs,
   };
 }
 
@@ -56,5 +68,67 @@ export function toBoard(board: BoardView, reference: Date = now()): BoardData {
       kind: c.kind,
       tasks: c.tasks.map((t) => toTaskRow(t, reference)),
     })),
+  };
+}
+
+/*
+ * Documents. `visibility` is the column's word and `scope` is the reader's —
+ * the design system is told whose a document is, not how the row spells it.
+ */
+const scopeOf = (doc: { visibility: "org" | "team"; teamName: string | null }) => ({
+  scope: doc.visibility,
+  teamName: doc.teamName,
+});
+
+export function toDocNode(node: DocNode): DocNodeData {
+  return {
+    id: node.id,
+    href: node.href,
+    title: node.title,
+    ...scopeOf(node),
+    children: node.children.map(toDocNode),
+  };
+}
+
+export function toDocRef(doc: DocRef & { teamName?: string | null }): DocRefData {
+  return {
+    id: doc.id,
+    href: doc.href,
+    title: doc.title,
+    scope: doc.visibility,
+    teamName: doc.teamName ?? null,
+    attached: doc.attached,
+    mentioned: doc.mentioned,
+  };
+}
+
+export function toDocHit(hit: DocSearchHit): DocHitData {
+  return {
+    id: hit.id,
+    href: hit.href,
+    title: hit.title,
+    ...scopeOf(hit),
+    snippet: hit.snippet,
+  };
+}
+
+export function toDocBacklink(link: DocBacklink): DocBacklinkData {
+  return {
+    id: link.id,
+    href: link.href,
+    title: link.title,
+    status: { id: link.id, name: link.statusName, kind: link.statusKind },
+    done: link.done,
+    mentionedOnly: link.mentionedOnly,
+  };
+}
+
+export function toDocSummaryNode(doc: DocSummary): DocNodeData {
+  return {
+    id: doc.id,
+    href: doc.href,
+    title: doc.title,
+    ...scopeOf(doc),
+    children: [],
   };
 }

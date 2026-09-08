@@ -22,6 +22,13 @@
       "when": 1788865675899,
       "tag": "0002_volatile_next_avengers",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1788866990471,
+      "tag": "0003_amazing_joseph",
+      "breakpoints": true
     }
   ]
 }

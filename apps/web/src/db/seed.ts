@@ -4,6 +4,8 @@ import { pool, db } from "./index";
 import {
   boardStatuses,
   boards,
+  documents,
+  taskDocuments,
   tags,
   taskAssignees,
   taskTags,
@@ -16,6 +18,7 @@ import {
 import { eq } from "drizzle-orm";
 import { DEMO_PASSWORD } from "../lib/constants";
 import { lastNDays, now, startOfAppDay } from "../lib/date";
+import { toPlainText } from "@meridian/ui/editor";
 
 /**
  * The seed still thinks in the four original statuses, because that is what
@@ -270,6 +273,8 @@ async function main() {
   const days = lastNDays(HISTORY_DAYS, reference); // oldest first, today last
 
   console.log("Clearing existing data…");
+  await db.delete(taskDocuments);
+  await db.delete(documents);
   await db.delete(taskTags);
   await db.delete(taskAssignees);
   await db.delete(tasks);
@@ -575,6 +580,137 @@ async function main() {
   }
   for (let i = 0; i < tagLinks.length; i += 1000) {
     await db.insert(taskTags).values(tagLinks.slice(i, i + 1000)).onConflictDoNothing();
+  }
+
+  console.log("Writing documents…");
+
+  /** A BlockNote paragraph, the shape the editor stores. */
+  const para = (text: string) => ({
+    type: "paragraph",
+    content: [{ type: "text", text, styles: {} }],
+  });
+  const body = (...lines: string[]) => JSON.stringify(lines.map(para));
+
+  const writeDoc = async (doc: {
+    title: string;
+    lines: string[];
+    team?: string | null;
+    parentId?: string | null;
+    author: string;
+  }) => {
+    const text = body(...doc.lines);
+    const [row] = await db
+      .insert(documents)
+      .values({
+        title: doc.title,
+        body: text,
+        searchText: toPlainText(text),
+        visibility: doc.team ? "team" : "org",
+        teamId: doc.team ?? null,
+        parentId: doc.parentId ?? null,
+        createdBy: idOf(doc.author),
+      })
+      .returning();
+    return row!;
+  };
+
+  const handbook = await writeDoc({
+    title: "How we work",
+    lines: [
+      "Everything the department agrees on, in one place. If a task keeps restating it, it belongs here instead.",
+      "A task points at a document; it does not copy it.",
+    ],
+    author: "Elena Rivera",
+  });
+
+  const escalation = await writeDoc({
+    title: "Escalation",
+    lines: [
+      "Blocked for more than a day is an escalation, not a status. Say who you are waiting on.",
+      "Client-facing problems go to the Account Director the same day.",
+    ],
+    parentId: handbook.id,
+    author: "Elena Rivera",
+  });
+
+  await writeDoc({
+    title: "Out of hours",
+    lines: ["Nothing is urgent after seven unless a client is live. Then it is the duty director."],
+    parentId: escalation.id,
+    author: "Elena Rivera",
+  });
+
+  const brand = await writeDoc({
+    title: "Brand guidelines",
+    lines: [
+      "Blue #5B88F7 carries identity and actions. Yellow #FFC72C is the single most important number on a screen, and nothing else.",
+      "Never set a headline in anything but the brand grotesque.",
+    ],
+    author: "Elena Rivera",
+  });
+
+  const runbookA = await writeDoc({
+    title: "Team A runbook",
+    lines: ["How Team A files work, names columns and hands over on a Friday."],
+    team: teamA.id,
+    author: "Sarah Lim",
+  });
+
+  await writeDoc({
+    title: "Reporting checklist",
+    lines: ["Pull the numbers on Monday. Completion is measured against the day a task was due."],
+    parentId: runbookA.id,
+    author: "Sarah Lim",
+  });
+
+  await writeDoc({
+    title: "Team B runbook",
+    lines: ["How Team B files work. Not visible to Team A."],
+    team: teamB.id,
+    author: "Michael Ortega",
+  });
+
+  /*
+   * A couple of tasks that actually reference something, so the chips, the
+   * backlinks and the `@` picker all have something to show on a fresh seed.
+   */
+  const teamATasks = taskRows.filter((t) => t.teamId === teamA.id).slice(0, 2);
+  if (teamATasks[0]) {
+    // The prose has to actually name it: a `mentioned` row is derived from the
+    // description on every save, so one without a matching chip would vanish
+    // the first time anybody touched the task.
+    await db
+      .update(tasks)
+      .set({
+        description: JSON.stringify([
+          {
+            type: "paragraph",
+            content: [
+              { type: "text", text: "If this stalls, follow ", styles: {} },
+              {
+                type: "docMention",
+                props: { docId: escalation.id, title: escalation.title, stale: false },
+              },
+              { type: "text", text: ".", styles: {} },
+            ],
+          },
+        ]),
+      })
+      .where(eq(tasks.id, teamATasks[0].id!));
+
+    await db
+      .insert(taskDocuments)
+      .values([
+        { taskId: teamATasks[0].id!, documentId: brand.id, source: "attached" as const },
+        { taskId: teamATasks[0].id!, documentId: escalation.id, source: "mentioned" as const },
+      ])
+      .onConflictDoNothing();
+  }
+  if (teamATasks[1]) {
+    await db
+      .insert(taskDocuments)
+      .values({ taskId: teamATasks[1].id!, documentId: runbookA.id, source: "attached" as const })
+      .onConflictDoNothing();
   }
 
   console.log("");

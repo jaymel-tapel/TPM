@@ -1,6 +1,16 @@
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
-import { boardStatuses, boards, taskAssignees, tasks, teams, users } from "@/db/schema";
+import {
+  boardStatuses,
+  boards,
+  documents,
+  taskAssignees,
+  taskDocuments,
+  tasks,
+  teams,
+  users,
+} from "@/db/schema";
+import { toPlainText } from "@meridian/ui/editor";
 import { startOfAppDay } from "@/lib/date";
 
 export const HOUR = 3_600_000;
@@ -39,7 +49,7 @@ export const statusId = (boardId: string, column: Column) =>
 
 export async function resetDb() {
   await db.execute(
-    sql`truncate task_tags, task_assignees, task_attachments, tasks, board_statuses, boards, tags, users, teams restart identity cascade`,
+    sql`truncate task_documents, documents, task_tags, task_assignees, task_attachments, tasks, board_statuses, boards, tags, users, teams restart identity cascade`,
   );
 }
 
@@ -122,4 +132,73 @@ export async function addTask(opts: {
     .insert(taskAssignees)
     .values(opts.assignees.map((userId) => ({ taskId: id, userId })));
   return id;
+}
+
+let docSeq = 0;
+
+/**
+ * A document. `team: null` is org-wide; anything filed under a parent takes the
+ * parent's placement, exactly as the action does, so a test cannot accidentally
+ * build a tree the app could never produce.
+ */
+export async function addDoc(opts: {
+  title: string;
+  body?: string;
+  team?: string | null;
+  parent?: string | null;
+  createdBy?: string;
+}) {
+  docSeq += 1;
+  const id = `0d000000-${String(docSeq).padStart(4, "0")}-4000-a000-000000000000`;
+
+  let visibility: "org" | "team" = opts.team ? "team" : "org";
+  let teamId = opts.team ?? null;
+  if (opts.parent) {
+    const parent = await db.query.documents.findFirst({
+      where: sql`id = ${opts.parent}`,
+    });
+    if (parent) {
+      visibility = parent.visibility;
+      teamId = parent.teamId;
+    }
+  }
+
+  await db.insert(documents).values({
+    id,
+    title: opts.title,
+    body: opts.body ?? null,
+    searchText: toPlainText(opts.body ?? null),
+    visibility,
+    teamId,
+    parentId: opts.parent ?? null,
+    createdBy: opts.createdBy ?? IDS.elena,
+  });
+  return id;
+}
+
+export async function linkDoc(
+  taskId: string,
+  documentId: string,
+  source: "attached" | "mentioned" = "attached",
+) {
+  await db.insert(taskDocuments).values({ taskId, documentId, source }).onConflictDoNothing();
+}
+
+/** A BlockNote body that mentions the given documents, as the editor writes it. */
+export function bodyMentioning(
+  text: string,
+  mentions: { id: string; title: string }[],
+): string {
+  return JSON.stringify([
+    {
+      type: "paragraph",
+      content: [
+        { type: "text", text, styles: {} },
+        ...mentions.map((m) => ({
+          type: "docMention",
+          props: { docId: m.id, title: m.title, stale: false },
+        })),
+      ],
+    },
+  ]);
 }

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Progress } from "../primitives/progress";
 import { cn } from "../lib/utils";
 import { AvatarStack } from "./user-avatar";
-import { PriorityLabel, StatusMark, TagBadge, TypeLabel } from "./task-meta";
+import { DocCount, PriorityLabel, StatusMark, TagBadge, TypeLabel } from "./task-meta";
 import { Eyebrow } from "./section";
 import { Percent } from "./stat";
 import type { Person, TaskRowData } from "../types";
@@ -101,6 +101,13 @@ export function TaskRow({
             {task.tags.slice(0, 1).map((tag) => (
               <TagBadge key={tag}>{tag}</TagBadge>
             ))}
+
+            {task.docs > 0 ? (
+              <>
+                <Sep />
+                <DocCount count={task.docs} />
+              </>
+            ) : null}
           </div>
         )}
       </Link>

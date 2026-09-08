@@ -16,13 +16,16 @@ import { db } from "@/db";
 import { tasks as tasksTable } from "@/db/schema";
 import { getTaskCard, listAllTags } from "@/queries/tasks";
 import { getAttachments } from "@/queries/attachments";
+import { getLinkedDocs } from "@/queries/docs";
 import { listBoardOptions, listBoardStatuses } from "@/queries/boards";
 import { listAssignableUsers } from "@/queries/team";
 import { setTaskStatus, updateTask } from "@/actions/tasks";
 import { DeleteTaskButton } from "@/components/delete-task-button";
 import { TaskForm } from "@/components/task-form";
 import { TaskAttachments } from "@/components/task-attachments";
+import { TaskDocs } from "@/components/task-docs";
 import { RichTextView } from "@meridian/ui/editor";
+import { toDocRef } from "@/lib/present";
 import { dueLabel } from "@/lib/date";
 
 export const dynamic = "force-dynamic";
@@ -39,11 +42,12 @@ export default async function TaskDetailPage({
   if (!record || !(await canViewTask(user, record))) notFound();
   const editable = await canEditTask(user, record);
 
-  const [task, people, tags, attachments, columns, options] = await Promise.all([
+  const [task, people, tags, attachments, docs, columns, options] = await Promise.all([
     getTaskCard(id),
     listAssignableUsers(),
     listAllTags(),
     getAttachments(id),
+    getLinkedDocs(user, id),
     listBoardStatuses(record.boardId),
     listBoardOptions(user),
   ]);
@@ -130,6 +134,10 @@ export default async function TaskDetailPage({
 
       <div className="mt-6">
         <TaskAttachments taskId={task.id} attachments={attachments} editable={editable} />
+      </div>
+
+      <div className="mt-6">
+        <TaskDocs taskId={task.id} docs={docs.map(toDocRef)} editable={editable} />
       </div>
 
       {editable ? (

@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { cn } from "../lib/utils";
 import { AvatarStack } from "./user-avatar";
-import { PriorityBadge, StatusMark, TypeLabel } from "./task-meta";
+import { DocCount, PriorityBadge, StatusMark, TypeLabel } from "./task-meta";
 import { type StatusKind, type TaskRowData } from "../types";
 
 /** Cards shown per column before deferring to the list. See the note below. */
@@ -65,6 +65,7 @@ function BoardCard({
         </p>
         <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-caption text-gray-700">
           <TypeLabel type={task.type} />
+          <DocCount count={task.docs} />
         </div>
         <div className="mt-3 flex items-center justify-between gap-2">
           {/*

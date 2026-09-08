@@ -35,6 +35,11 @@ import {
   StatBandSkeleton,
   StatusBadge,
   AttachmentList,
+  DocBacklinkList,
+  DocRefList,
+  DocSearchResults,
+  DocTree,
+  ScopeBadge,
   Command,
   CommandBar,
   CommandDivider,
@@ -53,7 +58,21 @@ import {
 } from "@meridian/ui";
 import { TrendChart } from "@meridian/ui/chart";
 import { ErrorStateDemo } from "./error-demo";
-import { ATTACHMENTS, ATTENTION, BOARD, MEMBERS, TASKS, TEAMS, TREND } from "./fixtures";
+import {
+  ATTACHMENTS,
+  ATTENTION,
+  BOARD,
+  DOC_BACKLINKS,
+  DOC_HITS,
+  DOC_REFS,
+  DOC_TREE,
+  MEMBERS,
+  MENTION_BODY,
+  TASKS,
+  TEAMS,
+  TREND,
+} from "./fixtures";
+import { DocRefListDemo } from "./doc-refs-demo";
 
 export const metadata = { title: "Meridian — Design System" };
 
@@ -462,6 +481,68 @@ export default function DesignSystemPage() {
 
           <div className="mt-6 max-w-xl">
             <AttachmentList attachments={ATTACHMENTS} />
+          </div>
+        </Block>
+
+        <Block title="Documents" note="What the work refers to, and the tasks that point at it">
+          <p className="mb-6 max-w-prose text-caption text-gray-700">
+            A document is a title and a body in the same editor a description uses. Where it
+            sits decides who reads it: a document is either the department&rsquo;s or one
+            team&rsquo;s, and one filed under another is whatever its parent is — which is
+            why the scope badge sits on roots only. A task can point at one deliberately or
+            name it in the prose with <code>@</code>; the two are different links and the
+            list says which is which.
+          </p>
+
+          <Row label="Scope">
+            <ScopeBadge scope="org" teamName={null} />
+            <ScopeBadge scope="team" teamName="Team A" />
+          </Row>
+
+          <div className="mt-6 grid gap-6 lg:grid-cols-2">
+            <div>
+              <p className="mb-2 text-caption-strong uppercase tracking-[0.08em] text-gray-600">
+                The tree
+              </p>
+              <DocTree nodes={DOC_TREE} activeId="d2" />
+              <div className="mt-4">
+                <DocTree nodes={[]} />
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <p className="mb-2 text-caption-strong uppercase tracking-[0.08em] text-gray-600">
+                  Referenced by a task
+                </p>
+                {/* With a detach action, and without — the read-only view. */}
+                <DocRefListDemo docs={DOC_REFS} />
+              </div>
+              <DocRefList docs={[]} />
+              <DocBacklinkList tasks={DOC_BACKLINKS} />
+            </div>
+          </div>
+
+          <div className="mt-6 grid gap-6 lg:grid-cols-2">
+            <div>
+              <p className="mb-2 text-caption-strong uppercase tracking-[0.08em] text-gray-600">
+                Search
+              </p>
+              <DocSearchResults hits={DOC_HITS} query="brand" />
+              <div className="mt-4">
+                <DocSearchResults hits={[]} query="nothing" />
+              </div>
+            </div>
+            <div>
+              <p className="mb-2 text-caption-strong uppercase tracking-[0.08em] text-gray-600">
+                A mention, in prose
+              </p>
+              <RichTextView value={MENTION_BODY} />
+              <p className="mt-2 text-caption text-gray-600">
+                The chip carries the title it was written with, so a document that has since
+                gone still reads as a name rather than a dead id.
+              </p>
+            </div>
           </div>
         </Block>
 

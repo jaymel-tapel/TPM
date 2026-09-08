@@ -4,6 +4,7 @@ import {
   ChevronsUp,
   ClipboardList,
   Eye,
+  FileText,
   Palette,
   Settings2,
   Users,
@@ -107,6 +108,24 @@ export function PriorityBadge({ priority }: { priority: Priority }) {
 export function TagBadge({ children }: { children: React.ReactNode }) {
   return (
     <span className="rounded-md bg-gray-100 px-1.5 text-caption-strong text-gray-700">{children}</span>
+  );
+}
+
+/**
+ * How many documents this task points at. A count rather than the names: the
+ * names are on the task, and a row is a place to notice that there is standing
+ * guidance here, not to read it.
+ */
+export function DocCount({ count }: { count: number }) {
+  if (count < 1) return null;
+  return (
+    <span
+      className="inline-flex items-center gap-1 text-caption text-gray-700"
+      title={`${count} referenced ${count === 1 ? "document" : "documents"}`}
+    >
+      <FileText className="size-3" strokeWidth={1.75} />
+      {count}
+    </span>
   );
 }
 

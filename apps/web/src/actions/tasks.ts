@@ -17,6 +17,7 @@ import {
   type StatusKind,
 } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
+import { syncMentionedDocs } from "@/lib/doc-links";
 import { assertCanViewTeam, assertCanViewUser, loadEditableTask } from "@/lib/permissions";
 
 const taskInput = z.object({
@@ -123,6 +124,7 @@ export async function createTask(_prev: FormState, formData: FormData): Promise<
     .insert(taskAssignees)
     .values(input.assignees.map((userId) => ({ taskId: task.id, userId })));
   await linkTags(task.id, input.tags);
+  await syncMentionedDocs(viewer, task.id, input.description ?? null);
 
   refresh();
   redirect(`/tasks/${task.id}`);
@@ -168,6 +170,7 @@ export async function updateTask(_prev: FormState, formData: FormData): Promise<
     .insert(taskAssignees)
     .values(input.assignees.map((userId) => ({ taskId, userId })));
   await linkTags(taskId, input.tags);
+  await syncMentionedDocs(viewer, taskId, input.description ?? null);
 
   refresh();
   redirect(`/tasks/${taskId}`);

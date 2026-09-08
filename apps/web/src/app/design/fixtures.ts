@@ -1,4 +1,8 @@
 import type {
+  DocBacklinkData,
+  DocHitData,
+  DocNodeData,
+  DocRefData,
   AttentionItemData,
   MemberRowData,
   AttachmentData,
@@ -16,7 +20,7 @@ const anna = { id: "u-anna", name: "Anna Santos" };
 const james = { id: "u-james", name: "James Cruz" };
 const sofia = { id: "u-sofia", name: "Sofia Reyes" };
 
-const base = { href: "#", tags: [] as string[], overdue: false, done: false };
+const base = { href: "#", tags: [] as string[], overdue: false, done: false, docs: 0 };
 
 export const TASKS: Record<string, TaskRowData> = {
   plain: {
@@ -29,6 +33,7 @@ export const TASKS: Record<string, TaskRowData> = {
     dueText: "Today, 2:00 PM",
     assignees: [anna],
     tags: ["Nike"],
+    docs: 2,
   },
   inProgress: {
     ...base,
@@ -165,3 +170,107 @@ export const ATTACHMENTS: AttachmentData[] = [
     href: "#",
   },
 ];
+
+/* ── documents ────────────────────────────────────────────────────────── */
+
+export const DOC_TREE: DocNodeData[] = [
+  {
+    id: "d1",
+    href: "#",
+    title: "How we work",
+    scope: "org",
+    teamName: null,
+    children: [
+      {
+        id: "d2",
+        href: "#",
+        title: "Escalation",
+        scope: "org",
+        teamName: null,
+        children: [
+          { id: "d3", href: "#", title: "Out of hours", scope: "org", teamName: null, children: [] },
+        ],
+      },
+      { id: "d4", href: "#", title: "Brand guidelines", scope: "org", teamName: null, children: [] },
+    ],
+  },
+  {
+    id: "d5",
+    href: "#",
+    title: "Team A runbook",
+    scope: "team",
+    teamName: "Team A",
+    children: [
+      { id: "d6", href: "#", title: "Reporting checklist", scope: "team", teamName: "Team A", children: [] },
+    ],
+  },
+];
+
+export const DOC_REFS: DocRefData[] = [
+  // Attached deliberately: detachable.
+  { id: "d4", href: "#", title: "Brand guidelines", scope: "org", teamName: null, attached: true, mentioned: false },
+  // Named in the prose only: no detach button, because the description owns it.
+  { id: "d2", href: "#", title: "Escalation", scope: "org", teamName: null, attached: false, mentioned: true },
+  // Both — detaching leaves it listed, because the prose still says it.
+  { id: "d5", href: "#", title: "Team A runbook", scope: "team", teamName: "Team A", attached: true, mentioned: true },
+];
+
+export const DOC_HITS: DocHitData[] = [
+  {
+    id: "d4",
+    href: "#",
+    title: "Brand guidelines",
+    scope: "org",
+    teamName: null,
+    snippet: [
+      { text: "Blue ", hit: false },
+      { text: "#5B88F7", hit: true },
+      { text: " carries identity and actions. Yellow ", hit: false },
+      { text: "#FFC72C", hit: true },
+      { text: " is the single most important number on a screen.", hit: false },
+    ],
+  },
+  {
+    id: "d2",
+    href: "#",
+    title: "Escalation",
+    scope: "org",
+    teamName: null,
+    snippet: [
+      { text: "Blocked for more than a day is an ", hit: false },
+      { text: "escalation", hit: true },
+      { text: ", not a status.", hit: false },
+    ],
+  },
+];
+
+export const DOC_BACKLINKS: DocBacklinkData[] = [
+  {
+    id: "t1",
+    href: "#",
+    title: "Send client performance report",
+    status: { id: "c-todo", name: "To Do", kind: "open" },
+    done: false,
+    mentionedOnly: false,
+  },
+  {
+    id: "t6",
+    href: "#",
+    title: "Weekly meeting notes",
+    status: { id: "c-done", name: "Done", kind: "done" },
+    done: true,
+    mentionedOnly: true,
+  },
+];
+
+/** A description carrying a mention, so the inline chip is on the gallery. */
+export const MENTION_BODY = JSON.stringify([
+  {
+    type: "paragraph",
+    content: [
+      { type: "text", text: "If this stalls, follow ", styles: {} },
+      { type: "docMention", props: { docId: "d2", title: "Escalation", stale: false } },
+      { type: "text", text: " before pinging the client.", styles: {} },
+    ],
+  },
+]);

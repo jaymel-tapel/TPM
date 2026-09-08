@@ -74,6 +74,8 @@ export type TaskCard = {
   statusKind: StatusKind;
   assignees: { id: string; name: string }[];
   tags: string[];
+  /** How many documents this task references, however it references them. */
+  docs: number;
 };
 
 /**
@@ -96,7 +98,19 @@ export const taskCardSelect = sql`
     (select jsonb_agg(g.name order by g.name)
      from task_tags tt join tags g on g.id = tt.tag_id where tt.task_id = k.id),
     '[]'::jsonb
-  ) as tags
+  ) as tags,
+  /*
+   * Scoped to the task's own team rather than the reader's, because this
+   * projection has no reader — threading one through would touch every list
+   * query in the app. So a document from another team, attached by the one
+   * role that can see both, is not counted on the row; the task page lists it
+   * correctly. Undercounting for a Senior Director beats leaking a count to
+   * everybody else.
+   */
+  (select count(distinct td.document_id)
+   from task_documents td join documents dd on dd.id = td.document_id
+   where td.task_id = k.id
+     and (dd.visibility = 'org' or dd.team_id = k.team_id))::int as docs
 `;
 
 /** Ordering used everywhere a task list is shown. */

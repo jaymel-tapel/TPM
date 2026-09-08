@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import { BlockNoteView } from "@blocknote/ariakit";
-import { useCreateBlockNote } from "@blocknote/react";
+import { SuggestionMenuController, useCreateBlockNote } from "@blocknote/react";
 // The Ariakit skin rather than the Mantine one: @mantine/hooks@9 calls
 // React's `useEffectEvent`, which does not exist in React 19.2, so BlockNote's
 // default build threw the moment any menu rendered. Ariakit has no such
@@ -10,7 +10,8 @@ import { useCreateBlockNote } from "@blocknote/react";
 import "@blocknote/ariakit/style.css";
 import "./blocknote.css";
 import { cn } from "../lib/utils";
-import { type Block, toBlocks } from "./blocks";
+import { type Block, DOC_MENTION, type MentionItem, toBlocks } from "./blocks";
+import { editorSchema } from "./schema";
 
 /**
  * BlockNote, wearing our tokens. It is imported here and nowhere else so the
@@ -26,6 +27,7 @@ export function RichTextEditor({
   defaultValue,
   placeholder = "Optional context",
   uploadFile,
+  mentionSource,
   className,
 }: {
   name: string;
@@ -33,6 +35,13 @@ export function RichTextEditor({
   placeholder?: string;
   /** Returns the URL the uploaded file can be read back from. */
   uploadFile?: (file: File) => Promise<string>;
+  /**
+   * Documents matching what has been typed after `@`. This package renders and
+   * never queries, so the search is handed in — the app side calls a server
+   * action that scopes it to what the author is allowed to see, and the picker
+   * can only ever offer those.
+   */
+  mentionSource?: (query: string) => Promise<MentionItem[]>;
   className?: string;
 }) {
   const initial = toBlocks(defaultValue);
@@ -57,7 +66,15 @@ export function RichTextEditor({
     }
   }, []);
 
+  // Kept in a ref for the same reason as `upload`, and for a sharper one:
+  // BlockNote lists `getItems` in a `useEffect` dependency array, so a handler
+  // with a new identity on every render re-queries forever while the menu is
+  // open. The ref is what lets `getMentionItems` below be memoised once.
+  const search = useRef(mentionSource);
+  search.current = mentionSource;
+
   const editor = useCreateBlockNote({
+    schema: editorSchema,
     initialContent: initial as never,
     // Only the empty document prompts. BlockNote's per-block default
     // ("Enter text or type '/' for commands") sits under every paragraph you
@@ -65,6 +82,24 @@ export function RichTextEditor({
     placeholders: { emptyDocument: placeholder, default: "" },
     uploadFile: uploadFile ? handleUpload : undefined,
   });
+
+  const getMentionItems = useCallback(
+    async (query: string) => {
+      const docs = (await search.current?.(query)) ?? [];
+      return docs.map((doc) => ({
+        title: doc.title,
+        subtext: doc.subtitle,
+        onItemClick: () =>
+          // The trailing space is what lets you carry on typing after the chip
+          // rather than landing inside it.
+          editor.insertInlineContent([
+            { type: DOC_MENTION, props: { docId: doc.id, title: doc.title, stale: false } },
+            " ",
+          ]),
+      }));
+    },
+    [editor],
+  );
 
   return (
     <div className={cn("meridian-editor", className)}>
@@ -82,7 +117,26 @@ export function RichTextEditor({
         theme="light"
         sideMenu={false}
         onChange={() => setValue(JSON.stringify(editor.document))}
-      />
+      >
+        {mentionSource ? (
+          /*
+           * Additive, not a replacement: BlockNoteView renders its default UI
+           * and then its children, so the formatting toolbar and the slash menu
+           * are both still there.
+           *
+           * The items are shaped as BlockNote's own suggestion item, which
+           * makes the default menu render them — the same menu the slash
+           * commands use, already wearing this system's tokens through
+           * `blocknote.css`. A bespoke component here would be a second popover
+           * to keep in step for no gain.
+           */
+          <SuggestionMenuController
+            triggerCharacter="@"
+            getItems={getMentionItems}
+            minQueryLength={0}
+          />
+        ) : null}
+      </BlockNoteView>
       {uploadError ? (
         <p role="alert" className="mt-2 text-caption text-red-700">
           {uploadError}
@@ -104,7 +158,7 @@ export function RichTextView({
   className?: string;
 }) {
   const blocks = toBlocks(value);
-  const editor = useCreateBlockNote({ initialContent: blocks as never });
+  const editor = useCreateBlockNote({ schema: editorSchema, initialContent: blocks as never });
 
   return (
     <div className={cn("meridian-editor meridian-editor--read-only", className)}>
@@ -113,4 +167,4 @@ export function RichTextView({
   );
 }
 
-export type { Block };
+export type { Block, MentionItem };

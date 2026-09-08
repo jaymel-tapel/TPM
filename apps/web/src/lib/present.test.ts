@@ -22,6 +22,7 @@ function task(overrides: Partial<TaskCard> = {}): TaskCard {
     createdBy: "u1",
     assignees: [{ id: "u1", name: "Anna Santos" }],
     tags: [],
+    docs: 0,
     ...overrides,
   };
 }

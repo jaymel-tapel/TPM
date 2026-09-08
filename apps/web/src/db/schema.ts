@@ -9,7 +9,9 @@ import {
   primaryKey,
   foreignKey,
   unique,
+  check,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 export const roleEnum = pgEnum("role", [
   "team_member",
@@ -248,6 +250,94 @@ export const taskTags = pgTable(
   (t) => [primaryKey({ columns: [t.taskId, t.tagId] })],
 );
 
+/**
+ * Reference material: the standing instructions a task points at rather than
+ * restates. A document is either the whole department's or one team's, and it
+ * can parent others — the tree is the only structure there is, because a doc
+ * that lives in two places is a doc nobody can find.
+ */
+export const docVisibilityEnum = pgEnum("doc_visibility", ["org", "team"]);
+
+/**
+ * How a task came to reference a document. The two are maintained by different
+ * writers — an attachment by the attach control, a mention by re-reading the
+ * description on every save — so they are separate rows, not one row with a
+ * flag. Sharing a row would mean deleting a mention from the prose silently
+ * detaches the document, and detaching it resurrects the link on the next save.
+ */
+export const docLinkSourceEnum = pgEnum("doc_link_source", ["attached", "mentioned"]);
+
+export const documents = pgTable(
+  "documents",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    title: text("title").notNull(),
+    // A BlockNote document as JSON, exactly as `tasks.description` stores one.
+    body: text("body"),
+    /*
+     * `toPlainText(body)`, written by the action that writes the body. The
+     * search index reads this rather than the JSON, and the flattening lives
+     * in TypeScript because only TypeScript knows what a block is — a trigger
+     * would have to reimplement it and would drift on the first new block type.
+     */
+    searchText: text("search_text").notNull().default(""),
+    /*
+     * Visibility is a property of the tree, set at its root: a child always
+     * carries its root's values. Per-doc visibility inside a tree makes holes —
+     * a team-only child under an org-wide parent is a gap in everyone else's
+     * tree and a broken breadcrumb, and the reverse leaks by link.
+     */
+    visibility: docVisibilityEnum("visibility").notNull(),
+    teamId: uuid("team_id").references(() => teams.id, { onDelete: "cascade" }),
+    parentId: uuid("parent_id"),
+    position: integer("position").notNull().default(0),
+    createdBy: uuid("created_by")
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    foreignKey({
+      columns: [t.parentId],
+      foreignColumns: [t.id],
+      name: "documents_parent_fk",
+    }).onDelete("cascade"),
+    index("documents_parent_idx").on(t.parentId),
+    index("documents_team_idx").on(t.teamId),
+    // Org-wide means no team and team-scoped means a team. Enforced here so no
+    // query has to defend against the third, meaningless combination.
+    check(
+      "documents_visibility_team_ck",
+      sql`(visibility = 'org') = (team_id is null)`,
+    ),
+  ],
+);
+
+export const taskDocuments = pgTable(
+  "task_documents",
+  {
+    taskId: uuid("task_id")
+      .notNull()
+      .references(() => tasks.id, { onDelete: "cascade" }),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => documents.id, { onDelete: "cascade" }),
+    source: docLinkSourceEnum("source").notNull(),
+  },
+  (t) => [
+    // `source` is part of the key: one document can be both attached and
+    // mentioned, and each writer owns only its own rows.
+    primaryKey({ columns: [t.taskId, t.documentId, t.source] }),
+    // The backlink lookup — every task referencing this document.
+    index("task_documents_document_idx").on(t.documentId),
+  ],
+);
+
 export type Role = (typeof roleEnum.enumValues)[number];
 export type StatusKind = (typeof statusKindEnum.enumValues)[number];
 export type Priority = (typeof priorityEnum.enumValues)[number];
@@ -256,3 +346,6 @@ export type TaskType = (typeof taskTypeEnum.enumValues)[number];
 export type User = typeof users.$inferSelect;
 export type Team = typeof teams.$inferSelect;
 export type Task = typeof tasks.$inferSelect;
+export type DocVisibility = (typeof docVisibilityEnum.enumValues)[number];
+export type DocLinkSource = (typeof docLinkSourceEnum.enumValues)[number];
+export type Doc = typeof documents.$inferSelect;

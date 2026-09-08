@@ -46,6 +46,8 @@ export type TaskRowData = {
   done: boolean;
   assignees: Person[];
   tags: string[];
+  /** How many documents this task references. */
+  docs: number;
 };
 
 export type MemberRowData = {
@@ -117,3 +119,52 @@ export const ROLE_BADGES: Record<Role, string> = {
 export const TASK_TYPES = Object.keys(TASK_TYPE_LABELS) as TaskType[];
 export const STATUS_KINDS = Object.keys(STATUS_KIND_LABELS) as StatusKind[];
 export const PRIORITIES = Object.keys(PRIORITY_LABELS) as Priority[];
+
+/** Whose a document is, as the reader sees it. */
+export type DocScope = "org" | "team";
+
+/** A document in a tree. `children` is what makes it a tree rather than a list. */
+export type DocNodeData = {
+  id: string;
+  href: string;
+  title: string;
+  scope: DocScope;
+  /** The team's name, or null when the document is everyone's. */
+  teamName: string | null;
+  children: DocNodeData[];
+};
+
+/** A document a task points at. */
+export type DocRefData = {
+  id: string;
+  href: string;
+  title: string;
+  scope: DocScope;
+  teamName: string | null;
+  /** Attached deliberately, so it can be detached. */
+  attached: boolean;
+  /** Named in the description, so it can only be removed by editing the prose. */
+  mentioned: boolean;
+};
+
+/** A run of a search snippet, and whether it is one of the matched words. */
+export type SnippetRunData = { text: string; hit: boolean };
+
+export type DocHitData = {
+  id: string;
+  href: string;
+  title: string;
+  scope: DocScope;
+  teamName: string | null;
+  snippet: SnippetRunData[];
+};
+
+/** A task pointing back at a document. */
+export type DocBacklinkData = {
+  id: string;
+  href: string;
+  title: string;
+  status: StatusRef;
+  done: boolean;
+  mentionedOnly: boolean;
+};

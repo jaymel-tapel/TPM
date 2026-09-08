@@ -19,6 +19,7 @@ import {
 import { RichTextEditor } from "@meridian/ui/editor";
 import type { FormState } from "@/actions/tasks";
 import { uploadAttachment } from "@/components/task-attachments";
+import { useDocMentionSource } from "@/components/doc-mention";
 
 export type AssignableUser = { id: string; name: string; team_name: string | null };
 export type BoardOption = { id: string; name: string };
@@ -71,6 +72,7 @@ export function TaskForm({
   const [priority, setPriority] = useState(values.priority);
   const [boardId, setBoardId] = useState(values.boardId);
   const [statusId, setStatusId] = useState(values.statusId);
+  const mentionSource = useDocMentionSource();
 
   const columns = statusesByBoard[boardId] ?? [];
 
@@ -143,6 +145,7 @@ export function TaskForm({
           <RichTextEditor
             name="description"
             defaultValue={values.description}
+            mentionSource={mentionSource}
             uploadFile={
               values.id
                 ? async (file) => (await uploadAttachment(values.id!, file)).href
@@ -151,8 +154,8 @@ export function TaskForm({
           />
           <p className="mt-2 text-caption text-gray-600">
             {values.id
-              ? "Drop an image or file into the description to attach it."
-              : "Save the task first to attach files."}
+              ? "Drop an image or file into the description to attach it. Type @ to reference a document."
+              : "Type @ to reference a document. Save the task first to attach files."}
           </p>
         </div>
 

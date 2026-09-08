@@ -2,7 +2,17 @@ import "server-only";
 import { notFound } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { taskAssignees, tasks, users, type Role, type Task, type User, boards } from "@/db/schema";
+import {
+  documents,
+  taskAssignees,
+  tasks,
+  users,
+  type Doc,
+  type Role,
+  type Task,
+  type User,
+  boards,
+} from "@/db/schema";
 
 export const isDirector = (u: User) => u.role !== "team_member";
 export const isSenior = (u: User) => u.role === "senior_director";
@@ -11,7 +21,15 @@ export const isSenior = (u: User) => u.role === "senior_director";
  * `icon` is a name, not a component: this module is imported by server code
  * that has no business holding React elements. The sidebar maps it.
  */
-export type NavIcon = "today" | "myTasks" | "boards" | "team" | "teams" | "reports" | "overview";
+export type NavIcon =
+  | "today"
+  | "myTasks"
+  | "boards"
+  | "docs"
+  | "team"
+  | "teams"
+  | "reports"
+  | "overview";
 export type NavChild = { href: string; label: string };
 export type NavItem = {
   href: string;
@@ -35,6 +53,7 @@ export function navFor(role: Role): NavItem[] {
       return [
         { href: "/overview", label: "Overview", icon: "overview" },
         { href: "/teams", label: "Teams", icon: "teams" },
+        { href: "/docs", label: "Docs", icon: "docs" },
         { href: "/reports", label: "Reports", icon: "reports" },
       ];
     case "account_director":
@@ -42,6 +61,7 @@ export function navFor(role: Role): NavItem[] {
         { href: "/today", label: "Today", icon: "today" },
         { href: "/boards", label: "Boards", icon: "boards" },
         { href: "/team", label: "Team", icon: "team" },
+        { href: "/docs", label: "Docs", icon: "docs" },
         { href: "/reports", label: "Reports", icon: "reports" },
       ];
     default:
@@ -49,6 +69,7 @@ export function navFor(role: Role): NavItem[] {
         { href: "/today", label: "Today", icon: "today" },
         { href: "/my-tasks", label: "My Tasks", icon: "myTasks" },
         { href: "/boards", label: "Boards", icon: "boards" },
+        { href: "/docs", label: "Docs", icon: "docs" },
       ];
   }
 }
@@ -135,4 +156,56 @@ export async function assertCanManageBoard(viewer: User, boardId: string) {
   if (!board) notFound();
   await assertCanManageTeam(viewer, board.teamId);
   return board;
+}
+
+/*
+ * Documents.
+ *
+ * Reading follows the org chart the same way everything else does: a document
+ * is either the department's or one team's, and you see your own team's plus
+ * the department's.
+ *
+ * Writing is narrower, and deliberately: an org-wide document is a leadership
+ * artefact, so only the Senior Director publishes one, and a team's documents
+ * belong to whoever already runs that team. That is `canViewTeam`'s rule
+ * reused rather than a second rule invented — the person who names a board's
+ * columns is the person who writes down how the team works.
+ */
+/** All a visibility decision needs — so a view type can be asked directly. */
+export type DocScopeOf = Pick<Doc, "visibility" | "teamId">;
+
+export function canViewDoc(viewer: User, doc: DocScopeOf): boolean {
+  if (isSenior(viewer)) return true;
+  if (doc.visibility === "org") return true;
+  return Boolean(viewer.teamId) && viewer.teamId === doc.teamId;
+}
+
+export function canEditDoc(viewer: User, doc: DocScopeOf): boolean {
+  if (isSenior(viewer)) return true;
+  if (doc.visibility === "org") return false;
+  return viewer.role === "account_director" && viewer.teamId === doc.teamId;
+}
+
+/** Whether this person may start a document at all, org-wide or on a team. */
+export function canCreateDocs(viewer: User): boolean {
+  return isDirector(viewer);
+}
+
+/** Only the Senior Director publishes to the whole department. */
+export function canCreateOrgDocs(viewer: User): boolean {
+  return isSenior(viewer);
+}
+
+export async function loadViewableDoc(viewer: User, docId: string): Promise<Doc> {
+  const doc = await db.query.documents.findFirst({ where: eq(documents.id, docId) });
+  if (!doc) notFound();
+  if (!canViewDoc(viewer, doc)) notFound();
+  return doc;
+}
+
+export async function loadEditableDoc(viewer: User, docId: string): Promise<Doc> {
+  const doc = await db.query.documents.findFirst({ where: eq(documents.id, docId) });
+  if (!doc) notFound();
+  if (!canEditDoc(viewer, doc)) notFound();
+  return doc;
 }

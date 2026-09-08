@@ -67,9 +67,33 @@ and these are the absence of work.
 
 ### Not building
 
-From the brief's own "Do Not Build" list: Gantt, docs, chat, whiteboards,
-custom dashboards, custom fields, automations builder, nested spaces, folders,
-project templates, arbitrary views, time tracking, workload forecasting.
+From the brief's own "Do Not Build" list: Gantt, chat, whiteboards, custom
+dashboards, custom fields, automations builder, project templates, arbitrary
+views, time tracking, workload forecasting.
+
+### Docs, reversed
+
+The brief's "Do Not Build" list rules out docs, and nested spaces and folders
+with them. That was right about what it was aiming at — a second product bolted
+onto the first, with its own navigation to learn, which is the ClickUp failure
+the whole brief is written against. It was not aiming at the thing the work
+actually needs, which is somewhere to put the paragraph that would otherwise be
+pasted into four task descriptions and then edited in three of them. A standing
+instruction kept in a description is an instruction that exists once per task
+and goes into the archive with it.
+
+So: documents, but not a documents *product*. A title and a body, in the same
+editor a description already uses, stored the same way in a text column. No
+templates, no permissions matrix, no sharing links, no export, no versions. The
+only thing that makes it worth building is the join to the work — attach one to
+a task, type `@` in a description to name one, and read off the document which
+tasks point at it.
+
+Folders are the part that most looks like what the brief refused, so be exact:
+there is no folder object. A document can be filed under another document,
+which is the same nesting the rail already does for the org chart, and the tree
+is a way of reading the list rather than a place to configure before anything
+can be written.
 
 Also no custom status builder and no task-type creation flow — task types are a
 fixed set of six.
@@ -106,6 +130,18 @@ says not to make Kanban the default interface.
   user input; it lives in a column, not in a path. Everything a task holds is
   recorded in `task_attachments`, whether it was dropped into the prose or onto
   the list, so there is one lifecycle to delete and one place to count.
+- **A document's visibility belongs to its subtree, not its row.** A document
+  is the department's or one team's, and one filed under another is whatever
+  its parent is. Per-document visibility inside a tree makes holes: a team-only
+  child under an org-wide parent is a gap in everyone else's tree and a broken
+  breadcrumb, and the reverse publishes something reachable only by search. The
+  scope is copied down the whole subtree on every move, and the check
+  constraint keeps `visibility` and `team_id` from ever disagreeing.
+- **A mention and an attachment are different rows.** `task_documents.source`
+  is part of the key. Prose owns the links it makes and rewrites them on every
+  save; the attach button owns its own. Neither can undo the other — otherwise
+  deleting a sentence would detach a document somebody chose, and detaching one
+  would be quietly undone by the next save.
 - **A board column is capped, never scrolled.** Done holds seventy cards on a
   fifteen-person team. The count in the header is the real answer; the list
   view is where you read all of them.
