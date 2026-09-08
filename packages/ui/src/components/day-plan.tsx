@@ -300,8 +300,15 @@ function Block({
     };
   }
 
+  /*
+   * The height is inline, not a utility class: the theme's spacing scale stops
+   * at whole steps, and a handle that resolves to zero pixels is a handle
+   * nobody can grab. Eight is on the 4pt grid and is about the smallest target
+   * a mouse finds reliably.
+   */
   const grip =
-    "absolute inset-x-0 h-1.5 cursor-ns-resize opacity-0 transition-opacity group-hover/block:opacity-100";
+    "absolute inset-x-0 cursor-ns-resize opacity-0 transition-opacity group-hover/block:opacity-100";
+  const gripHeight = { height: 8 } as const;
 
   return (
     <div
@@ -358,13 +365,17 @@ function Block({
           <>
             <div
               onPointerDown={resizeFrom("top")}
+              style={gripHeight}
               className={cn(grip, "top-0 rounded-t-md bg-blue-700/30")}
               role="presentation"
+              aria-hidden
             />
             <div
               onPointerDown={resizeFrom("bottom")}
+              style={gripHeight}
               className={cn(grip, "bottom-0 rounded-b-md bg-blue-700/30")}
               role="presentation"
+              aria-hidden
             />
           </>
         ) : null}
