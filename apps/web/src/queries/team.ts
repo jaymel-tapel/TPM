@@ -33,7 +33,7 @@ export type TeamToday = {
  * counts for each person), while the team totals use tasks.team_id (so it
  * counts once for the team).
  */
-export async function getTeamToday(teamId: string, reference = now()): Promise<TeamToday | null> {
+export async function getTeamToday(teamId: string, reference: Date = now()): Promise<TeamToday | null> {
   const { start, end } = dayRange(reference);
 
   const teamRows = await db.execute(sql`

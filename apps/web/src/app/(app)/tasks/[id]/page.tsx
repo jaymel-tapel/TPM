@@ -17,7 +17,8 @@ import { db } from "@/db";
 import { tasks as tasksTable } from "@/db/schema";
 import { getTaskCard, listAllTags } from "@/queries/tasks";
 import { listAssignableUsers } from "@/queries/team";
-import { deleteTask, setTaskStatus, updateTask } from "@/actions/tasks";
+import { setTaskStatus, updateTask } from "@/actions/tasks";
+import { DeleteTaskButton } from "@/components/delete-task-button";
 import { TaskForm } from "@/components/task-form";
 import { dueLabel } from "@/lib/date";
 
@@ -114,12 +115,15 @@ export default async function TaskDetailPage({
       )}
 
       {editable ? (
-        <form action={deleteTask} className="mt-6">
-          <input type="hidden" name="taskId" value={task.id} />
-          <Button type="submit" variant="ghost" size="sm" className="text-gray-600">
-            Delete task
-          </Button>
-        </form>
+        <div className="mt-6">
+          <DeleteTaskButton
+            taskId={task.id}
+            title={task.title}
+            otherAssignees={task.assignees
+              .filter((a) => a.id !== user.id)
+              .map((a) => a.name)}
+          />
+        </div>
       ) : null}
     </>
   );

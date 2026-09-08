@@ -137,7 +137,7 @@ export function TaskForm({
             <Label className={label}>Task type</Label>
             <Select value={type} onValueChange={(v) => v && setType(v)}>
               <SelectTrigger className="w-full">
-                <SelectValue />
+                <SelectValue>{(v) => <TypeLabel type={v as TaskType} />}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {(Object.keys(TASK_TYPE_LABELS) as TaskType[]).map((t) => (
@@ -152,7 +152,7 @@ export function TaskForm({
             <Label className={label}>Priority</Label>
             <Select value={priority} onValueChange={(v) => v && setPriority(v)}>
               <SelectTrigger className="w-full">
-                <SelectValue />
+                <SelectValue>{(v) => PRIORITY_LABELS[v as Priority]}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {(Object.keys(PRIORITY_LABELS) as Priority[]).map((p) => (
@@ -167,7 +167,7 @@ export function TaskForm({
             <Label className={label}>Status</Label>
             <Select value={status} onValueChange={(v) => v && setStatus(v)}>
               <SelectTrigger className="w-full">
-                <SelectValue />
+                <SelectValue>{(v) => STATUS_LABELS[v as TaskStatus]}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {(Object.keys(STATUS_LABELS) as TaskStatus[]).map((s) => (

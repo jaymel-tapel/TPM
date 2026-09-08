@@ -21,7 +21,7 @@ const MAX_ITEMS = 4;
  */
 export async function getNeedsAttention(
   scope: Scope,
-  reference = now(),
+  reference: Date = now(),
 ): Promise<AttentionItem[]> {
   const { start, end } = dayRange(reference);
   const where = scopeSql(scope);
@@ -98,7 +98,7 @@ export async function getNeedsAttention(
  * Department-level signals the Senior Director cannot get from a team view:
  * a team's week-over-week slide, and the weakest kind of work.
  */
-export async function getDepartmentAttention(reference = now()): Promise<AttentionItem[]> {
+export async function getDepartmentAttention(reference: Date = now()): Promise<AttentionItem[]> {
   const { start } = dayRange(reference);
   const weekStart = new Date(start.getTime() - 6 * 86_400_000);
   const priorStart = new Date(start.getTime() - 13 * 86_400_000);

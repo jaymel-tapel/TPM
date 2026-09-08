@@ -32,7 +32,7 @@ export type DayView = {
  * Screen 1. Splits the day into what's left, what's finished, and anything
  * that slipped from an earlier day — the three questions the brief asks.
  */
-export async function getDayView(userId: string, reference = now()): Promise<DayView> {
+export async function getDayView(userId: string, reference: Date = now()): Promise<DayView> {
   const { start, end } = dayRange(reference);
   const scope = scopeSql(userScope(userId));
 
@@ -70,7 +70,7 @@ export type TaskFilters = {
 export async function listTasks(
   scope: Scope,
   filters: TaskFilters = {},
-  reference = now(),
+  reference: Date = now(),
 ): Promise<TaskCard[]> {
   const { start, end } = dayRange(reference);
   const clauses = [scopeSql(scope)];

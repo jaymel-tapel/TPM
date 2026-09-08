@@ -31,7 +31,7 @@ export type DepartmentToday = {
 };
 
 /** Screen 4. One pass over both teams — the SD view is a comparison, not a sum. */
-export async function getDepartmentToday(reference = now()): Promise<DepartmentToday> {
+export async function getDepartmentToday(reference: Date = now()): Promise<DepartmentToday> {
   const { start, end } = dayRange(reference);
   const weekStart = new Date(start.getTime() - 6 * 86_400_000);
   const priorStart = new Date(start.getTime() - 13 * 86_400_000);

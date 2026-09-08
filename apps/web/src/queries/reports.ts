@@ -17,7 +17,7 @@ export type ReportMetrics = {
   avgCompletionHours: number | null;
 };
 
-function windowBounds(days: number, reference = now()) {
+function windowBounds(days: number, reference: Date = now()) {
   const { end } = dayRange(reference);
   return { start: new Date(end.getTime() - days * 86_400_000), end };
 }
@@ -29,7 +29,7 @@ function windowBounds(days: number, reference = now()) {
 export async function getReportMetrics(
   scope: Scope,
   days = 7,
-  reference = now(),
+  reference: Date = now(),
 ): Promise<ReportMetrics> {
   const { start, end } = windowBounds(days, reference);
   const todayStart = dayRange(reference).start;
@@ -65,7 +65,7 @@ export type TrendPoint = { date: Date; label: string; due: number; done: number;
 export async function getCompletionTrend(
   scope: Scope,
   days = 7,
-  reference = now(),
+  reference: Date = now(),
 ): Promise<TrendPoint[]> {
   const { start } = dayRange(reference);
   const first = new Date(start.getTime() - (days - 1) * 86_400_000);
@@ -113,7 +113,7 @@ export type TypeBreakdown = { type: TaskType; label: string; due: number; done: 
 export async function getCompletionByType(
   scope: Scope,
   days = 7,
-  reference = now(),
+  reference: Date = now(),
 ): Promise<TypeBreakdown[]> {
   const { start, end } = windowBounds(days, reference);
   const where = scopeSql(scope);
@@ -146,7 +146,7 @@ export type WorkloadRow = { id: string; name: string; teamName: string | null; d
 export async function getWorkload(
   scope: Scope,
   days = 7,
-  reference = now(),
+  reference: Date = now(),
 ): Promise<WorkloadRow[]> {
   const { start, end } = windowBounds(days, reference);
   const where = scopeSql(scope);
