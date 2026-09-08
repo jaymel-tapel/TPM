@@ -18,17 +18,20 @@ import { useMentionSource } from "@/components/doc-mention";
  */
 export function TaskActivity({
   taskId,
+  teamId,
   items,
   total,
   moreHref,
 }: {
   taskId: string;
+  /** The task's team — who a comment here may name. */
+  teamId: string;
   items: ActivityItemData[];
   total: number;
   moreHref?: string;
 }) {
   const router = useRouter();
-  const mentionSource = useMentionSource();
+  const mentionSource = useMentionSource(teamId);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 

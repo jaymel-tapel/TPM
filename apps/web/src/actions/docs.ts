@@ -13,6 +13,7 @@ import type { MentionItem } from "@meridian/ui/editor";
 import {
   assertMayPlaceDoc,
   canCreateDocs,
+  canViewTeamWork,
   loadEditableDoc,
   loadEditableTask,
 } from "@/lib/permissions";
@@ -243,14 +244,19 @@ export async function listMentionableDocs() {
 /**
  * People the `@` menu can offer, alongside documents.
  *
- * Everyone in the department, not just the viewer's team: a mention names
- * somebody in a sentence, and the sentence is already visible to whoever can
- * read the task. It links to their day, which is scoped by its own permission
- * check — so the picker does not need to duplicate one.
+ * Scoped to a team, because a mention is how somebody gets pointed at work,
+ * and the work belongs to a team's board. Offering the whole department would
+ * let a description name someone who cannot open the thing naming them.
+ *
+ * `null` means everything the viewer can reach — an org-wide document is read
+ * by everyone, so there is no narrower team to scope to.
  */
-export async function listMentionablePeople(): Promise<MentionItem[]> {
-  await requireUser();
-  const people = await listAssignableUsers();
+export async function listMentionablePeople(teamId?: string | null): Promise<MentionItem[]> {
+  const viewer = await requireUser();
+  // A team the viewer cannot reach is not a team they may pick people from.
+  if (teamId && !canViewTeamWork(viewer, teamId)) return [];
+
+  const people = await listAssignableUsers(teamId ? [teamId] : undefined);
   return people.map((person) => ({
     id: person.id,
     title: person.name,

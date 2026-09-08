@@ -19,7 +19,6 @@ import { getAttachments } from "@/queries/attachments";
 import { getActivity } from "@/queries/activity";
 import { getLinkedDocs } from "@/queries/docs";
 import { listBoardOptions, listBoardStatuses } from "@/queries/boards";
-import { listAssignableUsers } from "@/queries/team";
 import { setTaskStatus, updateTask } from "@/actions/tasks";
 import { DeleteTaskButton } from "@/components/delete-task-button";
 import { TaskForm } from "@/components/task-form";
@@ -51,9 +50,8 @@ export default async function TaskDetailPage({
   if (!record || !(await canViewTask(user, record))) notFound();
   const editable = await canEditTask(user, record);
 
-  const [task, people, tags, attachments, docs, columns, options, activity] = await Promise.all([
+  const [task, tags, attachments, docs, columns, options, activity] = await Promise.all([
     getTaskCard(id),
-    listAssignableUsers(),
     listAllTags(),
     getAttachments(id),
     getLinkedDocs(user, id),
@@ -111,7 +109,7 @@ export default async function TaskDetailPage({
         <TaskForm
           action={updateTask}
           submitLabel="Save changes"
-          people={people}
+          peopleByBoard={options.peopleByBoard}
           allTags={tags}
           boards={options.boards}
           statusesByBoard={options.statusesByBoard}
@@ -154,6 +152,7 @@ export default async function TaskDetailPage({
 
       <div className="mt-6">
         <TaskActivity
+          teamId={task.teamId}
           taskId={task.id}
           items={activity.entries.map((entry) => toActivityItem(entry, user))}
           total={activity.total}

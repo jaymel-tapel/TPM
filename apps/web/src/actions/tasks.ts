@@ -22,7 +22,8 @@ import {
 } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
 import { syncMentionedDocs } from "@/lib/doc-links";
-import { assertCanViewTeamWork, assertCanViewUser, loadEditableTask } from "@/lib/permissions";
+import { assertCanViewTeamWork, loadEditableTask } from "@/lib/permissions";
+import { assigneesOutsideTeam } from "@/queries/team";
 
 const taskInput = z.object({
   title: z.string().trim().min(1, "Give the task a title").max(200),
@@ -152,7 +153,19 @@ export async function createTask(_prev: FormState, formData: FormData): Promise<
     .where(eq(boards.id, input.boardId));
   if (!board) return { error: "Pick a board." };
   await assertCanViewTeamWork(viewer, board.teamId);
-  await assertCanViewUser(viewer, input.assignees[0]);
+
+  /*
+   * Everyone on the task has to be on the board's team. Checked over the whole
+   * list, not just the first: the ids come from a form, and a payload naming
+   * one teammate and three strangers would otherwise pass on the strength of
+   * the teammate.
+   */
+  const strangers = await assigneesOutsideTeam(board.teamId, input.assignees);
+  if (strangers.length > 0) {
+    return {
+      error: `${strangers.join(", ")} ${strangers.length === 1 ? "is" : "are"} not on this board's team.`,
+    };
+  }
 
   const [task] = await db
     .insert(tasks)
@@ -208,6 +221,19 @@ export async function updateTask(_prev: FormState, formData: FormData): Promise<
     .where(eq(boards.id, input.boardId));
   if (!board) return { error: "Pick a board." };
   await assertCanViewTeamWork(viewer, board.teamId);
+
+  /*
+   * Everyone on the task has to be on the board's team. Checked over the whole
+   * list, not just the first: the ids come from a form, and a payload naming
+   * one teammate and three strangers would otherwise pass on the strength of
+   * the teammate.
+   */
+  const strangers = await assigneesOutsideTeam(board.teamId, input.assignees);
+  if (strangers.length > 0) {
+    return {
+      error: `${strangers.join(", ")} ${strangers.length === 1 ? "is" : "are"} not on this board's team.`,
+    };
+  }
 
   /*
    * What actually changed, worked out before the write. Save rewrites every

@@ -24,7 +24,8 @@ import { LogTimeField } from "@/components/log-time-field";
 import { useMentionSource } from "@/components/doc-mention";
 
 export type AssignableUser = { id: string; name: string; team_name: string | null };
-export type BoardOption = { id: string; name: string };
+/** `teamId` is what decides who may be assigned or named on this board. */
+export type BoardOption = { id: string; name: string; teamId: string };
 export type StatusOption = { id: string; name: string; kind: "open" | "done" | "blocked" };
 
 export type TaskFormValues = {
@@ -60,7 +61,7 @@ function durationHint(value: string): string {
 export function TaskForm({
   action,
   values,
-  people,
+  peopleByBoard,
   allTags,
   submitLabel,
   boards,
@@ -68,7 +69,12 @@ export function TaskForm({
 }: {
   action: (prev: FormState, formData: FormData) => Promise<FormState>;
   values: TaskFormValues;
-  people: AssignableUser[];
+  /**
+   * Who may be assigned, per board id. Keyed like the columns are, and for the
+   * same reason: a board's people are its team's people, and changing the
+   * board changes both.
+   */
+  peopleByBoard: Record<string, AssignableUser[]>;
   allTags: string[];
   submitLabel: string;
   /** Boards the viewer may file work on. */
@@ -90,9 +96,12 @@ export function TaskForm({
    */
   const [statusId, setStatusId] = useState(values.statusId);
   const [estimate, setEstimate] = useState(values.estimate);
-  const mentionSource = useMentionSource();
+  // Named in a description, assigned in the sidebar — same board, so the
+  // same set of people either way.
+  const mentionSource = useMentionSource(boards.find((b) => b.id === boardId)?.teamId ?? null);
 
   const columns = statusesByBoard[boardId] ?? [];
+  const people = peopleByBoard[boardId] ?? [];
 
   /*
    * Statuses belong to a board, so changing the board invalidates the chosen
@@ -101,6 +110,14 @@ export function TaskForm({
    */
   function chooseBoard(next: string) {
     setBoardId(next);
+    /*
+     * Assignees belong to the board's team, so moving the task to another
+     * board drops anyone who does not come with it. Silently keeping them
+     * would post a payload the server refuses, and the form would fail on a
+     * field nobody had touched.
+     */
+    const allowed = new Set((peopleByBoard[next] ?? []).map((p) => p.id));
+    setSelected((prev) => prev.filter((id) => allowed.has(id)));
     const first = statusesByBoard[next]?.[0];
     if (first) setStatusId(first.id);
   }

@@ -2,6 +2,7 @@ import "server-only";
 import { asc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { boardStatuses, boards, teams } from "@/db/schema";
+import { listAssignableUsers } from "./team";
 
 export type BoardSummary = {
   id: string;
@@ -9,6 +10,8 @@ export type BoardSummary = {
   teamId: string;
   teamName: string;
 };
+
+export type AssignablePerson = { id: string; name: string; team_name: string | null };
 
 export type BoardStatus = {
   id: string;
@@ -94,5 +97,18 @@ export async function listBoardOptions(user: { role: string; teamId: string | nu
     statusesByBoard[c.boardId]?.push({ id: c.id, name: c.name, kind: c.kind });
   }
 
-  return { boards: rows, statusesByBoard };
+  /*
+   * Who can be put on work filed here. Keyed by board for the same reason the
+   * columns are: changing the board changes both, and the form should not have
+   * to know that a board's people are really its team's people.
+   */
+  const people = await listAssignableUsers([...new Set(rows.map((b) => b.teamId))]);
+  const peopleByBoard: Record<string, AssignablePerson[]> = {};
+  for (const b of rows) {
+    peopleByBoard[b.id] = people
+      .filter((p) => p.team_id === b.teamId)
+      .map((p) => ({ id: p.id, name: p.name, team_name: p.team_name }));
+  }
+
+  return { boards: rows, statusesByBoard, peopleByBoard };
 }

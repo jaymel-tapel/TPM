@@ -21,17 +21,29 @@ import { listMentionableDocs, listMentionablePeople } from "@/actions/docs";
  * dependency, so a fresh function each render re-queries in a loop. Hence
  * `useCallback` with no dependencies, and the caches in refs.
  */
-export function useMentionSource(): (query: string) => Promise<MentionItem[]> {
+export function useMentionSource(
+  /**
+   * The team whose people may be named here — a task's board's team, or a
+   * document's own team. `null` is the org-wide case, where everyone can read
+   * what is being written and so everyone can be named in it.
+   */
+  teamId?: string | null,
+): (query: string) => Promise<MentionItem[]> {
   const docs = useRef<Promise<MentionItem[]> | null>(null);
-  const people = useRef<Promise<MentionItem[]> | null>(null);
+  // Keyed by team: switching the board switches the people, and the answer for
+  // the board you came from is still worth keeping if you switch back.
+  const people = useRef(new Map<string, Promise<MentionItem[]>>());
 
   return useCallback(async (query: string) => {
+    const key = teamId ?? "";
     docs.current ??= listMentionableDocs()
       .then((rows) => rows.map((row) => ({ ...row, kind: "doc" as const })))
       .catch(() => []);
-    people.current ??= listMentionablePeople().catch(() => []);
+    if (!people.current.has(key)) {
+      people.current.set(key, listMentionablePeople(teamId).catch(() => []));
+    }
 
-    const [documents, persons] = await Promise.all([docs.current, people.current]);
+    const [documents, persons] = await Promise.all([docs.current, people.current.get(key)!]);
 
     const q = query.trim().toLowerCase();
     const matches = (item: MentionItem) =>
@@ -42,5 +54,8 @@ export function useMentionSource(): (query: string) => Promise<MentionItem[]> {
     // People first, then documents — each capped, so one long list cannot
     // crowd the other out of the menu.
     return [...persons.filter(matches).slice(0, 6), ...documents.filter(matches).slice(0, 6)];
-  }, []);
+    // Identity must stay stable per team — BlockNote lists `getItems` in a
+    // `useEffect` dependency array, so a new function every render re-queries
+    // in a loop. Changing when the team changes is the point.
+  }, [teamId]);
 }

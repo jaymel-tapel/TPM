@@ -49,7 +49,9 @@ export function DocForm({
   const [visibility, setVisibility] = useState(values.visibility);
   const [teamId, setTeamId] = useState(values.teamId);
   const [parentId, setParentId] = useState(values.parentId);
-  const mentionSource = useMentionSource();
+  // An org-wide document is read by everyone, so everyone can be named in
+  // one; a team's document is read by that team.
+  const mentionSource = useMentionSource(visibility === "team" ? teamId : null);
 
   // Where a document sits decides who reads it, so a filed document takes its
   // parent's scope and the choice stops being a choice.

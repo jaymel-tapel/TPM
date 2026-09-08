@@ -106,18 +106,53 @@ export async function listTeamMembers(teamId: string) {
   return rows.rows as unknown as { id: string; name: string; role: Role }[];
 }
 
-/** Everyone who can be assigned work — used by the task form. */
-export async function listAssignableUsers() {
+/**
+ * Who may be put on a team's work.
+ *
+ * Work belongs to a board, a board belongs to a team, and a task's assignees
+ * are the people responsible for it — so they have to be people that team's
+ * board actually reaches. Assigning across teams would put the task in a
+ * stranger's My Tasks and count it in their completion rate.
+ *
+ * The Senior Director is on no team and so is on nobody's board: they oversee
+ * the work rather than carry it, which is what `team_id is not null` has always
+ * said here.
+ */
+export async function listAssignableUsers(teamIds?: string[]) {
+  if (teamIds && teamIds.length === 0) return [];
+
   const rows = await db.execute(
-    sql`select u.id, u.name, u.role, t.name as team_name
-        from users u left join teams t on t.id = u.team_id
-        where u.team_id is not null
+    sql`select u.id, u.name, u.role, u.team_id, t.name as team_name
+        from users u join teams t on t.id = u.team_id
+        ${teamIds ? sql`where u.team_id in (${sql.join(teamIds.map((id) => sql`${id}::uuid`), sql`, `)})` : sql``}
         order by t.name, u.name`,
   );
   return rows.rows as unknown as {
     id: string;
     name: string;
     role: Role;
+    team_id: string;
     team_name: string | null;
   }[];
+}
+
+/**
+ * The assignees among these ids who are not on the given team.
+ *
+ * The picker only offers the right people, but the ids arrive in a form
+ * payload — so the rule is enforced where it counts rather than where it is
+ * displayed. Returns names, because "who" is what the message has to say.
+ */
+export async function assigneesOutsideTeam(
+  teamId: string,
+  userIds: string[],
+): Promise<string[]> {
+  if (userIds.length === 0) return [];
+  const rows = await db.execute(
+    sql`select u.name from users u
+        where u.id in (${sql.join(userIds.map((id) => sql`${id}::uuid`), sql`, `)})
+          and (u.team_id is null or u.team_id <> ${teamId}::uuid)
+        order by u.name`,
+  );
+  return (rows.rows as unknown as { name: string }[]).map((r) => r.name);
 }
