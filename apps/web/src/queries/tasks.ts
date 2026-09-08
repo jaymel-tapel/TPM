@@ -1,14 +1,36 @@
 import "server-only";
 import { eq, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { boardStatuses, boards, statusKindEnum, teams, type StatusKind } from "@/db/schema";
+import {
+  boardStatuses,
+  boards,
+  priorityEnum,
+  statusKindEnum,
+  taskTypeEnum,
+  teams,
+  type Priority,
+  type StatusKind,
+  type TaskType,
+} from "@/db/schema";
 
+/*
+ * Filters arrive from a query string, so every enum-valued one is checked
+ * before it reaches Postgres: an unknown value would land as an invalid enum
+ * literal and turn a typo in a URL — or a bookmark kept past a rename — into a
+ * 500. Checked here rather than at the page, so the guarantee belongs to the
+ * query and holds for whatever calls it next.
+ */
 const isStatusKind = (value: string): value is StatusKind =>
   (statusKindEnum.enumValues as readonly string[]).includes(value);
+const isTaskType = (value: string): value is TaskType =>
+  (taskTypeEnum.enumValues as readonly string[]).includes(value);
+const isPriority = (value: string): value is Priority =>
+  (priorityEnum.enumValues as readonly string[]).includes(value);
 import { dayRange, now, pct, type Zone } from "@/lib/date";
 import {
   boardOrder,
   boardScopeSql,
+  boardWindowSql,
   overdueSql,
   scopeSql,
   taskCardFrom,
@@ -140,6 +162,40 @@ export type TaskFilters = {
   range?: "today" | "week" | "overdue" | "all";
 };
 
+/** The four filters that mean the same thing wherever they are asked. */
+export type WorkFilters = Pick<TaskFilters, "status" | "type" | "priority" | "tag">;
+
+/**
+ * What `WorkFilters` narrows to, as SQL.
+ *
+ * One definition, because the list and the board have to mean the same thing
+ * by "Review": they render the same cards through the same components, and a
+ * filter that agreed with itself only most of the time would be worse than
+ * none. Anything unrecognised is dropped rather than thrown on — a stale link
+ * should show the board, not an error page.
+ *
+ * `s` is the joined `board_statuses` row. Filtering on a status *kind* rather
+ * than a column id is what makes it work across boards that name their columns
+ * differently.
+ */
+export function workFilterSql(filters: WorkFilters): ReturnType<typeof sql>[] {
+  const clauses: ReturnType<typeof sql>[] = [];
+  if (filters.status && isStatusKind(filters.status)) {
+    clauses.push(sql`s.kind = ${filters.status}`);
+  }
+  if (filters.type && isTaskType(filters.type)) clauses.push(sql`k.type = ${filters.type}`);
+  if (filters.priority && isPriority(filters.priority)) {
+    clauses.push(sql`k.priority = ${filters.priority}`);
+  }
+  // Text, so an unknown tag needs no guard: it simply matches nothing.
+  if (filters.tag) {
+    clauses.push(
+      sql`exists (select 1 from task_tags ft join tags fg on fg.id = ft.tag_id where ft.task_id = k.id and fg.name = ${filters.tag})`,
+    );
+  }
+  return clauses;
+}
+
 /** Backs the person drilldown. Kept narrow: filters, not a query builder. */
 export async function listTasks(
   scope: Scope,
@@ -148,30 +204,11 @@ export async function listTasks(
   zone?: Zone,
 ): Promise<TaskCard[]> {
   const { start, end } = dayRange(reference, zone);
-  const clauses = [scopeSql(scope)];
+  const clauses = [scopeSql(scope), ...workFilterSql(filters)];
 
-  /*
-   * `s` is the joined board_statuses row. Filtering on a *kind* rather than a
-   * column id is what makes this work across boards that name things
-   * differently — the column this used to read was retired in 0005.
-   *
-   * The value is checked against the enum first: it arrives from a query
-   * string, and an unknown one would reach Postgres as an invalid enum literal
-   * and turn a typo in the URL into a 500.
-   */
-  if (filters.status && isStatusKind(filters.status)) {
-    clauses.push(sql`s.kind = ${filters.status}`);
-  }
-  if (filters.type) clauses.push(sql`k.type = ${filters.type}`);
-  if (filters.priority) clauses.push(sql`k.priority = ${filters.priority}`);
   if (filters.person) {
     clauses.push(
       sql`exists (select 1 from task_assignees fa where fa.task_id = k.id and fa.user_id = ${filters.person})`,
-    );
-  }
-  if (filters.tag) {
-    clauses.push(
-      sql`exists (select 1 from task_tags ft join tags fg on fg.id = ft.tag_id where ft.task_id = k.id and fg.name = ${filters.tag})`,
     );
   }
   switch (filters.range) {
@@ -204,6 +241,26 @@ export async function getTaskCard(taskId: string): Promise<TaskCard | null> {
 
 export async function listAllTags(): Promise<string[]> {
   const result = await db.execute(sql`select name from tags order by name`);
+  return (result.rows as { name: string }[]).map((r) => r.name);
+}
+
+/**
+ * The tags in play on one board, for the filter to offer.
+ *
+ * Not `listAllTags` — that is every client name in the department, and a menu
+ * on Brand & Creative offering a tag only Performance Media uses is a menu of
+ * empty boards. Scoped to the board rather than to the day, so a tag does not
+ * vanish from the list because today happens to be quiet.
+ */
+export async function listBoardTags(boardId: string): Promise<string[]> {
+  const result = await db.execute(sql`
+    select distinct g.name
+    from tags g
+    join task_tags tt on tt.tag_id = g.id
+    join tasks k on k.id = tt.task_id
+    where ${boardScopeSql(boardId)} and ${isLeaf}
+    order by g.name
+  `);
   return (result.rows as { name: string }[]).map((r) => r.name);
 }
 
@@ -241,6 +298,8 @@ export async function getBoardView(
   /** Narrows to the work this person is on. Null shows the whole board. */
   assigneeId: string | null = null,
   zone?: Zone,
+  /** Type, priority and tag, as the reader asked for them in the URL. */
+  filters: WorkFilters = {},
 ): Promise<BoardView | null> {
   const { start, end } = dayRange(reference, zone);
 
@@ -259,13 +318,16 @@ export async function getBoardView(
   // Reuses the same `exists (…task_assignees…)` fragment every other
   // person-scoped query uses, so "mine" means the same thing everywhere.
   const mine = assigneeId ? sql` and ${scopeSql(userScope(assigneeId))}` : sql``;
+  /*
+   * Narrowing happens in the query, not after it, so the count in each column
+   * header counts what is on the screen. A board that said "19" over three
+   * cards would be reporting on a board nobody is looking at.
+   */
+  const narrowed = workFilterSql(filters);
+  const narrowing = narrowed.length ? sql` and ${sql.join(narrowed, sql` and `)}` : sql``;
 
   const rows = await runTaskQuery(
-    sql`${boardScopeSql(boardId)}${mine} and (
-      (k.due_date >= ${start} and k.due_date < ${end})
-      or ${overdueSql(start)}
-      or (k.completed_at >= ${start} and k.completed_at < ${end})
-    )`,
+    sql`${boardScopeSql(boardId)}${mine}${narrowing} and ${boardWindowSql(start, end)}`,
     400,
     boardOrder,
   );

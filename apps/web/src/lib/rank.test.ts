@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ranksFor } from "./rank";
+import { ranksFor, weave } from "./rank";
 
 const at = (entries: [string, number][]) => new Map(entries);
 
@@ -53,5 +53,55 @@ describe("ranksFor", () => {
       { id: "a", position: 1 },
       { id: "b", position: 2 },
     ]);
+  });
+});
+
+/**
+ * The board never shows a whole column — twelve cards at most, and with a
+ * filter on, a scattered few. What comes back from a drop is therefore partial,
+ * and the cards it left out are the ones with everything to lose.
+ */
+describe("weave", () => {
+  it("is the identity when the column was fully visible", () => {
+    expect(weave(["a", "b", "c"], ["a", "c", "b"])).toEqual(["a", "c", "b"]);
+  });
+
+  it("permutes a filtered handful within its own slots", () => {
+    // Reviews at 1, 3 and 5 of six, rearranged. a, b and c must not budge:
+    // nobody could see them, so nobody moved them.
+    const full = ["a", "r1", "b", "r2", "c", "r3"];
+    expect(weave(full, ["r1", "r3", "r2"])).toEqual(["a", "r1", "b", "r3", "c", "r2"]);
+  });
+
+  it("leaves the column alone when nothing visible moved", () => {
+    const full = ["a", "r1", "b", "r2"];
+    expect(weave(full, ["r1", "r2"])).toEqual(full);
+  });
+
+  it("takes the slot of the neighbour a newcomer was dropped above", () => {
+    // "new" arrives from another column, dropped between the two cards the
+    // filter let through. It has no slot of its own, so it borrows the next.
+    expect(weave(["x", "b", "y"], ["x", "new", "y"])).toEqual(["x", "b", "new", "y"]);
+  });
+
+  it("puts a newcomer dropped at the top above everything visible", () => {
+    expect(weave(["x", "b", "y"], ["new", "x", "y"])).toEqual(["new", "x", "b", "y"]);
+  });
+
+  it("puts a newcomer dropped below the last visible card at the end", () => {
+    expect(weave(["x", "b", "y"], ["x", "y", "new"])).toEqual(["x", "b", "y", "new"]);
+  });
+
+  it("is the whole arrangement when the column was empty", () => {
+    expect(weave([], ["new"])).toEqual(["new"]);
+  });
+
+  it("changes nothing when the drop saw nothing", () => {
+    expect(weave(["a", "b"], [])).toEqual(["a", "b"]);
+  });
+
+  it("does not let a doubled id swallow a slot", () => {
+    const full = ["a", "r1", "b", "r2"];
+    expect(weave(full, ["r2", "r2", "r1"])).toEqual(["a", "r2", "b", "r1"]);
   });
 });

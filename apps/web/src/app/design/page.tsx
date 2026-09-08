@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsList, TabsTrigger } from "@meridian/ui/primitives/tabs";
 import { Textarea } from "@meridian/ui/primitives/textarea";
 import { RichTextEditor, RichTextView } from "@meridian/ui/editor";
-import { Columns3, List, Plus, Trash2 } from "lucide-react";
+import { Columns3, Flag, List, Plus, Shapes, Tag, Trash2, User } from "lucide-react";
 import {
   AvatarStack,
   CompletionMeter,
@@ -53,6 +53,9 @@ import {
   Command,
   CommandBar,
   CommandDivider,
+  FilterMenu,
+  PriorityIcon,
+  PRIORITY_LABELS,
   TaskBoard,
   TaskListSkeleton,
   TeamCompare,
@@ -63,6 +66,8 @@ import {
   TaskRow,
   TypeLabel,
   UserAvatar,
+  type FilterOption,
+  type Priority,
   type TaskType,
   TrendStrip,
 } from "@meridian/ui";
@@ -166,6 +171,32 @@ function Scale({ name, prefix }: { name: string; prefix: string }) {
     </div>
   );
 }
+
+/**
+ * Options for the filter menus below. Written out here rather than derived from
+ * a board, because the gallery has no data — a component in `@meridian/ui`
+ * renders what it is handed, and the page it lives on builds every href.
+ */
+const FILTER_TYPES: FilterOption[] = TASK_TYPES_ORDER.map((type) => ({
+  value: type,
+  label: <TypeLabel type={type} />,
+  short: TASK_TYPE_LABELS[type],
+  href: "#",
+}));
+
+const FILTER_PRIORITIES: FilterOption[] = (["urgent", "high"] as Priority[]).map(
+  (priority) => ({
+    value: priority,
+    label: (
+      <span className="inline-flex items-center gap-1.5">
+        <PriorityIcon priority={priority} className="text-red-700" />
+        {PRIORITY_LABELS[priority]}
+      </span>
+    ),
+    short: PRIORITY_LABELS[priority],
+    href: "#",
+  }),
+);
 
 /* ── page ─────────────────────────────────────────────────────────────── */
 
@@ -593,6 +624,43 @@ export default function DesignSystemPage() {
             <Command icon={Trash2} href="#" tone="danger">
               Delete
             </Command>
+          </CommandBar>
+
+          <p className="mt-10 mb-6 max-w-prose text-body text-gray-700">
+            A filter narrows the view it is sitting on rather than switching to
+            another one, so it belongs in the same bar and is built from the same
+            command. Every option is a link — the URL is the filter, which is what
+            makes a narrowed board something you can send to somebody. The chosen
+            value reads beside the dimension, never instead of it, and the ✕ is
+            attached because a filter you cannot get out of is a trap.
+          </p>
+          <CommandBar>
+            <Command icon={List} href="#">
+              List
+            </Command>
+            <Command icon={Columns3} href="#" active>
+              Board
+            </Command>
+            <CommandDivider />
+            <Command icon={User} href="#">
+              My Tasks
+            </Command>
+            {/* Idle, chosen, and with nothing to offer — the three states. */}
+            <FilterMenu label="Type" icon={Shapes} options={FILTER_TYPES} clearHref="#" />
+            <FilterMenu
+              label="Priority"
+              icon={Flag}
+              options={FILTER_PRIORITIES}
+              value="urgent"
+              clearHref="#"
+            />
+            <FilterMenu
+              label="Tag"
+              icon={Tag}
+              options={[]}
+              clearHref="#"
+              empty="Nothing on this board is tagged"
+            />
           </CommandBar>
         </Block>
 

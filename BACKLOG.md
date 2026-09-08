@@ -30,7 +30,7 @@ Reporting, Quality.
 
 | | | |
 |---|---|---|
-| [WEB-20](https://linear.app/jaymelworkspace/issue/WEB-20) | Filters on the team view | High |
+| [WEB-20](https://linear.app/jaymelworkspace/issue/WEB-20) | Filters — *board half done; the team view still has none* | Medium |
 | [WEB-21](https://linear.app/jaymelworkspace/issue/WEB-21) | Blocked state: capture the reason | High |
 | [WEB-24](https://linear.app/jaymelworkspace/issue/WEB-24) | Password change — *self-service half* | Medium |
 | [WEB-26](https://linear.app/jaymelworkspace/issue/WEB-26) | Date range selector on reports | Medium |
@@ -42,11 +42,14 @@ Reporting, Quality.
 | [WEB-32](https://linear.app/jaymelworkspace/issue/WEB-32) | CSV export of reports | Low |
 | [WEB-35](https://linear.app/jaymelworkspace/issue/WEB-35) | Recurring tasks | Low |
 
-Two of these have moved since they were written. **WEB-24** is half done: an
-administrator can reset somebody's password from their page, and the reset ends
-their open sessions; nobody can yet change their own. **WEB-27** named a screen
-that no longer exists — My Day folded into a filter on the board — so the issue
-needs restating against the board before it can be picked up.
+Three of these have moved since they were written. **WEB-20** now has type,
+priority and tag on the board, in both its list and its columns; the team view
+is what is left, and `FilterMenu` and `workFilterSql` are both written to serve
+it without changes. **WEB-24** is half done: an administrator can reset
+somebody's password from their page, and the reset ends their open sessions;
+nobody can yet change their own. **WEB-27** named a screen that no longer exists
+— My Day folded into a filter on the board — so the issue needs restating
+against the board before it can be picked up.
 
 ---
 
@@ -322,3 +325,25 @@ says not to make Kanban the default interface.
   arrangement. Every other screen ignores `position` entirely: a list asks
   "what is urgent", and hand-ranking one board should not answer that question
   everywhere else.
+- **A drop is woven into the column, never ranked against it.** The board never
+  shows a column whole — twelve cards at most, and under a filter a scattered
+  few — so the arrangement that comes back from a drag names only some of the
+  cards. Ranking that list directly would pull those cards to the top and drop
+  everything they were interleaved with behind them, silently, and only visible
+  once the filter comes off and an arrangement somebody made by hand is gone.
+  So the cards you could see keep the slots they occupied and only trade places
+  with each other; a card nobody could see does not move, because nobody moved
+  it. The cap alone was safe because what it hid was always a suffix — a filter
+  is the first thing that makes the visible set sparse, which is the invariant
+  that breaks.
+- **A filter narrows the query, not the result.** The count in a column header
+  has to count what is on the screen, or a board reading "19" over three cards
+  is reporting on a board nobody is looking at.
+- **The URL is the filter.** Type, priority and tag are search params on a
+  server-rendered page, so a narrowed board is a link somebody can send and the
+  back button does what it looks like it does. The same reason the docs search
+  is a plain GET form.
+- **A value that is not a value is dropped, not thrown on.** Filters arrive
+  from a query string, and an unrecognised enum would reach Postgres as an
+  invalid literal. A stale bookmark shows the whole board rather than an error
+  page, and it is the query layer that guarantees it rather than each page.

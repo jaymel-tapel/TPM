@@ -72,6 +72,22 @@ export const isLeaf = sql`not exists (select 1 from tasks c where c.parent_id = 
 export const overdueSql = (todayStart: Date): SQL =>
   sql`(k.due_date < ${todayStart} and k.completed_at is null)`;
 
+/**
+ * The slice of a board's work a board actually shows: due today, carried over
+ * from an earlier day, or finished today.
+ *
+ * Named because two places have to agree on it. `getBoardView` reads it, and
+ * `moveTask` has to rank the same set — a drop rearranges the column the
+ * reader was looking at, and ranking rows outside that window would both cost
+ * writes nobody asked for and give a rank to work nobody can see.
+ */
+export const boardWindowSql = (start: Date, end: Date): SQL =>
+  sql`(
+    (k.due_date >= ${start} and k.due_date < ${end})
+    or ${overdueSql(start)}
+    or (k.completed_at >= ${start} and k.completed_at < ${end})
+  )`;
+
 /** Task row plus its assignees and tags, ready to render. */
 export type TaskCard = {
   id: string;

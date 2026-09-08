@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { and, count, eq, inArray } from "drizzle-orm";
+import { and, count, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { parseDuration } from "@/lib/duration";
 import { db } from "@/db";
@@ -20,9 +20,11 @@ import {
   type ActivityKind,
   type StatusKind,
 } from "@/db/schema";
-import { requireUser } from "@/lib/auth";
+import { requireSession, requireUser } from "@/lib/auth";
 import { completionOnMove } from "@/lib/completion";
-import { ranksFor } from "@/lib/rank";
+import { dayRange } from "@/lib/date";
+import { ranksFor, weave } from "@/lib/rank";
+import { boardOrder, boardWindowSql, isLeaf } from "@/queries/sql";
 import { collectPeople } from "@meridian/ui/editor";
 import { syncMentionedDocs } from "@/lib/doc-links";
 import { deliver, notify } from "@/lib/notify";
@@ -475,9 +477,13 @@ const moveInput = z.object({
  * have: the board is capped at twelve of a possibly longer column and scoped
  * to one day, so index three of what was on screen is not index three of the
  * column. The array is self-describing and cannot contradict itself.
+ *
+ * What it is *not* is the whole column — the cap hides cards, and a filter
+ * hides more and scatters what is left. So the arrangement is woven back into
+ * the column as the database holds it before anything is ranked; see `weave`.
  */
 export async function moveTask(formData: FormData) {
-  const viewer = await requireUser();
+  const { user: viewer, zone } = await requireSession();
   const input = moveInput.parse({
     taskId: formData.get("taskId"),
     statusId: formData.get("statusId"),
@@ -490,25 +496,31 @@ export async function moveTask(formData: FormData) {
   const changed = status.id !== task.statusId;
 
   /*
-   * Only rows on this task's own board and in the column it landed in. A list
-   * naming a card somebody else has since moved is stale rather than
-   * malicious, so `ranksFor` drops those ids and honours the rest.
+   * The destination column as the board would draw it, unfiltered and uncapped
+   * — the same day window `getBoardView` uses, in the same order, so the two
+   * agree on what "the column" is. Bounded by a day's work in one column.
+   *
+   * A card somebody else has since moved out simply is not in here, and
+   * `ranksFor` drops it: a list naming it is stale rather than malicious, and
+   * the rest of the arrangement is still worth honouring.
    */
-  const siblings = await db
-    .select({ id: tasks.id, position: tasks.position })
-    .from(tasks)
-    .where(
-      and(
-        eq(tasks.boardId, task.boardId),
-        eq(tasks.statusId, status.id),
-        inArray(tasks.id, input.order),
-      ),
-    );
-  const current = new Map(siblings.map((row) => [row.id, row.position]));
+  const { start, end } = dayRange(undefined, zone);
+  const column = await db.execute(
+    sql`select k.id, k.position from tasks k
+        where k.board_id = ${task.boardId} and k.status_id = ${status.id}
+          and ${isLeaf} and ${boardWindowSql(start, end)}
+        order by ${boardOrder}`,
+  );
+  const rows = column.rows as unknown as { id: string; position: number }[];
+
+  const current = new Map(rows.map((row) => [row.id, row.position]));
   // The card is not in that column yet when the status is changing.
   if (changed) current.set(task.id, task.position);
 
-  const writes = ranksFor(input.order, current);
+  const writes = ranksFor(
+    weave(rows.map((row) => row.id), input.order),
+    current,
+  );
   // Dropped where it already was.
   if (!changed && writes.length === 0) return;
 
