@@ -34,6 +34,7 @@ export type Person = { id: string; name: string };
 
 export type ActivityKind =
   | "comment"
+  | "time_logged"
   | "created"
   | "status_changed"
   | "completed"
@@ -52,8 +53,10 @@ export type ActivityItemData = {
   kind: ActivityKind;
   actorId: string;
   actorName: string;
-  /** BlockNote JSON on a comment; null on an event. */
+  /** BlockNote JSON on a comment, or the optional note on a time entry. */
   body: string | null;
+  /** Already formatted — "2h 30m" — because this package has no duration rules. */
+  spent: string | null;
   fromLabel: string | null;
   toLabel: string | null;
   subjectName: string | null;

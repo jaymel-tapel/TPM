@@ -108,3 +108,66 @@ describe("a task's activity", () => {
     expect(total).toBe(0);
   });
 });
+
+describe("logged time", () => {
+  let taskId: string;
+
+  beforeEach(async () => {
+    await resetDb();
+    await seedOrg();
+    taskId = await addTask({ team: IDS.teamA, assignees: [IDS.anna], dueDay: 0 });
+  });
+
+  const actual = async () =>
+    (
+      await db.execute(sql`select actual_minutes from tasks where id = ${taskId}`)
+    ).rows[0] as { actual_minutes: number | null };
+
+  it("keeps the task's total as the sum of its entries", async () => {
+    await addActivity({ taskId, actorId: IDS.anna, kind: "time_logged", minutes: 90 });
+    await addActivity({ taskId, actorId: IDS.james, kind: "time_logged", minutes: 30 });
+    await syncActual(taskId);
+
+    expect((await actual()).actual_minutes).toBe(120);
+  });
+
+  it("falls back to nothing logged rather than zero when the last entry goes", async () => {
+    // Null and 0 are different answers: "nobody logged" versus "logged none".
+    const id = await addActivity({
+      taskId,
+      actorId: IDS.anna,
+      kind: "time_logged",
+      minutes: 45,
+    });
+    await syncActual(taskId);
+    expect((await actual()).actual_minutes).toBe(45);
+
+    await db.execute(sql`delete from task_activity where id = ${id}`);
+    await syncActual(taskId);
+    expect((await actual()).actual_minutes).toBeNull();
+  });
+
+  it("ignores comments when it adds the time up", async () => {
+    await addActivity({ taskId, actorId: IDS.anna, kind: "time_logged", minutes: 60 });
+    await addActivity({ taskId, actorId: IDS.anna, kind: "comment", body: "took a while" });
+    await syncActual(taskId);
+
+    expect((await actual()).actual_minutes).toBe(60);
+  });
+
+  it("carries the amount into the feed", async () => {
+    await addActivity({ taskId, actorId: IDS.james, kind: "time_logged", minutes: 150 });
+    const { entries } = await getActivity(taskId);
+    expect(entries[0]).toMatchObject({ kind: "time_logged", minutes: 150 });
+  });
+});
+
+/** The recompute the action does, mirrored so the test exercises the rule. */
+async function syncActual(taskId: string) {
+  await db.execute(sql`
+    update tasks set actual_minutes = (
+      select sum(minutes) from task_activity
+      where task_id = ${taskId} and kind = 'time_logged'
+    ) where id = ${taskId}
+  `);
+}

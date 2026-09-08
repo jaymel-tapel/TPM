@@ -141,6 +141,13 @@ export const tasks = pgTable(
      * Parsed and rendered by `lib/duration.ts`, where a day is eight hours.
      */
     estimateMinutes: integer("estimate_minutes"),
+    /**
+     * The sum of this task's `time_logged` activity, kept here so a list or a
+     * report can read a total without summing a stream. Written only by the
+     * actions that add or remove a log entry, in the same transaction — never
+     * typed, because an actual is a record of what happened rather than a
+     * second guess alongside the estimate.
+     */
     actualMinutes: integer("actual_minutes"),
     createdBy: uuid("created_by")
       .notNull()
@@ -228,6 +235,7 @@ export const taskAttachments = pgTable(
 
 export const activityKindEnum = pgEnum("activity_kind", [
   "comment",
+  "time_logged",
   "created",
   "status_changed",
   "completed",
@@ -265,8 +273,14 @@ export const taskActivity = pgTable(
       .notNull()
       .references(() => users.id),
     kind: activityKindEnum("kind").notNull(),
-    /** BlockNote JSON, on comments only. Null on every event. */
+    /** BlockNote JSON on a comment, and the optional note on a time log. */
     body: text("body"),
+    /**
+     * Minutes, on `time_logged` only. The log is the record of actual effort;
+     * `tasks.actual_minutes` is the sum of these and is maintained alongside
+     * them, never typed.
+     */
+    minutes: integer("minutes"),
     fromLabel: text("from_label"),
     toLabel: text("to_label"),
     /** Who an assignment was about, as their name read at the time. */

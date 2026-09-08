@@ -20,6 +20,7 @@ import { RichTextEditor } from "@meridian/ui/editor";
 import { formatDuration, parseDuration } from "@/lib/duration";
 import type { FormState } from "@/actions/tasks";
 import { uploadAttachment } from "@/components/task-attachments";
+import { LogTimeField } from "@/components/log-time-field";
 import { useMentionSource } from "@/components/doc-mention";
 
 export type AssignableUser = { id: string; name: string; team_name: string | null };
@@ -89,7 +90,6 @@ export function TaskForm({
    */
   const [statusId, setStatusId] = useState(values.statusId);
   const [estimate, setEstimate] = useState(values.estimate);
-  const [actual, setActual] = useState(values.actual);
   const mentionSource = useMentionSource();
 
   const columns = statusesByBoard[boardId] ?? [];
@@ -258,22 +258,23 @@ export function TaskForm({
               {durationHint(estimate)}
             </p>
           </div>
-          <div>
-            <Label htmlFor="actual" className={label}>
-              Actual
-            </Label>
-            <Input
-              id="actual"
-              name="actual"
-              value={actual}
-              onChange={(e) => setActual(e.target.value)}
-              placeholder="1d 6h"
-              aria-describedby="actual-hint"
-            />
-            <p id="actual-hint" className="mt-1 text-caption text-gray-600">
-              {durationHint(actual)}
-            </p>
-          </div>
+          {/*
+            Not an input. Actual time is the sum of logged entries, each
+            attributed and dated on the activity stream — the `+` adds one.
+            Only on a task that exists: there is nothing to log against until
+            it has an id.
+          */}
+          {values.id ? (
+            <LogTimeField taskId={values.id} total={values.actual} />
+          ) : (
+            <div>
+              <span className={label}>Actual</span>
+              <p className="flex h-8 items-center text-body text-gray-600">—</p>
+              <p className="mt-1 text-caption text-gray-600">
+                Log time once the task exists
+              </p>
+            </div>
+          )}
         </div>
 
         <div>

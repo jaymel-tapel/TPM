@@ -13,6 +13,7 @@ import type {
   TaskType,
 } from "@meridian/ui";
 import { agoLabel, dueLabel, now, startOfAppDay } from "@/lib/date";
+import { formatDuration } from "@/lib/duration";
 import type { TaskCard } from "@/queries/sql";
 import type { BoardView } from "@/queries/tasks";
 import type { MemberRollup } from "@/queries/team";
@@ -151,12 +152,14 @@ export function toActivityItem(
     actorId: entry.actorId,
     actorName: entry.actorName,
     body: entry.body,
+    // Formatted here: the design system has no opinion on what a day is worth.
+    spent: entry.minutes === null ? null : formatDuration(entry.minutes),
     fromLabel: entry.fromLabel,
     toLabel: entry.toLabel,
     subjectName: entry.subjectName,
     when: agoLabel(entry.createdAt, reference),
     removable:
-      entry.kind === "comment" &&
+      (entry.kind === "comment" || entry.kind === "time_logged") &&
       (entry.actorId === viewer.id || viewer.role !== "team_member"),
   };
 }

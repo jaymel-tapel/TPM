@@ -43,7 +43,6 @@ const taskInput = z.object({
    * something meant something by it.
    */
   estimate: z.string().trim().optional().nullable(),
-  actual: z.string().trim().optional().nullable(),
   assignees: z.array(z.string().uuid()).min(1, "Assign the task to someone"),
   tags: z.array(z.string().trim()).default([]),
 });
@@ -58,7 +57,6 @@ function parse(formData: FormData) {
     boardId: formData.get("boardId"),
     dueDate: formData.get("dueDate"),
     estimate: formData.get("estimate"),
-    actual: formData.get("actual"),
     assignees: formData.getAll("assignees").map(String),
     tags: formData
       .getAll("tags")
@@ -144,9 +142,7 @@ export async function createTask(_prev: FormState, formData: FormData): Promise<
   if (!status) return { error: "That status is not on that board." };
 
   const estimate = readDuration(input.estimate);
-  const actual = readDuration(input.actual);
   if (!estimate.ok) return { error: "Estimate should read like 2d 4h." };
-  if (!actual.ok) return { error: "Actual should read like 2d 4h." };
 
   // The task belongs to the team that owns the board it is filed on, so the
   // denormalised copy can never disagree with it.
@@ -169,7 +165,6 @@ export async function createTask(_prev: FormState, formData: FormData): Promise<
       statusId: status.id,
       dueDate: new Date(input.dueDate),
       estimateMinutes: estimate.minutes,
-      actualMinutes: actual.minutes,
       completedAt: completionStamp(status.kind, null),
       createdBy: viewer.id,
       teamId: board.teamId,
@@ -205,9 +200,7 @@ export async function updateTask(_prev: FormState, formData: FormData): Promise<
   if (!status) return { error: "That status is not on that board." };
 
   const estimate = readDuration(input.estimate);
-  const actual = readDuration(input.actual);
   if (!estimate.ok) return { error: "Estimate should read like 2d 4h." };
-  if (!actual.ok) return { error: "Actual should read like 2d 4h." };
 
   const [board] = await db
     .select({ teamId: boards.teamId })
@@ -241,7 +234,8 @@ export async function updateTask(_prev: FormState, formData: FormData): Promise<
       teamId: board.teamId,
       dueDate: new Date(input.dueDate),
       estimateMinutes: estimate.minutes,
-      actualMinutes: actual.minutes,
+      // `actualMinutes` is deliberately absent: it is the sum of logged time
+      // and is written only by the actions that add or remove an entry.
       completedAt: completionStamp(status.kind, existing.completedAt),
       updatedAt: new Date(),
     })

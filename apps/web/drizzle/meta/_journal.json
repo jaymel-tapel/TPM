@@ -43,6 +43,13 @@
       "when": 1788869611841,
       "tag": "0005_shocking_puck",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1788871640944,
+      "tag": "0006_misty_vision",
+      "breakpoints": true
     }
   ]
 }

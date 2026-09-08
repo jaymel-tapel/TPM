@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ActivityFeed, type ActivityItemData } from "@meridian/ui";
-import { addComment, deleteComment } from "@/actions/activity";
+import { addComment, deleteActivity } from "@/actions/activity";
 import { useMentionSource } from "@/components/doc-mention";
 
 /**
@@ -54,7 +54,7 @@ export function TaskActivity({
       pending={pending}
       error={error}
       mentionSource={mentionSource}
-      onDelete={deleteComment}
+      onDelete={deleteActivity}
       onComment={post}
     />
   );

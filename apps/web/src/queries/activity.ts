@@ -9,6 +9,7 @@ export type ActivityEntry = {
   actorId: string;
   actorName: string;
   body: string | null;
+  minutes: number | null;
   fromLabel: string | null;
   toLabel: string | null;
   subjectName: string | null;
@@ -44,6 +45,7 @@ export async function getActivity(
     actorId: taskActivity.actorId,
     actorName: users.name,
     body: taskActivity.body,
+    minutes: taskActivity.minutes,
     fromLabel: taskActivity.fromLabel,
     toLabel: taskActivity.toLabel,
     subjectName: taskActivity.subjectName,

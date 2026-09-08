@@ -2,7 +2,15 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, MessageSquare, RotateCcw, UserMinus, UserPlus } from "lucide-react";
+import {
+  ArrowRight,
+  CheckCircle2,
+  MessageSquare,
+  RotateCcw,
+  Timer,
+  UserMinus,
+  UserPlus,
+} from "lucide-react";
 import { Button } from "../primitives/button";
 import { cn } from "../lib/utils";
 import { RichTextEditor, RichTextView, type MentionItem } from "../editor";
@@ -10,6 +18,7 @@ import { UserAvatar } from "./user-avatar";
 import type { ActivityItemData, ActivityKind } from "../types";
 
 const EVENT_ICON: Record<Exclude<ActivityKind, "comment">, typeof ArrowRight> = {
+  time_logged: Timer,
   created: MessageSquare,
   status_changed: ArrowRight,
   completed: CheckCircle2,
@@ -44,20 +53,42 @@ function eventText(item: ActivityItemData): React.ReactNode {
       return <>unassigned <span className="text-gray-1000">{item.subjectName}</span></>;
     case "board_changed":
       return <>moved this to the {to} board</>;
+    case "time_logged":
+      return <>logged <span className="text-gray-1000">{item.spent}</span></>;
     default:
       return null;
   }
 }
 
-function Event({ item }: { item: ActivityItemData }) {
+function Event({
+  item,
+  onDelete,
+}: {
+  item: ActivityItemData;
+  onDelete?: (formData: FormData) => void | Promise<void>;
+}) {
   const Icon = EVENT_ICON[item.kind as Exclude<ActivityKind, "comment">] ?? ArrowRight;
   return (
-    <li className="flex items-center gap-3 px-4 py-2">
+    <li className="group/row flex items-center gap-3 px-4 py-2">
       <Icon className="size-3.5 shrink-0 text-gray-600" strokeWidth={1.75} />
       <p className="min-w-0 flex-1 truncate text-caption text-gray-700">
         <span className="text-gray-1000">{item.actorName}</span> {eventText(item)}
       </p>
       <span className="shrink-0 text-caption text-gray-600">{item.when}</span>
+      {/* Only a time entry is ever removable here; the events the system
+          writes for itself are not. */}
+      {item.removable && onDelete ? (
+        <form action={onDelete}>
+          <input type="hidden" name="activityId" value={item.id} />
+          <button
+            type="submit"
+            aria-label="Remove this entry"
+            className="rounded-md px-1 text-caption text-gray-600 opacity-0 transition-opacity hover:text-red-700 group-hover/row:opacity-100"
+          >
+            Remove
+          </button>
+        </form>
+      ) : null}
     </li>
   );
 }
@@ -88,9 +119,16 @@ function Comment({
             </form>
           ) : null}
         </div>
-        <div className="mt-1">
-          <RichTextView value={item.body} />
-        </div>
+        {item.kind === "time_logged" ? (
+          <p className="mt-1 text-caption text-gray-700">
+            logged <span className="text-gray-1000">{item.spent}</span>
+          </p>
+        ) : null}
+        {item.body ? (
+          <div className="mt-1">
+            <RichTextView value={item.body} />
+          </div>
+        ) : null}
       </div>
     </li>
   );
@@ -159,10 +197,10 @@ export function ActivityFeed({
       ) : (
         <ul className="divide-y divide-gray-300">
           {items.map((item) =>
-            item.kind === "comment" ? (
+            item.kind === "comment" || (item.kind === "time_logged" && item.body) ? (
               <Comment key={item.id} item={item} onDelete={onDelete} />
             ) : (
-              <Event key={item.id} item={item} />
+              <Event key={item.id} item={item} onDelete={onDelete} />
             ),
           )}
         </ul>
@@ -222,3 +260,4 @@ function Composer({
     </form>
   );
 }
+

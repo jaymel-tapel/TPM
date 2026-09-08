@@ -210,8 +210,9 @@ let activitySeq = 0;
 export async function addActivity(opts: {
   taskId: string;
   actorId: string;
-  kind: "comment" | "created" | "status_changed" | "completed" | "reopened" | "assigned" | "unassigned" | "board_changed";
+  kind: "comment" | "time_logged" | "created" | "status_changed" | "completed" | "reopened" | "assigned" | "unassigned" | "board_changed";
   body?: string;
+  minutes?: number;
   fromLabel?: string;
   toLabel?: string;
   subjectName?: string;
@@ -226,6 +227,7 @@ export async function addActivity(opts: {
     actorId: opts.actorId,
     kind: opts.kind,
     body: opts.body ?? null,
+    minutes: opts.minutes ?? null,
     fromLabel: opts.fromLabel ?? null,
     toLabel: opts.toLabel ?? null,
     subjectName: opts.subjectName ?? null,

@@ -2,13 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { notFound } from "next/navigation";
-import { eq } from "drizzle-orm";
+import { and, eq, inArray, sum } from "drizzle-orm";
 import { z } from "zod";
 import { isEmptyDocument } from "@meridian/ui/editor";
 import { db } from "@/db";
-import { taskActivity } from "@/db/schema";
+import { taskActivity, tasks } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
 import { isDirector, loadViewableTask } from "@/lib/permissions";
+import { parseDuration } from "@/lib/duration";
 
 export type CommentState = { error?: string } | null;
 
@@ -61,22 +62,104 @@ export async function addComment(
   return null;
 }
 
+const logInput = z.object({
+  taskId: z.string().uuid(),
+  spent: z.string().trim().min(1, "How long did it take?"),
+  note: z.string().trim().max(200_000).optional().nullable(),
+});
+
 /**
- * Its author, or a director. Events are not deletable at all — a log you can
- * edit is not a log.
+ * Time is logged, not typed.
+ *
+ * An "actual duration" field is a second guess sitting next to the estimate —
+ * one number, overwritten, with no record of who spent what or when. Entries
+ * are rows on the same stream as everything else, so the task's history says
+ * "James logged 2h" in the place you already look to find out what happened.
+ *
+ * `tasks.actual_minutes` is the sum, recomputed here rather than incremented,
+ * so it cannot drift from the rows it summarises.
  */
-export async function deleteComment(formData: FormData) {
+export async function logTime(_prev: CommentState, formData: FormData): Promise<CommentState> {
+  const parsed = logInput.safeParse({
+    taskId: formData.get("taskId"),
+    spent: formData.get("spent"),
+    note: formData.get("note"),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Check the entry." };
+  }
+
+  const { taskId, spent, note } = parsed.data;
+  const minutes = parseDuration(spent);
+  if (minutes === null) return { error: `"${spent}" is not a duration. Try 90m, 3h or 2d 4h.` };
+  if (minutes === 0) return { error: "Log some time, or nothing happened." };
+
+  const user = await requireUser();
+  await loadViewableTask(user, taskId);
+
+  await db.transaction(async (tx) => {
+    await tx.insert(taskActivity).values({
+      taskId,
+      actorId: user.id,
+      kind: "time_logged",
+      minutes,
+      body: note && !isEmptyDocument(note) ? note : null,
+    });
+    await syncActualMinutes(tx, taskId);
+  });
+
+  revalidatePath("/", "layout");
+  return null;
+}
+
+/**
+ * Recomputed from the rows, never adjusted by a delta — an increment that
+ * misses one delete is a total nobody can explain afterwards.
+ */
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+async function syncActualMinutes(tx: Tx, taskId: string) {
+  const [{ total }] = await tx
+    .select({ total: sum(taskActivity.minutes) })
+    .from(taskActivity)
+    .where(and(eq(taskActivity.taskId, taskId), eq(taskActivity.kind, "time_logged")));
+
+  await tx
+    .update(tasks)
+    .set({ actualMinutes: total === null ? null : Number(total) })
+    .where(eq(tasks.id, taskId));
+}
+
+/**
+ * Its author, or a director — for a comment or a time entry. The events the
+ * system writes for itself are not deletable at all: a log you can edit is
+ * not a log.
+ */
+export async function deleteActivity(formData: FormData) {
   const id = String(formData.get("activityId") ?? "");
   const user = await requireUser();
 
   const row = await db.query.taskActivity.findFirst({
     where: eq(taskActivity.id, id),
   });
-  if (!row || row.kind !== "comment") notFound();
+  if (!row || (row.kind !== "comment" && row.kind !== "time_logged")) notFound();
 
   await loadViewableTask(user, row.taskId);
   if (row.actorId !== user.id && !isDirector(user)) notFound();
 
-  await db.delete(taskActivity).where(eq(taskActivity.id, id));
-  revalidatePath(`/tasks/${row.taskId}`);
+  await db.transaction(async (tx) => {
+    // The kind is re-asserted in the delete so a forged id cannot reach an
+    // event even if the check above were ever loosened.
+    await tx
+      .delete(taskActivity)
+      .where(
+        and(
+          eq(taskActivity.id, id),
+          inArray(taskActivity.kind, ["comment", "time_logged"]),
+        ),
+      );
+    if (row.kind === "time_logged") await syncActualMinutes(tx, row.taskId);
+  });
+
+  revalidatePath("/", "layout");
 }
