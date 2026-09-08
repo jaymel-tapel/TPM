@@ -185,18 +185,15 @@ export function AppSidebar({
 
   return (
     <aside className="sticky top-0 flex h-screen w-56 shrink-0 flex-col border-r border-gray-400 bg-background-100">
-      {/* The bell sits beside the wordmark rather than inside it: the brand is
-          a link, and a button nested in an anchor is invalid markup that
-          swallows its own clicks. */}
-      <div className="flex h-14 shrink-0 items-center gap-2 border-b border-gray-300 px-4">
-        <Link href="/" className="flex min-w-0 items-center gap-2">
-          <span className="grid size-6 shrink-0 place-items-center rounded-md bg-blue-700 text-caption-strong text-white">
-            M
-          </span>
-          <span className="truncate text-body-strong text-gray-1000">Meridian</span>
-        </Link>
-        <NotificationBell items={notifications} unread={unread} />
-      </div>
+      <Link
+        href="/"
+        className="flex h-14 shrink-0 items-center gap-2 border-b border-gray-300 px-4"
+      >
+        <span className="grid size-6 shrink-0 place-items-center rounded-md bg-blue-700 text-caption-strong text-white">
+          M
+        </span>
+        <span className="text-body-strong text-gray-1000">Meridian</span>
+      </Link>
 
       <nav className="flex-1 overflow-y-auto p-2">
         {links.map((link) => (
@@ -211,7 +208,15 @@ export function AppSidebar({
       </nav>
 
       <div className="shrink-0 border-t border-gray-300 p-3">
-        {showRoleSwitcher ? <RoleSwitcher currentRole={user.role} /> : null}
+        {/* Above the account, below the navigation: the last thing read on the
+            way down, and the one row whose job is to be noticed. */}
+        <NotificationBell items={notifications} unread={unread} />
+
+        {showRoleSwitcher ? (
+          <div className="mt-3">
+            <RoleSwitcher currentRole={user.role} />
+          </div>
+        ) : null}
 
         <div className="mt-3 flex items-center gap-2">
           <UserAvatar name={user.name} size="md" />
