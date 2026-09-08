@@ -30,7 +30,7 @@ export function TeamCompare({ teams }: { teams: TeamCompareData[] }) {
         <Link
           key={team.id}
           href={team.href}
-          className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-6 gap-y-3 px-6 py-4 transition-colors hover:bg-gray-100 lg:grid-cols-[168px_minmax(0,1fr)_96px_192px]"
+          className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-6 gap-y-3 px-6 py-4 transition-colors hover:bg-gray-100 lg:grid-cols-[168px_minmax(0,34rem)_96px_minmax(192px,1fr)]"
         >
           <div className="min-w-0">
             <div className="text-label-16 text-gray-1000">{team.name}</div>

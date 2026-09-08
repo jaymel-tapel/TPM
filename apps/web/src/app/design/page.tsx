@@ -31,6 +31,7 @@ import {
   Stat,
   StatBandSkeleton,
   StatusBadge,
+  TaskBoard,
   TaskListSkeleton,
   TeamCompare,
   TASK_TYPES_ORDER,
@@ -40,12 +41,13 @@ import {
   TaskRow,
   TypeLabel,
   UserAvatar,
+  ViewToggle,
   type TaskType,
   TrendStrip,
 } from "@meridian/ui";
 import { TrendChart } from "@meridian/ui/chart";
 import { ErrorStateDemo } from "./error-demo";
-import { ATTENTION, MEMBERS, TASKS, TEAMS, TREND } from "./fixtures";
+import { ATTENTION, BOARD, MEMBERS, TASKS, TEAMS, TREND } from "./fixtures";
 
 export const metadata = { title: "Meridian — Design System" };
 
@@ -417,6 +419,19 @@ export default function DesignSystemPage() {
               </Eyebrow>
               <EmptyState>Everything due today is done.</EmptyState>
             </div>
+          </div>
+        </Block>
+
+        <Block title="Board" note="A lens on the day, not a place work lives">
+          <p className="mb-6 max-w-prose text-copy-13 text-gray-700">
+            Columns are the four fixed statuses — there is no column builder, and none is
+            coming. The list stays the default view; the brief rules out Kanban as the
+            default interface. Dragging is an enhancement: every card is a link to the task,
+            where status can be changed with a keyboard.
+          </p>
+          <TaskBoard board={BOARD} />
+          <div className="mt-6">
+            <ViewToggle listHref="#" boardHref="#" active="board" />
           </div>
         </Block>
 

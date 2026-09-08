@@ -13,7 +13,7 @@ export function NavBar({ session }: { session: Session }) {
 
   return (
     <header className="sticky top-0 z-30 border-b border-gray-400 bg-background-100">
-      <div className="mx-auto flex h-16 max-w-6xl items-center gap-8 px-6">
+      <div className="flex h-16 items-center gap-8 px-8">
         <Link href="/" className="flex shrink-0 items-center gap-2">
           <span className="grid size-6 place-items-center rounded-6 bg-blue-700 text-label-12 text-white">
             M

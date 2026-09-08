@@ -14,7 +14,7 @@ decorative system would.
 
 | | |
 |---|---|
-| **Typeface** | Geist Sans, as specified. |
+| **Typeface** | **Substituted.** Instrument Sans replaces Geist Sans. Same brief — a neutral grotesque built for interfaces — but with terminals and a lowercase `g` that give a page title some voice at display sizes, where Geist read as anonymous. Geist Mono is kept for the rare monospaced run. |
 | **Type ramp** | Geist's `copy` / `label` / `heading` / `button` steps, verbatim. |
 | **Grid** | Geist's 4pt grid. |
 | **Colour structure** | Geist's 10-step scales with Geist's role-per-step semantics. |

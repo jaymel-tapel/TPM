@@ -76,16 +76,19 @@ export function AvatarStack({
   names,
   size = "sm",
   max = 3,
+  title,
 }: {
   names: string[];
   size?: AvatarSize;
   max?: number;
+  /** Hover text, since initials alone do not name anyone. */
+  title?: string;
 }) {
   const shown = names.slice(0, max);
   const extra = names.length - shown.length;
 
   return (
-    <span className="flex items-center -space-x-1">
+    <span className="flex items-center -space-x-1" title={title}>
       {shown.map((name) => (
         <UserAvatar key={name} name={name} size={size} ring />
       ))}

@@ -1,6 +1,8 @@
 import {
   ButtonLink,
   EmptyState,
+  TaskBoard,
+  ViewToggle,
   PageHeader,
   PRIORITY_LABELS,
   STATUS_LABELS,
@@ -9,10 +11,10 @@ import {
   TaskRow,
 } from "@meridian/ui";
 import { requireSession } from "@/lib/auth";
-import { listAllTags, listTasks, type TaskFilters } from "@/queries/tasks";
+import { getBoardView, listAllTags, listTasks, type TaskFilters } from "@/queries/tasks";
 import { userScope } from "@/queries/sql";
-import { toTaskRow } from "@/lib/present";
-import { toggleTaskDone } from "@/actions/tasks";
+import { toBoard, toTaskRow } from "@/lib/present";
+import { setTaskStatus, toggleTaskDone } from "@/actions/tasks";
 import { FilterChips } from "@/components/filter-chips";
 
 export const dynamic = "force-dynamic";
@@ -40,9 +42,12 @@ export default async function MyTasksPage({
     range: one("range") as TaskFilters["range"],
   };
 
-  const [tasks, tags] = await Promise.all([
+  const view = one("view") === "board" ? "board" : "list";
+
+  const [tasks, tags, board] = await Promise.all([
     listTasks(userScope(user.id), filters),
     listAllTags(),
+    view === "board" ? getBoardView(userScope(user.id)) : Promise.resolve(null),
   ]);
 
   const open = tasks.filter((t) => t.completedAt === null);
@@ -54,10 +59,14 @@ export default async function MyTasksPage({
         title="My Tasks"
         subtitle={`${open.length} open · ${done.length} completed today`}
         aside={
-          <ButtonLink href="/tasks/new">New Task</ButtonLink>
+          <div className="flex items-center gap-3">
+            <ViewToggle listHref="/my-tasks" boardHref="/my-tasks?view=board" active={view} />
+            <ButtonLink href="/tasks/new">New Task</ButtonLink>
+          </div>
         }
       />
 
+      {board ? null : (
       <div className="mb-6">
         <FilterChips
           groups={[
@@ -81,7 +90,16 @@ export default async function MyTasksPage({
           ]}
         />
       </div>
+      )}
 
+      {board ? (
+        <TaskBoard
+          board={toBoard(board)}
+          viewer={user.id}
+          onMove={setTaskStatus}
+          moreHref="/my-tasks"
+        />
+      ) : (
       <div className="space-y-8">
         {open.length === 0 && done.length === 0 ? (
           <EmptyState>No tasks match those filters.</EmptyState>
@@ -114,6 +132,7 @@ export default async function MyTasksPage({
           </TaskList>
         ) : null}
       </div>
+      )}
     </>
   );
 }

@@ -1,4 +1,5 @@
 import { beforeAll, describe, expect, it } from "vitest";
+import { getBoardView } from "./tasks";
 import { getCompletionTrend, getReportMetrics } from "./reports";
 import { departmentScope, teamScope, userScope } from "./sql";
 import { IDS, NOW, addTask, resetDb, seedOrg } from "../../test/fixture";
@@ -109,5 +110,50 @@ describe("completion trend", () => {
     // spike to full on an empty day — that would invent a good day.
     const trend = await getCompletionTrend(teamScope(IDS.teamA), 3, NOW);
     expect(trend[0]).toMatchObject({ due: 0, done: 0, percent: 0 });
+  });
+});
+
+describe("board grouping", () => {
+  beforeAll(async () => {
+    await resetDb();
+    await seedOrg();
+
+    await addTask({ team: IDS.teamA, assignees: [IDS.anna], dueDay: 0, status: "todo", completedDay: null });
+    await addTask({ team: IDS.teamA, assignees: [IDS.anna], dueDay: 0, status: "in_progress", completedDay: null });
+    await addTask({ team: IDS.teamA, assignees: [IDS.anna], dueDay: 0, status: "blocked", completedDay: null });
+    await addTask({ team: IDS.teamA, assignees: [IDS.james], dueDay: 0, completedDay: 0 });
+    // Carried over from an earlier day — belongs on today's board.
+    await addTask({ team: IDS.teamA, assignees: [IDS.james], dueDay: -2, status: "todo", completedDay: null });
+    // Finished last week: closed and long gone, must not appear.
+    await addTask({ team: IDS.teamA, assignees: [IDS.james], dueDay: -6, completedDay: -6 });
+  });
+
+  it("shows today's work plus what carried over, and nothing older", async () => {
+    const board = await getBoardView(teamScope(IDS.teamA), NOW);
+    // Four due today, one carried over. The task closed last week is excluded,
+    // or the Done column would grow without bound and become a backlog.
+    expect(board.total).toBe(5);
+  });
+
+  it("groups by status", async () => {
+    const board = await getBoardView(teamScope(IDS.teamA), NOW);
+    expect(board.todo).toHaveLength(2); // one due today, one carried over
+    expect(board.in_progress).toHaveLength(1);
+    expect(board.blocked).toHaveLength(1);
+    expect(board.done).toHaveLength(1);
+  });
+
+  it("puts a completed task in Done whatever status column it was left in", async () => {
+    // completed_at is the source of truth everywhere else, so it is here too.
+    await addTask({
+      team: IDS.teamA,
+      assignees: [IDS.anna],
+      dueDay: 0,
+      status: "in_progress",
+      completedDay: 0,
+    });
+    const board = await getBoardView(teamScope(IDS.teamA), NOW);
+    expect(board.done).toHaveLength(2);
+    expect(board.in_progress).toHaveLength(1);
   });
 });

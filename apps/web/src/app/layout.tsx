@@ -1,9 +1,20 @@
 import type { Metadata } from "next";
-import { GeistSans } from "geist/font/sans";
+import { Instrument_Sans } from "next/font/google";
 import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 import { cn } from "@meridian/ui";
 import { TooltipProvider } from "@meridian/ui/primitives/tooltip";
+
+/**
+ * Instrument Sans replaces Geist. Same discipline — a neutral grotesque built
+ * for interfaces — but with terminals and a lowercase g that give a page title
+ * some voice at display sizes, where Geist read as anonymous.
+ */
+const sans = Instrument_Sans({
+  subsets: ["latin"],
+  variable: "--font-instrument-sans",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Meridian — Daily Operating System",
@@ -12,7 +23,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={cn(GeistSans.variable, GeistMono.variable)}>
+    <html lang="en" className={cn(sans.variable, GeistMono.variable)}>
       <body className="font-sans antialiased">
         <TooltipProvider>{children}</TooltipProvider>
       </body>

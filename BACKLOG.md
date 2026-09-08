@@ -77,6 +77,14 @@ fixed set of six.
 Contribution-level completion on collaborative tasks (Anna—Data, James—Slides)
 is named in the brief as a *future extension* and is deliberately out of scope.
 
+**No user-created boards.** A board exists per team and per person, derived
+from the org chart that already exists — there is no "new board" button, no
+board settings, and no column builder. Boards are a *view* over the day, which
+the brief allows; boards as places work lives is the ClickUp failure the brief
+was written against ("Users should not need to create dashboards, configure
+views, build spaces, folders, or lists"). The list stays the default: the brief
+says not to make Kanban the default interface.
+
 ### Invariants worth not breaking
 
 - **Completion is `completed_at`, never status alone.** Without it, "how did
@@ -91,3 +99,6 @@ is named in the brief as a *future extension* and is deliberately out of scope.
   clock. That boundary is what makes `/design` renderable from fixtures.
 - **Every value cites a token.** See `DESIGN.md`. If a component is not on
   `/design`, it does not exist yet.
+- **A board column is capped, never scrolled.** Done holds seventy cards on a
+  fifteen-person team. The count in the header is the real answer; the list
+  view is where you read all of them.

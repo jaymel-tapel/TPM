@@ -1,6 +1,7 @@
 import "server-only";
 import type {
   AttentionItemData,
+  BoardData,
   MemberRowData,
   Priority,
   TaskRowData,
@@ -9,6 +10,7 @@ import type {
 } from "@meridian/ui";
 import { dueLabel, now, startOfAppDay } from "@/lib/date";
 import type { TaskCard } from "@/queries/sql";
+import type { BoardView } from "@/queries/tasks";
 import type { MemberRollup } from "@/queries/team";
 import type { AttentionItem } from "@/queries/attention";
 
@@ -44,4 +46,15 @@ export function toMemberRow(member: MemberRollup, hrefBase = "/team"): MemberRow
 
 export function toAttentionItem(item: AttentionItem): AttentionItemData {
   return item;
+}
+
+/** Groups of TaskCards become groups of TaskRowData, one adapter per task. */
+export function toBoard(board: BoardView, reference: Date = now()): BoardData {
+  const map = (list: TaskCard[]) => list.map((t) => toTaskRow(t, reference));
+  return {
+    todo: map(board.todo),
+    in_progress: map(board.in_progress),
+    done: map(board.done),
+    blocked: map(board.blocked),
+  };
 }

@@ -116,3 +116,47 @@ export async function listAllTags(): Promise<string[]> {
   const result = await db.execute(sql`select name from tags order by name`);
   return (result.rows as { name: string }[]).map((r) => r.name);
 }
+
+export type BoardView = {
+  todo: TaskCard[];
+  in_progress: TaskCard[];
+  done: TaskCard[];
+  blocked: TaskCard[];
+  total: number;
+};
+
+/**
+ * The board is a second lens on the day, not a second source of truth: it
+ * shows exactly what the team screen reasons about — due today, carried over
+ * from an earlier day, and completed today.
+ *
+ * Showing every task ever would make the Done column grow without bound and
+ * turn the board into a backlog, which is the thing the brief is a reaction
+ * against.
+ */
+export async function getBoardView(
+  scope: Scope,
+  reference: Date = now(),
+): Promise<BoardView> {
+  const { start, end } = dayRange(reference);
+
+  const rows = await runTaskQuery(
+    sql`${scopeSql(scope)} and (
+      (k.due_date >= ${start} and k.due_date < ${end})
+      or ${overdueSql(start)}
+      or (k.completed_at >= ${start} and k.completed_at < ${end})
+    )`,
+    400,
+  );
+
+  const board: BoardView = { todo: [], in_progress: [], done: [], blocked: [], total: rows.length };
+  for (const task of rows) {
+    // A completed task belongs in Done regardless of the status column it was
+    // left in — completed_at is the source of truth everywhere else too.
+    const key = task.completedAt ? "done" : (task.status as keyof BoardView);
+    if (key in board && Array.isArray(board[key])) {
+      (board[key] as TaskCard[]).push(task);
+    }
+  }
+  return board;
+}

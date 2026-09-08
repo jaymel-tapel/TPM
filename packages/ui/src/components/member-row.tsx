@@ -25,7 +25,7 @@ export function MemberRow({ member }: { member: MemberRowData }) {
   return (
     <Link
       href={member.href}
-      className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 px-4 py-3 transition-colors hover:bg-gray-100 sm:grid-cols-[auto_minmax(0,1.4fr)_minmax(0,1fr)_96px_48px] sm:gap-x-6"
+      className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 px-4 py-3 transition-colors hover:bg-gray-100 sm:grid-cols-[auto_minmax(0,1fr)_minmax(0,22rem)_96px_48px] sm:gap-x-6"
     >
       <UserAvatar name={member.name} size="md" />
 

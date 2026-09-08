@@ -1,6 +1,7 @@
 import type {
   AttentionItemData,
   MemberRowData,
+  BoardData,
   TaskRowData,
   TeamCompareData,
   TrendPointData,
@@ -127,3 +128,10 @@ export const TEAMS: TeamCompareData[] = [
     delta: -12,
   },
 ];
+
+export const BOARD: BoardData = {
+  todo: [TASKS.plain, TASKS.highPriority],
+  in_progress: [TASKS.inProgress],
+  done: [TASKS.done],
+  blocked: [TASKS.blocked],
+};
