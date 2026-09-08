@@ -206,20 +206,6 @@ export function AppSidebar({
         <span className="text-body-strong text-gray-1000">MB Advertising</span>
       </Link>
 
-      {/* Who you are sits with the app's own name, above the navigation:
-          it answers "whose day is this" before you read a single link, which
-          matters most on a product where the same screens say different things
-          depending on the answer. */}
-      <div className="flex shrink-0 items-center gap-2 border-b border-gray-300 px-4 py-3">
-        <UserAvatar name={user.name} size="md" />
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-body-strong leading-tight text-gray-1000">{user.name}</div>
-          <div className="truncate text-caption leading-tight text-gray-600">
-            {ROLE_LABELS[user.role]}
-          </div>
-        </div>
-      </div>
-
       <nav className="flex-1 overflow-y-auto p-2">
         {links.map((link) => (
           <NavGroup
@@ -257,6 +243,21 @@ export function AppSidebar({
             Sign out
           </button>
         </form>
+
+        {/* Last of all: who the rest of the rail is describing. It is a label,
+            not a control — everything you would do with the account is in the
+            rows above it. */}
+        <div className="mt-3 flex items-center gap-2 border-t border-gray-300 px-1 pt-3">
+          <UserAvatar name={user.name} size="md" />
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-body-strong leading-tight text-gray-1000">
+              {user.name}
+            </div>
+            <div className="truncate text-caption leading-tight text-gray-600">
+              {ROLE_LABELS[user.role]}
+            </div>
+          </div>
+        </div>
       </div>
     </aside>
   );
