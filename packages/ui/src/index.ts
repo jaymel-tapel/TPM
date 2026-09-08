@@ -18,6 +18,7 @@ export * from "./components/task-row";
 export * from "./components/subtask-list";
 export * from "./components/member-row";
 export * from "./components/availability";
+export * from "./components/work-bar";
 export * from "./components/leave-list";
 export * from "./components/attention-card";
 export * from "./components/delta-badge";

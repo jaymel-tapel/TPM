@@ -3,7 +3,6 @@ import type {
   ActivityItemData,
   SubtaskData,
   AvailabilityData,
-  AvailabilityRowData,
   LeaveRequestData,
   PlanBlockData,
   InboxItemData,
@@ -102,22 +101,6 @@ export function toAvailability(
   return { away: "full", kind: away.kind, label };
 }
 
-export function toAvailabilityRow(
-  person: { id: string; name: string; role: Role },
-  away: AwayMark | null,
-  href: string | null,
-  reference: Date = now(),
-  zone?: Zone,
-): AvailabilityRowData {
-  return {
-    id: person.id,
-    name: person.name,
-    role: person.role,
-    href,
-    away: toAvailability(away, reference, zone),
-  };
-}
-
 /**
  * A request as a row reads it.
  *
@@ -175,13 +158,18 @@ const LEAVE_DECISION_VERB = {
 
 export function toMemberRow(
   member: MemberRollup,
-  hrefBase = "/team",
+  /**
+   * Where the row goes, or null for a reader who may not open this person.
+   * A string is a base path the person's id is appended to; null is "not a
+   * link", which is most of a team member's own roster.
+   */
+  href: string | null = "/team",
   reference: Date = now(),
   zone?: Zone,
 ): MemberRowData {
   return {
     ...member,
-    href: `${hrefBase}/${member.id}`,
+    href: href === null ? null : `${href}/${member.id}`,
     away: toAvailability(member.away, reference, zone),
   };
 }
