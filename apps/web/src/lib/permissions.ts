@@ -78,12 +78,17 @@ export function navFor(role: Role): NavItem[] {
     case "senior_director":
       return [
         { href: "/overview", label: "Overview", icon: "overview" },
+        /*
+         * Above the groups that open. Teams and Boards each expand into a list,
+         * so anything under them moves as those lists grow — and the one item
+         * carrying an unread count is the one that has to sit still.
+         */
+        { href: "/chat", label: "Chat", icon: "chat" },
         { href: "/teams", label: "Teams", icon: "teams" },
         // Every team's boards, not one team's. The rail is the quickest way
         // into a client's work, and the person who spans both teams is the one
         // who most often has to cross between them.
         { href: "/boards", label: "Boards", icon: "boards" },
-        { href: "/chat", label: "Chat", icon: "chat" },
         { href: "/docs", label: "Docs", icon: "docs" },
         { href: "/reports", label: "Reports", icon: "reports" },
         { href: "/admin", label: "Admin", icon: "admin" },
@@ -91,15 +96,18 @@ export function navFor(role: Role): NavItem[] {
     case "account_director":
       return [
         { href: "/today", label: "Today", icon: "today" },
+        // Above Boards, which expands into a list that pushes everything under
+        // it down as boards are made.
+        { href: "/chat", label: "Chat", icon: "chat" },
         { href: "/boards", label: "Boards", icon: "boards" },
         { href: "/team", label: "Team", icon: "team" },
-        { href: "/chat", label: "Chat", icon: "chat" },
         { href: "/docs", label: "Docs", icon: "docs" },
         { href: "/reports", label: "Reports", icon: "reports" },
       ];
     default:
       return [
         { href: "/today", label: "Today", icon: "today" },
+        { href: "/chat", label: "Chat", icon: "chat" },
         { href: "/boards", label: "Boards", icon: "boards" },
         /*
          * A team member's Team is not the Account Director's Team. The rollup
@@ -108,7 +116,6 @@ export function navFor(role: Role): NavItem[] {
          * own team's business the same way its board is.
          */
         { href: "/team", label: "Team", icon: "team" },
-        { href: "/chat", label: "Chat", icon: "chat" },
         { href: "/docs", label: "Docs", icon: "docs" },
       ];
   }
