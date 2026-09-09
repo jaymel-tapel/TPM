@@ -153,15 +153,15 @@ export default async function TaskDetailPage({
           assignees: task.assignees.map((a) => a.id),
           tags: task.tags,
         }}
+        subtasks={
+          <TaskSubtasks
+            parentId={task.id}
+            subtasks={subtasks.map((t) => toSubtask(t))}
+            editable={!task.parentId}
+            framed={false}
+          />
+        }
       />
-
-      <div className="mt-6">
-        <TaskSubtasks
-          parentId={task.id}
-          subtasks={subtasks.map((t) => toSubtask(t))}
-          editable={!task.parentId}
-        />
-      </div>
 
       <div className="mt-6">
         <TaskAttachments taskId={task.id} attachments={attachments} editable />

@@ -198,6 +198,23 @@ const FILTER_PRIORITIES: FilterOption[] = (["urgent", "high"] as Priority[]).map
   }),
 );
 
+/**
+ * The creator the task form supplies to `SubtaskList`. A field and a button,
+ * never a form: unframed the list renders inside the task form, and a nested
+ * form is markup the browser discards.
+ */
+function SubtaskAdderDemo() {
+  return (
+    <div className="flex items-center gap-2">
+      <Input placeholder="Anna — Data" aria-label="Subtask title" className="flex-1" />
+      <Button type="button" className="shrink-0" disabled>
+        <Plus data-icon="inline-start" />
+        Add
+      </Button>
+    </div>
+  );
+}
+
 /* ── page ─────────────────────────────────────────────────────────────── */
 
 export default function DesignSystemPage() {
@@ -700,6 +717,19 @@ export default function DesignSystemPage() {
               </p>
               <SubtaskList subtasks={[]} />
             </div>
+          </div>
+
+          <p className="mt-10 mb-6 max-w-prose text-caption text-gray-700">
+            Unframed, it is a field rather than a panel — this is how it sits in
+            the task form, under the description, where breaking a task down is
+            part of saying what it is. The card would frame the same content
+            twice inside one that is already framed, so it goes; the count moves
+            up beside the label, and the invitation waits below until there is a
+            list to read instead.
+          </p>
+          <div className="grid gap-6 rounded-xl border border-gray-400 bg-background-100 p-6 lg:grid-cols-2">
+            <SubtaskList subtasks={SUBTASKS} framed={false} />
+            <SubtaskList subtasks={[]} framed={false} onAdd={<SubtaskAdderDemo />} />
           </div>
         </Block>
 

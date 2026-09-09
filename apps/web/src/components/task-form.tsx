@@ -67,6 +67,7 @@ export function TaskForm({
   submitLabel,
   boards,
   statusesByBoard,
+  subtasks,
 }: {
   action: (prev: FormState, formData: FormData) => Promise<FormState>;
   values: TaskFormValues;
@@ -82,6 +83,15 @@ export function TaskForm({
   boards: BoardOption[];
   /** Columns per board id — the status list changes with the board. */
   statusesByBoard: Record<string, StatusOption[]>;
+  /**
+   * The pieces this task was broken into, rendered under the description.
+   *
+   * A slot rather than a prop of data, because breaking a task down is its own
+   * action with its own posting and this form has no business knowing about
+   * it. Empty on a new task: there is no id to hang a piece off yet, the same
+   * reason attachments wait for the first save.
+   */
+  subtasks?: React.ReactNode;
 }) {
   const [state, formAction, pending] = useActionState(action, null);
   const [selected, setSelected] = useState<string[]>(values.assignees);
@@ -194,6 +204,13 @@ export function TaskForm({
               : "Type @ to reference a document. Save the task first to attach files."}
           </p>
         </div>
+
+        {/*
+          Under the description, because breaking a task down is part of saying
+          what it is — not an afterthought filed below the fold with the
+          attachments and the activity stream.
+        */}
+        {subtasks}
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
