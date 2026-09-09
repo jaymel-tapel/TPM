@@ -1,5 +1,6 @@
 import { eq, sql } from "drizzle-orm";
 import { db } from "@/db";
+import { truncateAllData } from "@/db/reset-data";
 import {
   accountMembers,
   chatMembers,
@@ -58,9 +59,9 @@ export const statusId = (boardId: string, column: Column) =>
   `ffffffff-${COLUMNS.indexOf(column)}000-4000-a000-${boardId.slice(-12)}`;
 
 export async function resetDb() {
-  await db.execute(
-    sql`truncate chat_messages, chat_members, chat_rooms, leave_requests, task_schedule, notifications, task_activity, task_documents, documents, task_tags, task_assignees, task_attachments, tasks, campaigns, board_statuses, boards, tags, account_members, users, accounts restart identity cascade`,
-  );
+  // The same statement the seed runs. Two lists of "everything" is how the
+  // seed's copy fell a feature behind and started failing on a foreign key.
+  await db.execute(truncateAllData);
 }
 
 /** Two accounts, five people. Small enough that every expected number can be

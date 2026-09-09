@@ -24,6 +24,7 @@ import { eq } from "drizzle-orm";
 import { DEMO_PASSWORD } from "../lib/constants";
 import { lastNDays, now, startOfAppDay } from "../lib/date";
 import { dayKey } from "../lib/leave";
+import { truncateAllData } from "./reset-data";
 import { toPlainText } from "@meridian/ui/editor";
 
 /**
@@ -378,22 +379,14 @@ async function main() {
   const days = lastNDays(HISTORY_DAYS, reference); // oldest first, today last
 
   console.log("Clearing existing data…");
-  await db.delete(leaveRequests);
-  await db.delete(accountMembers);
-  await db.delete(taskDocuments);
-  await db.delete(documents);
-  await db.delete(folders);
-  await db.delete(taskTags);
-  await db.delete(taskAssignees);
-  await db.delete(tasks);
-  // After tasks: a task points at its campaign, so the campaign cannot go first.
-  await db.delete(campaigns);
-  await db.delete(tags);
-  await db.delete(boardStatuses);
-  await db.delete(boards);
-  await db.update(accounts).set({ accountDirectorId: null });
-  await db.delete(users);
-  await db.delete(accounts);
+  /*
+   * One statement, shared with the test fixture. The hand-written list of
+   * deletes that used to live here fell behind the schema twice — most
+   * recently when chat shipped, whose `author_id` does not cascade, so
+   * `delete from users` failed outright on any database that had a message in
+   * it. `truncate ... cascade` cannot fall behind the same way.
+   */
+  await db.execute(truncateAllData);
 
   /*
    * Task types are not cleared and not created here: migration 0020 seeds the
