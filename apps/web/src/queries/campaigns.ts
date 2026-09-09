@@ -106,15 +106,3 @@ function elapsedPercent(startsOn: string, endsOn: string, today: string): number
   if (span <= 0) return 100;
   return Math.round(((day(today) - day(startsOn)) / span) * 100);
 }
-
-/** The campaigns a task may be filed under: this account's, newest first. */
-export async function listCampaignOptions(
-  accountId: string,
-): Promise<{ id: string; name: string }[]> {
-  const rows = await db.execute(sql`
-    select id, name from campaigns
-    where account_id = ${accountId}::uuid
-    order by starts_on desc
-  `);
-  return rows.rows as unknown as { id: string; name: string }[];
-}

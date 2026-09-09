@@ -1,4 +1,4 @@
-import { Columns3, Flag, List, Megaphone, Plus, Settings2, Shapes, Tag, User } from "lucide-react";
+import { Columns3, Flag, List, Plus, Settings2, Shapes, Tag, User } from "lucide-react";
 import Link from "next/link";
 import {
   Command,
@@ -21,7 +21,6 @@ import { notFound } from "next/navigation";
 import { openAccount } from "@/lib/account-page";
 import { canViewAccount } from "@/lib/permissions";
 import { getBoardView, listBoardTags, listBoardsForAccounts } from "@/queries/tasks";
-import { listCampaignOptions } from "@/queries/campaigns";
 import { listAccountMembers } from "@/queries/accounts";
 import { listTaskTypes, toTypeRef } from "@/queries/task-types";
 import { toBoard, toTaskRow } from "@/lib/present";
@@ -37,7 +36,6 @@ export const dynamic = "force-dynamic";
 type BoardQuery = {
   list: boolean;
   person?: string;
-  campaign?: string;
   type?: string;
   priority?: string;
   tag?: string;
@@ -73,14 +71,13 @@ export default async function AccountBoardPage({
   const current: BoardQuery = {
     list: one(query.view) === "list",
     person: one(query.person),
-    campaign: one(query.campaign),
     type: one(query.type),
     priority: one(query.priority),
     tag: one(query.tag),
   };
   const asList = current.list;
   const narrowed = Boolean(
-    current.person || current.campaign || current.type || current.priority || current.tag,
+    current.person || current.type || current.priority || current.tag,
   );
 
   /*
@@ -103,20 +100,18 @@ export default async function AccountBoardPage({
    */
   const type = current.type && types.some((t) => t.slug === current.type) ? current.type : undefined;
 
-  const [view, campaigns, people, boardTags] = await Promise.all([
+  const [view, people, boardTags] = await Promise.all([
     getBoardView(
       board.id,
       undefined,
       {
         assigneeId: current.person ?? null,
-        campaignId: current.campaign ?? null,
         type,
         priority: current.priority,
         tag: current.tag,
       },
       zone,
     ),
-    listCampaignOptions(accountId),
     listAccountMembers(accountId),
     listBoardTags(board.id),
   ]);
@@ -128,7 +123,6 @@ export default async function AccountBoardPage({
     const params = new URLSearchParams();
     if (next.list) params.set("view", "list");
     if (next.person) params.set("person", next.person);
-    if (next.campaign) params.set("campaign", next.campaign);
     if (next.type) params.set("type", next.type);
     if (next.priority) params.set("priority", next.priority);
     if (next.tag) params.set("tag", next.tag);
@@ -139,7 +133,6 @@ export default async function AccountBoardPage({
   /** Back to the whole board, keeping only which of the two views you are on. */
   const unfiltered = href({
     person: undefined,
-    campaign: undefined,
     type: undefined,
     priority: undefined,
     tag: undefined,
@@ -151,13 +144,6 @@ export default async function AccountBoardPage({
     label: p.id === user.id ? "Just me" : p.name,
     short: p.id === user.id ? "Just me" : p.name,
     href: href({ person: p.id }),
-  }));
-
-  const campaignOptions: FilterOption[] = campaigns.map((c) => ({
-    value: c.id,
-    label: c.name,
-    short: c.name,
-    href: href({ campaign: c.id }),
   }));
 
   /*
@@ -224,14 +210,6 @@ export default async function AccountBoardPage({
           value={current.person}
           clearHref={href({ person: undefined })}
           empty="Nobody is on this account yet"
-        />
-        <FilterMenu
-          label="Campaign"
-          icon={Megaphone}
-          options={campaignOptions}
-          value={current.campaign}
-          clearHref={href({ campaign: undefined })}
-          empty="This account has no campaigns"
         />
         <FilterMenu
           label="Type"

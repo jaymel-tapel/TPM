@@ -334,8 +334,6 @@ export type BoardView = {
 export type BoardFilters = WorkFilters & {
   /** Narrows to the work this person is on. Null shows everyone's. */
   assigneeId?: string | null;
-  /** Narrows to one campaign. Null shows work in and out of campaigns alike. */
-  campaignId?: string | null;
 };
 
 export async function getBoardView(
@@ -345,12 +343,11 @@ export async function getBoardView(
   zone?: Zone,
 ): Promise<BoardView | null> {
   const { start, end } = dayRange(reference, zone);
-  const { assigneeId = null, campaignId = null, ...work } = filters;
+  const { assigneeId = null, ...work } = filters;
 
   // Reuses the same `exists (…task_assignees…)` fragment every other
   // person-scoped query uses, so "mine" means the same thing everywhere.
   const mine = assigneeId ? sql` and ${scopeSql(userScope(assigneeId))}` : sql``;
-  const inCampaign = campaignId ? sql` and k.campaign_id = ${campaignId}::uuid` : sql``;
   /*
    * Narrowing happens in the query, not after it, so the count in each column
    * header counts what is on the screen. A board that said "19" over three
@@ -376,7 +373,7 @@ export async function getBoardView(
       .where(eq(boardStatuses.boardId, boardId))
       .orderBy(boardStatuses.position, boardStatuses.name),
     runTaskQuery(
-      sql`${boardScopeSql(boardId)}${mine}${inCampaign}${narrowing} and ${boardWindowSql(start, end)}`,
+      sql`${boardScopeSql(boardId)}${mine}${narrowing} and ${boardWindowSql(start, end)}`,
       400,
       boardOrder,
     ),
