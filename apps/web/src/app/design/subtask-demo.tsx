@@ -13,7 +13,7 @@ import { Input } from "@meridian/ui/primitives/input";
 function Adder() {
   return (
     <div className="flex items-center gap-2">
-      <Input placeholder="Anna — Data" aria-label="Subtask title" className="flex-1" />
+      <Input placeholder="Add a step" aria-label="Subtask title" className="flex-1" />
       <Button type="button" className="shrink-0" disabled>
         <Plus data-icon="inline-start" />
         Add

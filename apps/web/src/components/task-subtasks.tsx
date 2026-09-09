@@ -60,7 +60,7 @@ function Adder({ parentId, autoFocus = false }: { parentId: string; autoFocus?: 
             e.preventDefault();
             add();
           }}
-          placeholder="Anna — Data"
+          placeholder="Add a step"
           aria-label="Subtask title"
           className="flex-1"
         />
