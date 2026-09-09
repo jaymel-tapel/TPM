@@ -145,7 +145,6 @@ export default async function AccountBoardPage({
     tag: undefined,
   });
 
-  const mine = current.person === user.id;
 
   const personOptions: FilterOption[] = people.map((p) => ({
     value: p.id,
@@ -197,7 +196,19 @@ export default async function AccountBoardPage({
           the page itself is one board, and saying which is the useful half. */}
       <PageHeader eyebrow={account.name} title={board.name} />
 
-      <CommandBar className="mb-4">
+      {/*
+        One bar: how to look at the board, then how to narrow it, then what to
+        do to it. The filters were on a row of their own, which read as a
+        second toolbar for a job the first one was already doing — and the
+        divider between the two groups says more about the difference than a
+        line break did.
+
+        "My Tasks" used to sit here as a shortcut. It wrote the same `person`
+        the Assignee menu writes, so it was a second control for one fact, and
+        the moment Assignee could name anybody it was also the *narrower* of
+        the two. Gone: pick yourself from Assignee.
+      */}
+      <CommandBar className="mb-6">
         <Command icon={List} href={href({ list: true })} active={asList}>
           List
         </Command>
@@ -205,40 +216,7 @@ export default async function AccountBoardPage({
           Board
         </Command>
         <CommandDivider />
-        {/*
-          A filter, not a third view — it narrows whichever view is showing.
-          It writes the same `person` the menu below does rather than a
-          parameter of its own: two ways to say "Anna's work" is two ways for
-          them to disagree.
-        */}
-        <Command icon={User} href={href({ person: mine ? undefined : user.id })} active={mine}>
-          My Tasks
-        </Command>
 
-        <div className="ml-auto flex items-center gap-1">
-          {canViewAccount(user, accountId) ? (
-            <>
-              <Command
-                icon={Settings2}
-                href={`/accounts/${accountId}/tasks/${boardId}/columns`}
-              >
-                Columns
-              </Command>
-              <CommandDivider />
-            </>
-          ) : null}
-          <Command icon={Plus} href="/tasks/new" tone="primary">
-            New Task
-          </Command>
-        </div>
-      </CommandBar>
-
-      {/*
-        Its own row, because five of these would push the verbs off the end of
-        the bar above. They narrow rather than switch, and every option is a
-        link — a board narrowed to one client's launch is a URL you can send.
-      */}
-      <div className="mb-6 flex flex-wrap items-center gap-1">
         <FilterMenu
           label="Assignee"
           icon={User}
@@ -277,9 +255,26 @@ export default async function AccountBoardPage({
           clearHref={href({ tag: undefined })}
           empty="Nothing on this board is tagged"
         />
-      </div>
 
-      <div className="mt-6">
+        <div className="ml-auto flex items-center gap-1">
+          {canViewAccount(user, accountId) ? (
+            <>
+              <Command
+                icon={Settings2}
+                href={`/accounts/${accountId}/tasks/${boardId}/columns`}
+              >
+                Columns
+              </Command>
+              <CommandDivider />
+            </>
+          ) : null}
+          <Command icon={Plus} href="/tasks/new" tone="primary">
+            New Task
+          </Command>
+        </div>
+      </CommandBar>
+
+      <div>
         {view.columns.length === 0 ? (
           <EmptyState>This account has no columns yet.</EmptyState>
         ) : view.total === 0 ? (

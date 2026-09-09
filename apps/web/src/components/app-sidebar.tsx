@@ -139,7 +139,14 @@ function AccountGroup({
       {expanded ? (
         <div className="mt-0.5 space-y-0.5">
           {account.children.map((child) => (
-            <SectionRow key={child.href} child={child} pathname={pathname} />
+            <SectionRow
+              key={child.href}
+              child={child}
+              pathname={pathname}
+              addHref={
+                child.children && account.canAddBoard ? `${account.href}/tasks/new` : undefined
+              }
+            />
           ))}
         </div>
       ) : null}
