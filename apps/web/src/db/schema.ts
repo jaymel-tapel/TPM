@@ -266,7 +266,15 @@ export const tasks = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     title: text("title").notNull(),
     description: text("description"),
+    /**
+     * The enum this column was, kept alongside `typeId` while the other
+     * worktree still reads it. Writes set both; `type` holds the row's own slug
+     * when it is one of the original six and `internal` otherwise, because a
+     * type somebody made has no enum member and this column only has to stay
+     * *valid* until it is dropped.
+     */
     type: taskTypeEnum("type").notNull().default("internal"),
+    typeId: uuid("type_id").references(() => taskTypes.id, { onDelete: "restrict" }),
     priority: priorityEnum("priority").notNull().default("normal"),
     boardId: uuid("board_id")
       .notNull()
@@ -280,6 +288,18 @@ export const tasks = pgTable(
      * zero is a real answer that must not be confused with "nobody said".
      * Parsed and rendered by `lib/duration.ts`, where a day is eight hours.
      */
+    /**
+     * Where the card sits in its column, low first. Only the board reads it;
+     * every list is still ordered by priority and due date, which is what
+     * those screens are for.
+     *
+     * Zero is not a rank — it is "nobody has placed this", and `boardOrder`
+     * sorts it *after* everything placed. A task arrives at zero and stays
+     * there until somebody drags it, so an untouched column keeps the order it
+     * has always had, and work joining an arranged column cannot land on top
+     * of the arrangement.
+     */
+    position: integer("position").notNull().default(0),
     estimateMinutes: integer("estimate_minutes"),
     /**
      * The sum of this task's `time_logged` activity, kept here so a list or a
@@ -319,13 +339,16 @@ export const tasks = pgTable(
      * today" would move whenever somebody reorganised rather than when they
      * finished something — a number you improve by splitting things up.
      *
-     * One level only, enforced in `createSubtask`. Depth is a cross-row
-     * property and Postgres cannot express it without a trigger; this codebase
-     * has none and a subtask of a subtask is a tree, which is the nesting the
-     * brief is a reaction against. The same lesson is already recorded on
-     * `folders`: `documents` had a `parent_id` in migration 0003 and lost it
-     * again in 0008, because a row that is both a thing you open and a thing
-     * that holds other things makes "open" and "expand" fight.
+     * Pieces may have pieces. Depth is a cross-row property Postgres cannot
+     * express without a trigger, so `createSubtask` checks it and stops at
+     * `MAX_SUBTASK_DEPTH` — a readability limit, not a structural one.
+     *
+     * The container rule is what makes depth safe: only leaves are work, at
+     * any level, so a deeper tree never changes what a day counts. Contrast
+     * `folders`, where nesting was removed in 0008 — a document was both a
+     * thing you open and a thing that holds other things, and "open" and
+     * "expand" fought over the same row. A container here holds and is never
+     * itself the work, so the two never compete.
      */
     parentId: uuid("parent_id"),
     // Source of truth for reporting, and the task's own fact. Set by finishing
@@ -343,6 +366,8 @@ export const tasks = pgTable(
     index("tasks_account_due_idx").on(t.accountId, t.dueDate),
     index("tasks_completed_idx").on(t.completedAt),
     index("tasks_board_idx").on(t.boardId),
+    // Read by every board render, and by the re-rank a drop performs.
+    index("tasks_status_position_idx").on(t.statusId, t.position),
     // Read by `isLeaf`, which runs on every list and count in the product.
     index("tasks_parent_idx").on(t.parentId),
     index("tasks_campaign_idx").on(t.campaignId),
@@ -498,6 +523,39 @@ export const taskActivity = pgTable(
 export const tags = pgTable("tags", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull().unique(),
+  /**
+   * Retired: offered to nothing new, kept on everything that already wears it.
+   *
+   * Not a delete. `task_tags` cascades, so removing the row would strip the tag
+   * off every task carrying it — and the admin module has no delete anywhere
+   * else either, for the reason its own page gives: nothing is deleted here.
+   */
+  archivedAt: timestamp("archived_at", { withTimezone: true }),
+});
+
+/**
+ * The vocabulary a task's *kind* is drawn from — Client Work, Review, Meeting.
+ *
+ * A table rather than the enum this used to be, because the six that shipped
+ * were an agency's six and the next agency's are different. What stays fixed
+ * is the presentation: `icon` and `tone` are names from allowlists the design
+ * system owns, not free values, because a glyph out of a picker and a colour
+ * out of a hex field would put the palette in the hands of whoever last edited
+ * a dropdown. `DESIGN.md` records which six tones a type may draw from.
+ *
+ * `slug` is what URLs and seeds carry, so a filter link survives a rename;
+ * `name` is what people read and may change freely.
+ */
+export const taskTypes = pgTable("task_types", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  slug: text("slug").notNull().unique(),
+  name: text("name").notNull().unique(),
+  icon: text("icon").notNull().default("clipboard-list"),
+  tone: text("tone").notNull().default("gray"),
+  /** The order the menus offer them in. */
+  position: integer("position").notNull().default(0),
+  /** Retired, exactly as a tag is: no new work takes it, old work keeps it. */
+  archivedAt: timestamp("archived_at", { withTimezone: true }),
 });
 
 export const taskTags = pgTable(

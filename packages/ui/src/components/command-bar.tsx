@@ -29,8 +29,26 @@ export function CommandBar({
   );
 }
 
-const commandStyles =
+/**
+ * Shared with anything else that has to sit in the bar and look like it
+ * belongs — a filter menu's trigger is a command that happens to open rather
+ * than to go somewhere, and two hand-copied class lists would drift apart on
+ * the first change to either.
+ */
+export const commandStyles =
   "inline-flex items-center gap-2 rounded-md px-2 py-1.5 text-body-strong transition-colors disabled:cursor-not-allowed disabled:text-gray-500";
+
+export type CommandTone = "default" | "primary" | "danger";
+
+export function commandTone(tone: CommandTone = "default", active = false): string {
+  return active
+    ? "bg-blue-100 text-blue-900"
+    : {
+        default: "text-gray-800 hover:bg-gray-100 hover:text-gray-1000",
+        primary: "text-blue-900 hover:bg-blue-100",
+        danger: "text-red-700 hover:bg-red-100",
+      }[tone];
+}
 
 export function Command({
   icon: Icon,
@@ -47,17 +65,11 @@ export function Command({
   href?: string;
   onClick?: () => void;
   type?: "button" | "submit";
-  tone?: "default" | "primary" | "danger";
+  tone?: CommandTone;
   active?: boolean;
   disabled?: boolean;
 }) {
-  const toned = active
-    ? "bg-blue-100 text-blue-900"
-    : {
-        default: "text-gray-800 hover:bg-gray-100 hover:text-gray-1000",
-        primary: "text-blue-900 hover:bg-blue-100",
-        danger: "text-red-700 hover:bg-red-100",
-      }[tone];
+  const toned = commandTone(tone, active);
 
   const content = (
     <>

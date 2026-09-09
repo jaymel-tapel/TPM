@@ -1,6 +1,7 @@
 import "server-only";
 import { sql, type SQL } from "drizzle-orm";
 import { APP_TIMEZONE } from "@/lib/date";
+import type { TaskTypeRef } from "@meridian/ui";
 import type { StatusKind } from "@/db/schema";
 
 /**
@@ -127,12 +128,28 @@ export const isLeaf = sql`not exists (select 1 from tasks c where c.parent_id = 
 export const overdueSql = (todayStart: Date): SQL =>
   sql`(k.due_date < ${todayStart} and k.completed_at is null)`;
 
+/**
+ * The slice of a board's work a board actually shows: due today, carried over
+ * from an earlier day, or finished today.
+ *
+ * Named because two places have to agree on it. `getBoardView` reads it, and
+ * `moveTask` has to rank the same set — a drop rearranges the column the
+ * reader was looking at, and ranking rows outside that window would both cost
+ * writes nobody asked for and give a rank to work nobody can see.
+ */
+export const boardWindowSql = (start: Date, end: Date): SQL =>
+  sql`(
+    (k.due_date >= ${start} and k.due_date < ${end})
+    or ${overdueSql(start)}
+    or (k.completed_at >= ${start} and k.completed_at < ${end})
+  )`;
+
 /** Task row plus its assignees and tags, ready to render. */
 export type TaskCard = {
   id: string;
   title: string;
   description: string | null;
-  type: string;
+  type: TaskTypeRef;
   priority: string;
   dueDate: Date;
   estimateMinutes: number | null;
@@ -170,7 +187,23 @@ export type TaskCard = {
  * `taskCardFrom`.
  */
 export const taskCardSelect = sql`
-  k.id, k.title, k.description, k.type, k.priority,
+  k.id, k.title, k.description, k.priority,
+  /*
+   * Resolved here rather than in the component, because the kinds are rows
+   * people can add now and a component cannot look one up.
+   *
+   * A CASE rather than a coalesce: the join is left, and an all-null row still
+   * builds a perfectly good jsonb object full of nulls, so there would be
+   * nothing for coalesce to reject. The fallback reads the enum column that is
+   * still there, which is what makes a task with no type_id render rather than
+   * vanish from a list.
+   */
+  case when ty.id is null
+    then jsonb_build_object('slug', k.type::text, 'label', k.type::text,
+                            'icon', 'clipboard-list', 'tone', 'gray')
+    else jsonb_build_object('slug', ty.slug, 'label', ty.name,
+                            'icon', ty.icon, 'tone', ty.tone)
+  end as "type",
   k.due_date as "dueDate", k.completed_at as "completedAt",
   k.estimate_minutes as "estimateMinutes", k.actual_minutes as "actualMinutes",
   k.account_id as "accountId",
@@ -212,11 +245,31 @@ export const taskOrder = sql`
   k.due_date asc
 `;
 
+/**
+ * The board's order, and only the board's.
+ *
+ * A card somebody placed keeps the place they put it. Everything nobody has
+ * placed follows `taskOrder` underneath it — `position = 0` means "nobody has
+ * said", which is why it sorts *last* rather than first: work created into a
+ * column, or drifting into the board's day window when its date changes, must
+ * not land on top of an arrangement somebody made.
+ *
+ * A column nobody has dragged in is therefore all zeroes, and reads exactly as
+ * it always did. Lists keep `taskOrder` untouched: a list has no columns to
+ * arrange, and nothing outside `getBoardView` reads `position` at all.
+ */
+export const boardOrder = sql`
+  case when k.position = 0 then 1 else 0 end,
+  k.position asc,
+  ${taskOrder}
+`;
+
 /** The joins `taskCardSelect` depends on. Kept next to it so they cannot drift. */
 export const taskCardFrom = sql`
   from tasks k
   join board_statuses s on s.id = k.status_id
   join boards b on b.id = k.board_id
+  left join task_types ty on ty.id = k.type_id
 `;
 
 /** Applied to a `tasks` row aliased as `k`. */

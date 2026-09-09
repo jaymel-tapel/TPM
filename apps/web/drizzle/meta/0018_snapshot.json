@@ -1,139 +1,9 @@
 {
-  "id": "51be5a07-8cd1-45c9-9908-a37360f48c54",
+  "id": "fa57955d-8f57-487d-b80e-23f221deb411",
   "prevId": "a64e3b95-1bbd-4ce8-a05d-97ff41861c07",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
-    "public.account_members": {
-      "name": "account_members",
-      "schema": "",
-      "columns": {
-        "account_id": {
-          "name": "account_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "joined_at": {
-          "name": "joined_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "account_members_user_idx": {
-          "name": "account_members_user_idx",
-          "columns": [
-            {
-              "expression": "user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "account_members_account_id_accounts_id_fk": {
-          "name": "account_members_account_id_accounts_id_fk",
-          "tableFrom": "account_members",
-          "tableTo": "accounts",
-          "columnsFrom": [
-            "account_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "account_members_user_id_users_id_fk": {
-          "name": "account_members_user_id_users_id_fk",
-          "tableFrom": "account_members",
-          "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "account_members_account_id_user_id_pk": {
-          "name": "account_members_account_id_user_id_pk",
-          "columns": [
-            "account_id",
-            "user_id"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.accounts": {
-      "name": "accounts",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "account_director_id": {
-          "name": "account_director_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "accounts_name_unique": {
-          "name": "accounts_name_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "name"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.board_statuses": {
       "name": "board_statuses",
       "schema": "",
@@ -246,8 +116,8 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
-        "account_id": {
-          "name": "account_id",
+        "team_id": {
+          "name": "team_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": false
@@ -287,11 +157,11 @@
         }
       },
       "indexes": {
-        "boards_account_idx": {
-          "name": "boards_account_idx",
+        "boards_team_idx": {
+          "name": "boards_team_idx",
           "columns": [
             {
-              "expression": "account_id",
+              "expression": "team_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -313,19 +183,19 @@
             }
           ],
           "isUnique": true,
-          "where": "account_id is null",
+          "where": "team_id is null",
           "concurrently": false,
           "method": "btree",
           "with": {}
         }
       },
       "foreignKeys": {
-        "boards_account_id_accounts_id_fk": {
-          "name": "boards_account_id_accounts_id_fk",
+        "boards_team_id_teams_id_fk": {
+          "name": "boards_team_id_teams_id_fk",
           "tableFrom": "boards",
-          "tableTo": "accounts",
+          "tableTo": "teams",
           "columnsFrom": [
-            "account_id"
+            "team_id"
           ],
           "columnsTo": [
             "id"
@@ -349,143 +219,25 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "boards_account_name_key": {
-          "name": "boards_account_name_key",
+        "boards_team_name_key": {
+          "name": "boards_team_name_key",
           "nullsNotDistinct": false,
           "columns": [
-            "account_id",
+            "team_id",
             "name"
           ]
         },
-        "boards_id_account_key": {
-          "name": "boards_id_account_key",
+        "boards_id_team_key": {
+          "name": "boards_id_team_key",
           "nullsNotDistinct": false,
           "columns": [
             "id",
-            "account_id"
+            "team_id"
           ]
         }
       },
       "policies": {},
       "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.campaigns": {
-      "name": "campaigns",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "account_id": {
-          "name": "account_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "starts_on": {
-          "name": "starts_on",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "ends_on": {
-          "name": "ends_on",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "status": {
-          "name": "status",
-          "type": "campaign_status",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'planned'"
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "campaigns_account_idx": {
-          "name": "campaigns_account_idx",
-          "columns": [
-            {
-              "expression": "account_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "campaigns_account_id_accounts_id_fk": {
-          "name": "campaigns_account_id_accounts_id_fk",
-          "tableFrom": "campaigns",
-          "tableTo": "accounts",
-          "columnsFrom": [
-            "account_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "campaigns_account_name_key": {
-          "name": "campaigns_account_name_key",
-          "nullsNotDistinct": false,
-          "columns": [
-            "account_id",
-            "name"
-          ]
-        },
-        "campaigns_id_account_key": {
-          "name": "campaigns_id_account_key",
-          "nullsNotDistinct": false,
-          "columns": [
-            "id",
-            "account_id"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {
-        "campaigns_range_ck": {
-          "name": "campaigns_range_ck",
-          "value": "ends_on >= starts_on"
-        }
-      },
       "isRLSEnabled": false
     },
     "public.chat_members": {
@@ -843,8 +595,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "account_id": {
-          "name": "account_id",
+        "team_id": {
+          "name": "team_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": false
@@ -899,11 +651,11 @@
           "method": "btree",
           "with": {}
         },
-        "documents_account_idx": {
-          "name": "documents_account_idx",
+        "documents_team_idx": {
+          "name": "documents_team_idx",
           "columns": [
             {
-              "expression": "account_id",
+              "expression": "team_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -916,12 +668,12 @@
         }
       },
       "foreignKeys": {
-        "documents_account_id_accounts_id_fk": {
-          "name": "documents_account_id_accounts_id_fk",
+        "documents_team_id_teams_id_fk": {
+          "name": "documents_team_id_teams_id_fk",
           "tableFrom": "documents",
-          "tableTo": "accounts",
+          "tableTo": "teams",
           "columnsFrom": [
-            "account_id"
+            "team_id"
           ],
           "columnsTo": [
             "id"
@@ -960,9 +712,9 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {
-        "documents_visibility_account_ck": {
-          "name": "documents_visibility_account_ck",
-          "value": "(visibility = 'org') = (account_id is null)"
+        "documents_visibility_team_ck": {
+          "name": "documents_visibility_team_ck",
+          "value": "(visibility = 'org') = (team_id is null)"
         }
       },
       "isRLSEnabled": false
@@ -997,8 +749,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "account_id": {
-          "name": "account_id",
+        "team_id": {
+          "name": "team_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": false
@@ -1047,11 +799,11 @@
           "method": "btree",
           "with": {}
         },
-        "folders_account_idx": {
-          "name": "folders_account_idx",
+        "folders_team_idx": {
+          "name": "folders_team_idx",
           "columns": [
             {
-              "expression": "account_id",
+              "expression": "team_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1064,12 +816,12 @@
         }
       },
       "foreignKeys": {
-        "folders_account_id_accounts_id_fk": {
-          "name": "folders_account_id_accounts_id_fk",
+        "folders_team_id_teams_id_fk": {
+          "name": "folders_team_id_teams_id_fk",
           "tableFrom": "folders",
-          "tableTo": "accounts",
+          "tableTo": "teams",
           "columnsFrom": [
-            "account_id"
+            "team_id"
           ],
           "columnsTo": [
             "id"
@@ -1108,9 +860,9 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {
-        "folders_visibility_account_ck": {
-          "name": "folders_visibility_account_ck",
-          "value": "(visibility = 'org') = (account_id is null)"
+        "folders_visibility_team_ck": {
+          "name": "folders_visibility_team_ck",
+          "value": "(visibility = 'org') = (team_id is null)"
         }
       },
       "isRLSEnabled": false
@@ -2074,6 +1826,13 @@
           "primaryKey": false,
           "notNull": true
         },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
         "estimate_minutes": {
           "name": "estimate_minutes",
           "type": "integer",
@@ -2092,14 +1851,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "account_id": {
-          "name": "account_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "campaign_id": {
-          "name": "campaign_id",
+        "team_id": {
+          "name": "team_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": false
@@ -2147,11 +1900,11 @@
           "method": "btree",
           "with": {}
         },
-        "tasks_account_due_idx": {
-          "name": "tasks_account_due_idx",
+        "tasks_team_due_idx": {
+          "name": "tasks_team_due_idx",
           "columns": [
             {
-              "expression": "account_id",
+              "expression": "team_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -2198,11 +1951,17 @@
           "method": "btree",
           "with": {}
         },
-        "tasks_parent_idx": {
-          "name": "tasks_parent_idx",
+        "tasks_status_position_idx": {
+          "name": "tasks_status_position_idx",
           "columns": [
             {
-              "expression": "parent_id",
+              "expression": "status_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "position",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -2213,11 +1972,11 @@
           "method": "btree",
           "with": {}
         },
-        "tasks_campaign_idx": {
-          "name": "tasks_campaign_idx",
+        "tasks_parent_idx": {
+          "name": "tasks_parent_idx",
           "columns": [
             {
-              "expression": "campaign_id",
+              "expression": "parent_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -2269,12 +2028,12 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "tasks_account_id_accounts_id_fk": {
-          "name": "tasks_account_id_accounts_id_fk",
+        "tasks_team_id_teams_id_fk": {
+          "name": "tasks_team_id_teams_id_fk",
           "tableFrom": "tasks",
-          "tableTo": "accounts",
+          "tableTo": "teams",
           "columnsFrom": [
-            "account_id"
+            "team_id"
           ],
           "columnsTo": [
             "id"
@@ -2295,17 +2054,17 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "tasks_board_account_fk": {
-          "name": "tasks_board_account_fk",
+        "tasks_board_team_fk": {
+          "name": "tasks_board_team_fk",
           "tableFrom": "tasks",
           "tableTo": "boards",
           "columnsFrom": [
             "board_id",
-            "account_id"
+            "team_id"
           ],
           "columnsTo": [
             "id",
-            "account_id"
+            "team_id"
           ],
           "onDelete": "no action",
           "onUpdate": "no action"
@@ -2324,32 +2083,51 @@
           ],
           "onDelete": "no action",
           "onUpdate": "no action"
-        },
-        "tasks_campaign_account_fk": {
-          "name": "tasks_campaign_account_fk",
-          "tableFrom": "tasks",
-          "tableTo": "campaigns",
-          "columnsFrom": [
-            "campaign_id",
-            "account_id"
-          ],
-          "columnsTo": [
-            "id",
-            "account_id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {
-        "tasks_campaign_needs_account_ck": {
-          "name": "tasks_campaign_needs_account_ck",
-          "value": "campaign_id is null or account_id is not null"
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.teams": {
+      "name": "teams",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "account_director_id": {
+          "name": "account_director_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
         }
       },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.users": {
@@ -2389,9 +2167,9 @@
           "notNull": true,
           "default": "'team_member'"
         },
-        "title": {
-          "name": "title",
-          "type": "text",
+        "team_id": {
+          "name": "team_id",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": false
         },
@@ -2428,8 +2206,38 @@
           "default": "now()"
         }
       },
-      "indexes": {},
-      "foreignKeys": {},
+      "indexes": {
+        "users_team_idx": {
+          "name": "users_team_idx",
+          "columns": [
+            {
+              "expression": "team_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "users_team_id_teams_id_fk": {
+          "name": "users_team_id_teams_id_fk",
+          "tableFrom": "users",
+          "tableTo": "teams",
+          "columnsFrom": [
+            "team_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "users_email_unique": {
@@ -2461,15 +2269,6 @@
         "board_changed"
       ]
     },
-    "public.campaign_status": {
-      "name": "campaign_status",
-      "schema": "public",
-      "values": [
-        "planned",
-        "live",
-        "wrapped"
-      ]
-    },
     "public.chat_room_kind": {
       "name": "chat_room_kind",
       "schema": "public",
@@ -2491,7 +2290,7 @@
       "schema": "public",
       "values": [
         "org",
-        "account"
+        "team"
       ]
     },
     "public.leave_half": {

@@ -85,6 +85,12 @@ green     100 #EDF7F2  200 #D8EFE3  300 #B9E2CE  400 #8FD0B2  500 #63BC93
 - **Navy** (`#2D3148`) is the leadership hero only. Nowhere else.
 - **Amber** is the single most important number on a screen, and nothing else. Usually one per page.
 - **Red / green** report state, never decoration.
+- **A task type's glyph** draws from a fixed set of six tones — blue, its
+  lighter step, red, green, amber, gray — and nothing else. Kinds of work are
+  rows an administrator can add, so this is the one place a colour is chosen by
+  *a person* rather than by meaning; bounding the set is what keeps that from
+  becoming a palette. The label always accompanies the glyph, so the colour
+  never has to carry the distinction alone.
 - **Avatars** are the one place a colour is chosen by algorithm rather than by
   meaning: a solid `900`-step disc with white initials, hashed from the name.
   Solid rather than tinted because at 24px a filled disc is legible as a colour
@@ -145,6 +151,32 @@ Numbers in metrics use `tabular-nums` so they do not jitter as they change.
 
 In Tailwind: `1 2 3 4 6 8 12 16 24`. Half steps (`1.5`, `3.5`), `5`, `7`, `9`,
 `11`, `14` and bracket values are not part of the system.
+
+---
+
+## Motion
+
+Fluent's durations and curves. Three steps, because a tool people keep open all
+day should move enough to acknowledge what they did and then stop.
+
+```
+duration-faster   100ms   a state change — colour, opacity, a tick
+duration-fast     150ms   a thing moving aside to make room
+duration-normal   200ms   a thing arriving or leaving
+
+ease-standard     cubic-bezier(.33, 0, .67, 1)   Fluent's easy-ease
+ease-decelerate   cubic-bezier(.1, .9, .2, 1)    entering: fast in, settles
+```
+
+Nothing is animated for decoration. Movement earns its place by telling you
+something happened — a card moving aside is saying where the one you are
+dragging will land.
+
+**Reduced motion is honoured, and not only in CSS.** `theme.css` flattens every
+transition and animation to `0.01ms` under `prefers-reduced-motion`, which
+covers class-based and inline styles alike. Anything scripted — a drag overlay's
+drop animation, say — has to check `matchMedia` itself and skip the animation
+rather than shorten it.
 
 ---
 

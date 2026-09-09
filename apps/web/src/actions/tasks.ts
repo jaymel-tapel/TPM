@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { and, count, eq, inArray } from "drizzle-orm";
+import { and, count, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { parseDuration } from "@/lib/duration";
 import { db } from "@/db";
@@ -20,13 +20,42 @@ import {
   type ActivityKind,
   type StatusKind,
 } from "@/db/schema";
-import { requireUser } from "@/lib/auth";
+import { requireSession, requireUser } from "@/lib/auth";
 import { completionOnMove } from "@/lib/completion";
+import { dayRange } from "@/lib/date";
+import { ranksFor, weave } from "@/lib/rank";
+import { boardOrder, boardWindowSql, isLeaf } from "@/queries/sql";
 import { collectPeople } from "@meridian/ui/editor";
 import { syncMentionedDocs } from "@/lib/doc-links";
 import { deliver, notify } from "@/lib/notify";
 import { assertCanViewAccountWork, loadEditableTask } from "@/lib/permissions";
 import { assigneesOutsideAccount } from "@/queries/accounts";
+import { depthOf } from "@/queries/tasks";
+import { getTaskTypeBySlug } from "@/queries/task-types";
+import { MAX_SUBTASK_DEPTH } from "@/lib/constants";
+
+/**
+ * The enum column `tasks.type` still exists and is still NOT NULL, because the
+ * other worktree reads it. It has to stay *valid*, not meaningful: a kind
+ * somebody invented has no enum member, so it writes `internal` and the real
+ * answer lives in `type_id`. Migration 0021 drops the column and this goes
+ * with it.
+ */
+const ENUM_SLUGS = new Set<string>(taskTypeEnum.enumValues);
+const legacyType = (slug: string) =>
+  (ENUM_SLUGS.has(slug) ? slug : "internal") as (typeof taskTypeEnum.enumValues)[number];
+
+/**
+ * The kind a task is being given, as a row. Refused rather than defaulted: a
+ * type that has been retired or never existed is a form that cannot be saved,
+ * not a task quietly filed as something else.
+ */
+async function resolveType(slug: string) {
+  const type = await getTaskTypeBySlug(slug);
+  if (!type) return null;
+  if (type.archivedAt !== null) return null;
+  return type;
+}
 
 const taskInput = z.object({
   title: z.string().trim().min(1, "Give the task a title").max(200),
@@ -34,7 +63,8 @@ const taskInput = z.object({
   // not a word count. Images live in object storage and appear here only as a
   // URL, so a long description is long because someone wrote a lot.
   description: z.string().trim().max(200_000).optional().nullable(),
-  type: z.enum(taskTypeEnum.enumValues),
+  /** A `task_types` slug. Checked against the table, not against an enum. */
+  type: z.string().trim().min(1, "Pick a task type"),
   priority: z.enum(priorityEnum.enumValues),
   /** A `board_statuses` row. Validated against the board below, not here. */
   statusId: z.string().uuid("Pick a status"),
@@ -48,7 +78,11 @@ const taskInput = z.object({
    */
   estimate: z.string().trim().optional().nullable(),
   assignees: z.array(z.string().uuid()).min(1, "Assign the task to someone"),
-  tags: z.array(z.string().trim()).default([]),
+  /*
+   * Capped now that anyone can type one. Until this box existed the client
+   * could only send names it had been given, so neither bound was needed.
+   */
+  tags: z.array(z.string().trim().min(1).max(40)).max(12).default([]),
 });
 
 function parse(formData: FormData) {
@@ -69,26 +103,50 @@ function parse(formData: FormData) {
   });
 }
 
-/** Tags are a small shared vocabulary — created on first use, never managed. */
+/**
+ * Tags are a small shared vocabulary, created on first use and managed under
+ * Admin. Replace rather than diff: a save says what the task carries now.
+ *
+ * Matching folds case, storing does not. `tags.name` is plain text with a
+ * unique index, so `Nike` and `nike` are two perfectly legal rows — and once
+ * anyone can type a name rather than pick one, that is how a vocabulary of
+ * nine becomes a vocabulary of fifteen that reads like nine.
+ */
 async function linkTags(taskId: string, names: string[]) {
   await db.delete(taskTags).where(eq(taskTags.taskId, taskId));
-  if (names.length === 0) return;
 
-  const existing = await db.query.tags.findMany({ where: inArray(tags.name, names) });
-  const known = new Map(existing.map((t) => [t.name, t.id]));
-  const missing = names.filter((n) => !known.has(n));
+  // First spelling wins; the rest are the same tag said differently.
+  const wanted = [...new Map(names.map((n) => [n.toLowerCase(), n])).values()];
+  if (wanted.length === 0) return;
+
+  const lookup = async () => {
+    const found = await db.execute(
+      sql`select id, name from tags where lower(name) in (${sql.join(
+        wanted.map((n) => sql`${n.toLowerCase()}`),
+        sql`, `,
+      )})`,
+    );
+    return new Map(
+      (found.rows as { id: string; name: string }[]).map((t) => [t.name.toLowerCase(), t.id]),
+    );
+  };
+
+  let known = await lookup();
+  const missing = wanted.filter((n) => !known.has(n.toLowerCase()));
 
   if (missing.length > 0) {
-    const created = await db
-      .insert(tags)
-      .values(missing.map((name) => ({ name })))
-      .onConflictDoNothing()
-      .returning();
-    for (const t of created) known.set(t.name, t.id);
+    await db.insert(tags).values(missing.map((name) => ({ name }))).onConflictDoNothing();
+    /*
+     * Read back rather than trusting `returning()`. It returns only the rows
+     * this statement actually inserted, so when two people save the same new
+     * tag at once the loser gets nothing back — and the tag would then be
+     * dropped from their task without a word.
+     */
+    known = await lookup();
   }
 
-  const rows = names
-    .map((n) => known.get(n))
+  const rows = wanted
+    .map((n) => known.get(n.toLowerCase()))
     .filter((id): id is string => Boolean(id))
     .map((tagId) => ({ taskId, tagId }));
   if (rows.length > 0) await db.insert(taskTags).values(rows).onConflictDoNothing();
@@ -151,6 +209,9 @@ export async function createTask(_prev: FormState, formData: FormData): Promise<
   const estimate = readDuration(input.estimate);
   if (!estimate.ok) return { error: "Estimate should read like 2d 4h." };
 
+  const type = await resolveType(input.type);
+  if (!type) return { error: "That task type is not available." };
+
   // The task belongs to the account that owns the board it is filed on, so the
   // denormalised copy can never disagree with it.
   const [board] = await db
@@ -178,7 +239,8 @@ export async function createTask(_prev: FormState, formData: FormData): Promise<
     .values({
       title: input.title,
       description: input.description ?? null,
-      type: input.type,
+      type: legacyType(type.slug),
+      typeId: type.id,
       priority: input.priority,
       boardId: input.boardId,
       statusId: status.id,
@@ -235,6 +297,9 @@ export async function updateTask(_prev: FormState, formData: FormData): Promise<
   const estimate = readDuration(input.estimate);
   if (!estimate.ok) return { error: "Estimate should read like 2d 4h." };
 
+  const type = await resolveType(input.type);
+  if (!type) return { error: "That task type is not available." };
+
   const [board] = await db
     .select({ accountId: boards.accountId })
     .from(boards)
@@ -279,7 +344,8 @@ export async function updateTask(_prev: FormState, formData: FormData): Promise<
     .set({
       title: input.title,
       description: input.description ?? null,
-      type: input.type,
+      type: legacyType(type.slug),
+      typeId: type.id,
       priority: input.priority,
       boardId: input.boardId,
       statusId: status.id,
@@ -451,6 +517,113 @@ export async function toggleTaskDone(formData: FormData) {
   refresh();
 }
 
+/** Twice the twelve a column shows. Anything longer is not a board drag. */
+const MAX_ORDER = 24;
+
+const moveInput = z.object({
+  taskId: z.string().uuid(),
+  statusId: z.string().uuid(),
+  order: z.array(z.string().uuid()).max(MAX_ORDER),
+});
+
+/**
+ * A card dropped somewhere — which column, and whereabouts in it.
+ *
+ * Not `setTaskStatus`, which is the keyboard's path from the task page and
+ * rightly treats "the column it is already in" as nothing happening. Here that
+ * is the ordinary case: a drop inside one column changes the arrangement and
+ * nothing else, and an arrangement is not something a task's stream should
+ * record.
+ *
+ * The destination column arrives as the ids the person saw, top first, rather
+ * than as an index. An index is a coordinate into a list this action does not
+ * have: the board is capped at twelve of a possibly longer column and scoped
+ * to one day, so index three of what was on screen is not index three of the
+ * column. The array is self-describing and cannot contradict itself.
+ *
+ * What it is *not* is the whole column — the cap hides cards, and a filter
+ * hides more and scatters what is left. So the arrangement is woven back into
+ * the column as the database holds it before anything is ranked; see `weave`.
+ */
+export async function moveTask(formData: FormData) {
+  const { user: viewer, zone } = await requireSession();
+  const input = moveInput.parse({
+    taskId: formData.get("taskId"),
+    statusId: formData.get("statusId"),
+    order: formData.getAll("order").map(String),
+  });
+
+  const task = await loadEditableTask(viewer, input.taskId);
+  const status = await statusOnBoard(input.statusId, task.boardId);
+  if (!status) throw new Error("That status is not on this task's board");
+  const changed = status.id !== task.statusId;
+
+  /*
+   * The destination column as the board would draw it, unfiltered and uncapped
+   * — the same day window `getBoardView` uses, in the same order, so the two
+   * agree on what "the column" is. Bounded by a day's work in one column.
+   *
+   * A card somebody else has since moved out simply is not in here, and
+   * `ranksFor` drops it: a list naming it is stale rather than malicious, and
+   * the rest of the arrangement is still worth honouring.
+   */
+  const { start, end } = dayRange(undefined, zone);
+  const column = await db.execute(
+    sql`select k.id, k.position from tasks k
+        where k.board_id = ${task.boardId} and k.status_id = ${status.id}
+          and ${isLeaf} and ${boardWindowSql(start, end)}
+        order by ${boardOrder}`,
+  );
+  const rows = column.rows as unknown as { id: string; position: number }[];
+
+  const current = new Map(rows.map((row) => [row.id, row.position]));
+  // The card is not in that column yet when the status is changing.
+  if (changed) current.set(task.id, task.position);
+
+  const writes = ranksFor(
+    weave(rows.map((row) => row.id), input.order),
+    current,
+  );
+  // Dropped where it already was.
+  if (!changed && writes.length === 0) return;
+
+  await db.transaction(async (tx) => {
+    if (changed) {
+      await tx
+        .update(tasks)
+        .set({
+          statusId: status.id,
+          completedAt: completionOnMove(status.kind, task.completedAt),
+          updatedAt: new Date(),
+        })
+        .where(eq(tasks.id, task.id));
+    }
+    for (const write of writes) {
+      await tx.update(tasks).set({ position: write.position }).where(eq(tasks.id, write.id));
+    }
+  });
+
+  /*
+   * Only the crossing is an event. `updated_at` is not bumped for a reorder
+   * either: the stream is what happened to the work, and "Anna put this second
+   * instead of third" is not something anybody will want to read back.
+   */
+  if (changed) {
+    const from = await statusLabel(task.statusId);
+    const wasDone = task.completedAt !== null;
+    const nowDone = wasDone || status.kind === "done";
+    await recordActivity({
+      taskId: task.id,
+      actorId: viewer.id,
+      kind: nowDone && !wasDone ? "completed" : "status_changed",
+      fromLabel: from?.name ?? null,
+      toLabel: status.name,
+    });
+  }
+
+  refresh();
+}
+
 export async function setTaskStatus(formData: FormData) {
   const viewer = await requireUser();
   const taskId = String(formData.get("taskId") ?? "");
@@ -506,7 +679,7 @@ const subtaskInput = z.object({
  * and they are real tasks: their own assignees, their own due date, their own
  * place on the board. What they are not is *extra* work: the moment a task has
  * children it stops counting itself, and its children count instead. See
- * `isLeaf`.
+ * `isLeaf`, which holds at any depth — only leaves are ever work.
  *
  * Not `createTask`, which redirects to the new task; adding a subtask should
  * leave you looking at the parent.
@@ -526,12 +699,19 @@ export async function createSubtask(_prev: FormState, formData: FormData): Promi
   const parent = await loadEditableTask(viewer, parsed.data.parentId);
 
   /*
-   * One level. A subtask of a subtask is a tree, and a tree is the nesting the
-   * brief is a reaction against — depth is a cross-row property that Postgres
-   * cannot check without a trigger, so it is checked here.
+   * Pieces can have pieces, down to a floor. Depth is a cross-row property
+   * Postgres cannot check without a trigger, so it is checked here, at the one
+   * moment it matters.
+   *
+   * There is a floor rather than no limit because the tree is rendered whole
+   * and indented: past a handful of levels the rows run out of width, and a
+   * task filed six deep is a task nobody will find again. The number is a
+   * readability limit, not a technical one.
    */
-  if (parent.parentId !== null) {
-    return { error: "A subtask cannot be broken down further." };
+  if ((await depthOf(parent.id)) >= MAX_SUBTASK_DEPTH) {
+    return {
+      error: `Pieces nest ${MAX_SUBTASK_DEPTH} deep. This one is already as deep as it goes.`,
+    };
   }
 
   const assignees = parsed.data.assignees ?? [];

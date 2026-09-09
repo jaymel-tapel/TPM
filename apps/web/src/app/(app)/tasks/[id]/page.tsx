@@ -14,19 +14,21 @@ import { requireSession } from "@/lib/auth";
 import { canViewTask } from "@/lib/permissions";
 import { db } from "@/db";
 import { tasks as tasksTable } from "@/db/schema";
-import { getTaskCard, listAllTags, listSubtasks } from "@/queries/tasks";
+import { depthOf, getTaskCard, listAllTags, listAncestors, listSubtaskTree } from "@/queries/tasks";
+import { listTaskTypes, toTypeRef } from "@/queries/task-types";
 import { getAttachments } from "@/queries/attachments";
 import { getActivity } from "@/queries/activity";
 import { getLinkedDocs } from "@/queries/docs";
 import { listBoardOptions, listBoardStatuses } from "@/queries/boards";
 import { setTaskStatus, toggleTaskDone, updateTask } from "@/actions/tasks";
+import { MAX_SUBTASK_DEPTH } from "@/lib/constants";
 import { DeleteTaskButton } from "@/components/delete-task-button";
 import { TaskForm } from "@/components/task-form";
 import { TaskAttachments } from "@/components/task-attachments";
 import { TaskDocs } from "@/components/task-docs";
 import { TaskActivity } from "@/components/task-activity";
 import { TaskSubtasks } from "@/components/task-subtasks";
-import { toActivityItem, toDocRef, toSubtask } from "@/lib/present";
+import { toActivityItem, toDocRef, toSubtaskTree } from "@/lib/present";
 import { dueLabel } from "@/lib/date";
 import { formatDuration } from "@/lib/duration";
 
@@ -49,7 +51,7 @@ export default async function TaskDetailPage({
   const record = await db.query.tasks.findFirst({ where: eq(tasksTable.id, id) });
   if (!record || !(await canViewTask(user, record))) notFound();
 
-  const [task, tags, attachments, docs, columns, options, activity, subtasks] =
+  const [task, tags, attachments, docs, columns, options, activity, branch, ancestors, types, depth] =
     await Promise.all([
     getTaskCard(id),
     listAllTags(),
@@ -58,9 +60,19 @@ export default async function TaskDetailPage({
     listBoardStatuses(record.boardId),
     listBoardOptions(user),
     getActivity(id, showAll ? null : undefined),
-    listSubtasks(id),
+    listSubtaskTree(id),
+    listAncestors(id),
+    listTaskTypes(),
+    depthOf(id),
   ]);
   if (!task) notFound();
+
+  /*
+   * What is left of the floor, from here. A task already five levels down has
+   * no room to break anything else out, and the adder should say so by not
+   * being there rather than by failing when pressed.
+   */
+  const room = Math.max(0, MAX_SUBTASK_DEPTH - depth);
 
   return (
     <>
@@ -78,15 +90,38 @@ export default async function TaskDetailPage({
           )
         }
         aside={
-          <Link
-            href={task.parentId ? `/tasks/${task.parentId}` : "/today"}
-            className="text-body-strong text-blue-700 hover:text-blue-800"
-          >
-            {/* A subtask belongs somewhere; where it sits is part of what it
-                means, so the way out leads to the whole rather than to the
-                day. */}
-            ← {task.parentTitle ? task.parentTitle : "Back to today"}
-          </Link>
+          /*
+           * A piece belongs somewhere, and at depth "somewhere" is a path
+           * rather than a name: the immediate parent alone would tell you
+           * which row you came from and nothing about where that row lives.
+           * So the whole chain, outermost first, the way you would say it.
+           */
+          ancestors.length > 0 ? (
+            <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-1.5">
+              <span aria-hidden className="text-gray-600">
+                ←
+              </span>
+              {ancestors.map((step, i) => (
+                <span key={step.id} className="flex items-center gap-1.5">
+                  {i > 0 ? (
+                    <span aria-hidden className="text-gray-500">
+                      /
+                    </span>
+                  ) : null}
+                  <Link
+                    href={`/tasks/${step.id}`}
+                    className="max-w-[16rem] truncate text-body-strong text-blue-700 hover:text-blue-800"
+                  >
+                    {step.title}
+                  </Link>
+                </span>
+              ))}
+            </nav>
+          ) : (
+            <Link href="/today" className="text-body-strong text-blue-700 hover:text-blue-800">
+              ← Back to today
+            </Link>
+          )
         }
       />
 
@@ -137,6 +172,7 @@ export default async function TaskDetailPage({
         submitLabel="Save changes"
         peopleByBoard={options.peopleByBoard}
         allTags={tags}
+        taskTypes={types.map(toTypeRef)}
         boards={options.boards}
         statusesByBoard={options.statusesByBoard}
         values={{
@@ -147,21 +183,22 @@ export default async function TaskDetailPage({
           statusId: task.statusId,
           estimate: formatDuration(task.estimateMinutes),
           actual: formatDuration(task.actualMinutes),
-          type: task.type,
+          type: task.type.slug,
           priority: task.priority,
           dueDate: format(task.dueDate, "yyyy-MM-dd'T'HH:mm"),
           assignees: task.assignees.map((a) => a.id),
           tags: task.tags,
         }}
+        subtasks={
+          <TaskSubtasks
+            parentId={task.id}
+            subtasks={toSubtaskTree(branch, task.id)}
+            editable
+            framed={false}
+            maxDepth={room}
+          />
+        }
       />
-
-      <div className="mt-6">
-        <TaskSubtasks
-          parentId={task.id}
-          subtasks={subtasks.map((t) => toSubtask(t))}
-          editable={!task.parentId}
-        />
-      </div>
 
       <div className="mt-6">
         <TaskAttachments taskId={task.id} attachments={attachments} editable />

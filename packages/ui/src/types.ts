@@ -23,13 +23,27 @@ export type StatusRef = {
   name: string;
   kind: StatusKind;
 };
-export type TaskType =
-  | "client_work"
-  | "internal"
-  | "admin"
-  | "review"
-  | "meeting"
-  | "creative";
+/**
+ * A task's kind, resolved.
+ *
+ * It used to be a string union matching a Postgres enum, and a component looked
+ * the label, glyph and colour up in a map keyed by it. Kinds are rows people
+ * can add now, so the app resolves them and hands the answer over — the same
+ * arrangement `StatusRef` above already has, and for the same reason: a
+ * component cannot query, and a user-named thing cannot be a compile-time key.
+ *
+ * `icon` and `tone` are *names* from the allowlists in `task-meta.tsx`, not a
+ * component and not a colour. A lucide component cannot survive the trip
+ * through Postgres, and a hex out of a picker would produce no CSS at all —
+ * Tailwind only emits classes it can see written down somewhere.
+ */
+export type TaskTypeRef = {
+  /** Stable across renames. What a filter link carries. */
+  slug: string;
+  label: string;
+  icon: string;
+  tone: string;
+};
 export type Priority = "normal" | "high" | "urgent";
 export type Role = "team_member" | "account_director" | "senior_director";
 
@@ -90,7 +104,7 @@ export type PlanBlockData = {
   taskId: string;
   href: string;
   title: string;
-  type: TaskType;
+  type: TaskTypeRef;
   priority: Priority;
   done: boolean;
   startMinutes: number;
@@ -104,11 +118,18 @@ export type SubtaskData = {
   id: string;
   href: string;
   title: string;
+  /**
+   * A leaf is done when it is finished; a branch is done when everything under
+   * it is. A branch has no completion of its own to report — the pieces are
+   * the work — so this is the only honest answer for one.
+   */
   done: boolean;
   /** Already formatted; this package has no clock. */
   dueText: string;
   overdue: boolean;
   assignees: Person[];
+  /** The pieces below this one. Empty on a leaf. */
+  children: SubtaskData[];
 };
 
 /** One room in the list beside a conversation. */
@@ -154,7 +175,7 @@ export type TaskRowData = {
    * said it and every row repeating it is noise.
    */
   account?: string | null;
-  type: TaskType;
+  type: TaskTypeRef;
   status: StatusRef;
   priority: Priority;
   dueText: string;
@@ -292,14 +313,11 @@ export type TrendPointData = {
 
 /* ── Labels. Presentation, so they live with the components. ────────────── */
 
-export const TASK_TYPE_LABELS: Record<TaskType, string> = {
-  client_work: "Client Work",
-  internal: "Internal",
-  admin: "Admin",
-  review: "Review",
-  meeting: "Meeting",
-  creative: "Creative",
-};
+/*
+ * The six labels that used to live here are rows in `task_types` now, seeded by
+ * migration 0020 with the names, glyphs and tones they had while they were an
+ * enum. Nothing hardcodes them any more.
+ */
 
 /**
  * Kinds, not statuses. Column names come from the board and are shown as
@@ -330,7 +348,6 @@ export const ROLE_BADGES: Record<Role, string> = {
   senior_director: "SD",
 };
 
-export const TASK_TYPES = Object.keys(TASK_TYPE_LABELS) as TaskType[];
 export const STATUS_KINDS = Object.keys(STATUS_KIND_LABELS) as StatusKind[];
 export const PRIORITIES = Object.keys(PRIORITY_LABELS) as Priority[];
 

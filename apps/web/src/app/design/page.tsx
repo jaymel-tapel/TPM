@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsList, TabsTrigger } from "@meridian/ui/primitives/tabs";
 import { Textarea } from "@meridian/ui/primitives/textarea";
 import { RichTextEditor, RichTextView } from "@meridian/ui/editor";
-import { Columns3, List, Plus, Trash2 } from "lucide-react";
+import { Columns3, Flag, List, Plus, Shapes, Tag, Trash2, User } from "lucide-react";
 import {
   AvatarStack,
   CompletionMeter,
@@ -53,19 +53,22 @@ import {
   Command,
   CommandBar,
   CommandDivider,
+  FilterMenu,
+  PriorityIcon,
+  PRIORITY_LABELS,
   TaskBoard,
   TaskListSkeleton,
   CampaignList,
   CampaignRow,
   CompareList,
-  TASK_TYPES_ORDER,
-  TASK_TYPE_LABELS,
   TagBadge,
   TaskList,
   TaskRow,
   TypeLabel,
   UserAvatar,
-  type TaskType,
+  type FilterOption,
+  type Priority,
+  type TaskTypeRef,
   TrendStrip,
 } from "@meridian/ui";
 import { TrendChart } from "@meridian/ui/chart";
@@ -98,6 +101,8 @@ import {
   WORK_BARS,
 } from "./fixtures";
 import { DocRefListDemo } from "./doc-refs-demo";
+import { TaskBoardDemo } from "./board-demo";
+import { SubtaskEmptyDemo, SubtaskTreeDemo } from "./subtask-demo";
 
 export const metadata = { title: "MB Advertising — Design System" };
 
@@ -169,6 +174,51 @@ function Scale({ name, prefix }: { name: string; prefix: string }) {
     </div>
   );
 }
+
+/**
+ * The kinds of work, as rows rather than as a constant.
+ *
+ * They live in `task_types` and people can add to them, so the gallery writes
+ * out a representative set by hand — including one whose icon this build has
+ * never heard of, because the fallback is a state and every state belongs on
+ * this page.
+ */
+const TYPES: TaskTypeRef[] = [
+  { slug: "client_work", label: "Client Work", icon: "briefcase", tone: "blue" },
+  { slug: "review", label: "Review", icon: "eye", tone: "sky" },
+  { slug: "creative", label: "Creative", icon: "palette", tone: "red" },
+  { slug: "meeting", label: "Meeting", icon: "users", tone: "green" },
+  { slug: "internal", label: "Internal", icon: "clipboard-list", tone: "gray" },
+  { slug: "admin", label: "Admin", icon: "settings", tone: "amber" },
+  { slug: "pitch", label: "Pitch", icon: "megaphone", tone: "amber" },
+  { slug: "unknown", label: "Icon this build lacks", icon: "no-such-icon", tone: "gray" },
+];
+
+/**
+ * Options for the filter menus below. Written out here rather than derived from
+ * a board, because the gallery has no data — a component in `@meridian/ui`
+ * renders what it is handed, and the page it lives on builds every href.
+ */
+const FILTER_TYPES: FilterOption[] = TYPES.slice(0, 6).map((type) => ({
+  value: type.slug,
+  label: <TypeLabel type={type} />,
+  short: type.label,
+  href: "#",
+}));
+
+const FILTER_PRIORITIES: FilterOption[] = (["urgent", "high"] as Priority[]).map(
+  (priority) => ({
+    value: priority,
+    label: (
+      <span className="inline-flex items-center gap-1.5">
+        <PriorityIcon priority={priority} className="text-red-700" />
+        {PRIORITY_LABELS[priority]}
+      </span>
+    ),
+    short: PRIORITY_LABELS[priority],
+    href: "#",
+  }),
+);
 
 /* ── page ─────────────────────────────────────────────────────────────── */
 
@@ -351,8 +401,8 @@ export default function DesignSystemPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {(Object.keys(TASK_TYPE_LABELS) as TaskType[]).map((t) => (
-                  <SelectItem key={t} value={t}>
+                {TYPES.slice(0, 6).map((t) => (
+                  <SelectItem key={t.slug} value={t.slug}>
                     <TypeLabel type={t} />
                   </SelectItem>
                 ))}
@@ -442,9 +492,13 @@ export default function DesignSystemPage() {
             <StatusBadge status={{ id: "c3", name: "Shipped", kind: "done" }} />
             <StatusBadge status={{ id: "c4", name: "Blocked", kind: "blocked" }} />
           </Row>
+          {/* Seven from the table and one the build cannot resolve: an icon
+              name nothing maps to falls back to the neutral glyph rather than
+              throwing, which is what lets a row render against a kind somebody
+              added after this build shipped. */}
           <Row label="Task type">
-            {TASK_TYPES_ORDER.map((t) => (
-              <TypeLabel key={t} type={t} className="text-caption text-gray-700" />
+            {TYPES.map((t) => (
+              <TypeLabel key={t.slug} type={t} className="text-caption text-gray-700" />
             ))}
           </Row>
           <Row label="Priority">
@@ -603,6 +657,43 @@ export default function DesignSystemPage() {
               Delete
             </Command>
           </CommandBar>
+
+          <p className="mt-10 mb-6 max-w-prose text-body text-gray-700">
+            A filter narrows the view it is sitting on rather than switching to
+            another one, so it belongs in the same bar and is built from the same
+            command. Every option is a link — the URL is the filter, which is what
+            makes a narrowed board something you can send to somebody. The chosen
+            value reads beside the dimension, never instead of it, and the ✕ is
+            attached because a filter you cannot get out of is a trap.
+          </p>
+          <CommandBar>
+            <Command icon={List} href="#">
+              List
+            </Command>
+            <Command icon={Columns3} href="#" active>
+              Board
+            </Command>
+            <CommandDivider />
+            <Command icon={User} href="#">
+              My Tasks
+            </Command>
+            {/* Idle, chosen, and with nothing to offer — the three states. */}
+            <FilterMenu label="Type" icon={Shapes} options={FILTER_TYPES} clearHref="#" />
+            <FilterMenu
+              label="Priority"
+              icon={Flag}
+              options={FILTER_PRIORITIES}
+              value="urgent"
+              clearHref="#"
+            />
+            <FilterMenu
+              label="Tag"
+              icon={Tag}
+              options={[]}
+              clearHref="#"
+              empty="Nothing on this board is tagged"
+            />
+          </CommandBar>
         </Block>
 
         <Block title="Activity" note="What people said and what happened, in one stream">
@@ -633,6 +724,15 @@ export default function DesignSystemPage() {
             container has to report, and the parent quietly leaves every list of
             work.
           </p>
+          <p className="mb-6 max-w-prose text-caption text-gray-700">
+            Pieces have pieces. The rule holds at every level, which is what
+            makes depth safe: only leaves are ever work, so a deeper tree says
+            more about how the work is arranged without changing what a day
+            counts. A branch has no tick of its own — it would be refused — so
+            it reports on what is under it instead. Hovering a row offers to
+            break it down further, up to a floor of five; past that the control
+            is not there, because the server would only refuse it.
+          </p>
           <div className="grid gap-6 lg:grid-cols-2">
             <SubtaskList subtasks={SUBTASKS} />
             <div>
@@ -641,6 +741,19 @@ export default function DesignSystemPage() {
               </p>
               <SubtaskList subtasks={[]} />
             </div>
+          </div>
+
+          <p className="mt-10 mb-6 max-w-prose text-caption text-gray-700">
+            Unframed, it is a field rather than a panel — this is how it sits in
+            the task form, under the description, where breaking a task down is
+            part of saying what it is. The card would frame the same content
+            twice inside one that is already framed, so it goes; the count moves
+            up beside the label, and the invitation waits below until there is a
+            list to read instead.
+          </p>
+          <div className="grid gap-6 rounded-xl border border-gray-400 bg-background-100 p-6 lg:grid-cols-2">
+            <SubtaskTreeDemo subtasks={SUBTASKS} />
+            <SubtaskEmptyDemo />
           </div>
         </Block>
 
@@ -740,8 +853,23 @@ export default function DesignSystemPage() {
             default interface. Dragging is an enhancement: every card is a link to the task,
             where status can be changed with a keyboard.
           </p>
+          <Row label="Read-only">
+            <span className="text-caption text-gray-600">
+              No action passed — no drag machinery is mounted at all.
+            </span>
+          </Row>
           <TaskBoard board={BOARD} />
 
+          <div className="mt-8">
+            <Row label="Draggable">
+              <span className="text-caption text-gray-600">
+                Lift a card: the slot it leaves becomes the outline of where it will
+                land, its neighbours move aside, and dropping sets the order within
+                the column as well as which column it is in.
+              </span>
+            </Row>
+            <TaskBoardDemo board={BOARD} />
+          </div>
         </Block>
 
         <Block title="Metrics">

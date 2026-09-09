@@ -10,11 +10,10 @@ import {
   cn,
   PRIORITY_LABELS,
   StatusBadge,
-  TASK_TYPE_LABELS,
   TypeLabel,
   UserAvatar,
   type Priority,
-  type TaskType,
+  type TaskTypeRef,
 } from "@meridian/ui";
 import { RichTextEditor } from "@meridian/ui/editor";
 import { formatDuration, parseDuration } from "@/lib/duration";
@@ -64,9 +63,11 @@ export function TaskForm({
   values,
   peopleByBoard,
   allTags,
+  taskTypes,
   submitLabel,
   boards,
   statusesByBoard,
+  subtasks,
 }: {
   action: (prev: FormState, formData: FormData) => Promise<FormState>;
   values: TaskFormValues;
@@ -77,11 +78,26 @@ export function TaskForm({
    */
   peopleByBoard: Record<string, AssignableUser[]>;
   allTags: string[];
+  /**
+   * The kinds of work on offer. A prop, because this is a client component and
+   * the list is a table somebody administers — it cannot be looked up here and
+   * it is no longer a constant.
+   */
+  taskTypes: TaskTypeRef[];
   submitLabel: string;
   /** Boards the viewer may file work on. */
   boards: BoardOption[];
   /** Columns per board id — the status list changes with the board. */
   statusesByBoard: Record<string, StatusOption[]>;
+  /**
+   * The pieces this task was broken into, rendered under the description.
+   *
+   * A slot rather than a prop of data, because breaking a task down is its own
+   * action with its own posting and this form has no business knowing about
+   * it. Empty on a new task: there is no id to hang a piece off yet, the same
+   * reason attachments wait for the first save.
+   */
+  subtasks?: React.ReactNode;
 }) {
   const [state, formAction, pending] = useActionState(action, null);
   const [selected, setSelected] = useState<string[]>(values.assignees);
@@ -133,6 +149,20 @@ export function TaskForm({
     }
     return [...map.entries()];
   }, [people, search]);
+
+  const [tagDraft, setTagDraft] = useState("");
+
+  /** Adds what was typed, unless the list already has it under any casing. */
+  function addTag() {
+    const name = tagDraft.trim();
+    if (!name) return;
+    setTags((prev) =>
+      prev.some((t) => t.toLowerCase() === name.toLowerCase())
+        ? prev
+        : [...prev, allTags.find((t) => t.toLowerCase() === name.toLowerCase()) ?? name],
+    );
+    setTagDraft("");
+  }
 
   const toggle = (id: string) =>
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -195,6 +225,13 @@ export function TaskForm({
           </p>
         </div>
 
+        {/*
+          Under the description, because breaking a task down is part of saying
+          what it is — not an afterthought filed below the fold with the
+          attachments and the activity stream.
+        */}
+        {subtasks}
+
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <Label htmlFor="dueDate" className={label}>
@@ -212,11 +249,16 @@ export function TaskForm({
             <Label className={label}>Task type</Label>
             <Select value={type} onValueChange={(v) => v && setType(v)}>
               <SelectTrigger className="w-full">
-                <SelectValue>{(v) => <TypeLabel type={v as TaskType} />}</SelectValue>
+                <SelectValue>
+                  {(v) => {
+                    const chosen = taskTypes.find((t) => t.slug === String(v ?? ""));
+                    return chosen ? <TypeLabel type={chosen} /> : "Task type";
+                  }}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {(Object.keys(TASK_TYPE_LABELS) as TaskType[]).map((t) => (
-                  <SelectItem key={t} value={t}>
+                {taskTypes.map((t) => (
+                  <SelectItem key={t.slug} value={t.slug}>
                     <TypeLabel type={t} />
                   </SelectItem>
                 ))}
@@ -298,7 +340,12 @@ export function TaskForm({
         <div>
           <span className={label}>Tags</span>
           <div className="flex flex-wrap gap-2">
-            {allTags.map((tag) => {
+            {/*
+              Everything on offer, plus anything typed that the department has
+              not seen before — without the union a new tag would post but have
+              no chip, so the box would look like it had swallowed it.
+            */}
+            {[...allTags, ...tags.filter((t) => !allTags.includes(t))].map((tag) => {
               const on = tags.includes(tag);
               return (
                 <button
@@ -318,6 +365,38 @@ export function TaskForm({
                 </button>
               );
             })}
+          </div>
+
+          {/*
+            A vocabulary that grows by use. The server has created unknown
+            names on save since it was written; until this box there was no way
+            to send it one, so the department's tags could only come from a
+            seed. Matching folds case, so typing "nike" picks up "Nike" rather
+            than making a second of it.
+          */}
+          <div className="mt-2 flex items-center gap-2">
+            <Input
+              value={tagDraft}
+              onChange={(e) => setTagDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key !== "Enter") return;
+                // Or it would reach the form and save the task instead.
+                e.preventDefault();
+                addTag();
+              }}
+              placeholder="Add a tag"
+              aria-label="Add a tag"
+              className="max-w-56 flex-1"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={addTag}
+              disabled={tagDraft.trim() === ""}
+              className="shrink-0"
+            >
+              Add
+            </Button>
           </div>
         </div>
 

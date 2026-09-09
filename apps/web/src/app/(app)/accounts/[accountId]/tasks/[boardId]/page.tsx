@@ -1,28 +1,51 @@
-import { Columns3, List, Plus, Settings2, User } from "lucide-react";
+import { Columns3, Flag, List, Megaphone, Plus, Settings2, Shapes, Tag, User } from "lucide-react";
+import Link from "next/link";
 import {
   Command,
   CommandBar,
   CommandDivider,
   EmptyState,
+  FilterMenu,
   PageHeader,
-  TASK_TYPE_LABELS,
-  TASK_TYPES,
+  PRIORITY_LABELS,
+  PriorityIcon,
+  TagBadge,
   TaskBoard,
   TaskList,
   TaskRow,
+  TypeLabel,
+  type FilterOption,
+  type Priority,
 } from "@meridian/ui";
 import { notFound } from "next/navigation";
 import { openAccount } from "@/lib/account-page";
 import { canViewAccount } from "@/lib/permissions";
-import { getBoardView, listBoardsForAccounts } from "@/queries/tasks";
+import { getBoardView, listBoardTags, listBoardsForAccounts } from "@/queries/tasks";
 import { listCampaignOptions } from "@/queries/campaigns";
 import { listAccountMembers } from "@/queries/accounts";
+import { listTaskTypes, toTypeRef } from "@/queries/task-types";
 import { toBoard, toTaskRow } from "@/lib/present";
-import { setTaskStatus, toggleTaskDone } from "@/actions/tasks";
-import { FilterBar, FilterSelect } from "@/components/filter-bar";
-import type { TaskType } from "@/db/schema";
+import { moveTask, toggleTaskDone } from "@/actions/tasks";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * Everything the URL says about how to read this board. One object, because
+ * six controls each have to preserve the other five, and doing that by hand
+ * six times is how a filter quietly starts dropping the view you were on.
+ */
+type BoardQuery = {
+  list: boolean;
+  person?: string;
+  campaign?: string;
+  type?: string;
+  priority?: string;
+  tag?: string;
+};
+
+/** A search param can arrive repeated. The first one is the answer. */
+const one = (value: string | string[] | undefined) =>
+  (Array.isArray(value) ? value[0] : value) || undefined;
 
 /**
  * An account's work.
@@ -47,54 +70,126 @@ export default async function AccountBoardPage({
   const { user, zone, account } = await openAccount(accountId);
 
   const query = await searchParams;
-  const one = (key: string) => {
-    const value = query[key];
-    return typeof value === "string" ? value : "";
+  const current: BoardQuery = {
+    list: one(query.view) === "list",
+    person: one(query.person),
+    campaign: one(query.campaign),
+    type: one(query.type),
+    priority: one(query.priority),
+    tag: one(query.tag),
   };
-  const asList = one("view") === "list";
-  const mineOnly = one("mine") === "1";
-  const campaignId = one("campaign");
-  const type = one("type");
+  const asList = current.list;
+  const narrowed = Boolean(
+    current.person || current.campaign || current.type || current.priority || current.tag,
+  );
 
   /*
    * The board has to belong to *this* account. It arrives in the path, so a
    * board id from another client would otherwise render that client's work
    * under this one's name — past a guard that only checked the account.
    */
-  const boards = await listBoardsForAccounts([accountId]);
+  const [boards, types] = await Promise.all([
+    listBoardsForAccounts([accountId]),
+    listTaskTypes(),
+  ]);
   const board = boards.find((b) => b.id === boardId);
   if (!board) notFound();
 
-  const [view, campaigns, people] = await Promise.all([
+  /*
+   * A kind that is not on offer is not a filter, it is a stale link — a
+   * bookmark kept past a rename, or a retirement. Dropped here rather than
+   * passed on, because the query would match nothing and the menu would show
+   * nothing chosen: an empty board with no visible reason for being empty.
+   */
+  const type = current.type && types.some((t) => t.slug === current.type) ? current.type : undefined;
+
+  const [view, campaigns, people, boardTags] = await Promise.all([
     getBoardView(
       board.id,
       undefined,
       {
-        assigneeId: mineOnly ? user.id : null,
-        campaignId: campaignId || null,
-        // Straight off the URL, so it is checked against the fixed set rather
-        // than pasted into SQL as whatever the address bar happened to say.
-        type: (TASK_TYPES as readonly string[]).includes(type) ? (type as TaskType) : null,
+        assigneeId: current.person ?? null,
+        campaignId: current.campaign ?? null,
+        type,
+        priority: current.priority,
+        tag: current.tag,
       },
       zone,
     ),
     listCampaignOptions(accountId),
     listAccountMembers(accountId),
+    listBoardTags(board.id),
   ]);
   if (!view) notFound();
 
-  /** Keeps whichever settings you are not currently changing. */
-  const href = (next: Partial<{ list: boolean; mine: boolean }>) => {
+  /** Keeps every setting you are not currently changing. */
+  const href = (change: Partial<BoardQuery> = {}) => {
+    const next = { ...current, ...change };
     const params = new URLSearchParams();
-    if (next.list ?? asList) params.set("view", "list");
-    if (next.mine ?? mineOnly) params.set("mine", "1");
-    if (campaignId) params.set("campaign", campaignId);
-    if (type) params.set("type", type);
+    if (next.list) params.set("view", "list");
+    if (next.person) params.set("person", next.person);
+    if (next.campaign) params.set("campaign", next.campaign);
+    if (next.type) params.set("type", next.type);
+    if (next.priority) params.set("priority", next.priority);
+    if (next.tag) params.set("tag", next.tag);
     const search = params.toString();
     return `/accounts/${accountId}/tasks/${boardId}${search ? `?${search}` : ""}`;
   };
 
-  const filtered = Boolean(mineOnly || campaignId || type);
+  /** Back to the whole board, keeping only which of the two views you are on. */
+  const unfiltered = href({
+    person: undefined,
+    campaign: undefined,
+    type: undefined,
+    priority: undefined,
+    tag: undefined,
+  });
+
+  const mine = current.person === user.id;
+
+  const personOptions: FilterOption[] = people.map((p) => ({
+    value: p.id,
+    label: p.id === user.id ? "Just me" : p.name,
+    short: p.id === user.id ? "Just me" : p.name,
+    href: href({ person: p.id }),
+  }));
+
+  const campaignOptions: FilterOption[] = campaigns.map((c) => ({
+    value: c.id,
+    label: c.name,
+    short: c.name,
+    href: href({ campaign: c.id }),
+  }));
+
+  /*
+   * From the table, in the order somebody arranged it — the same list the task
+   * form offers, so you cannot filter for a kind nothing can be given.
+   */
+  const typeOptions: FilterOption[] = types.map(toTypeRef).map((type) => ({
+    value: type.slug,
+    label: <TypeLabel type={type} />,
+    short: type.label,
+    href: href({ type: type.slug }),
+  }));
+
+  const priorityOptions: FilterOption[] = (["urgent", "high"] as Priority[]).map((priority) => ({
+    value: priority,
+    label: (
+      <span className="inline-flex items-center gap-1.5">
+        <PriorityIcon priority={priority} className="text-red-700" />
+        {PRIORITY_LABELS[priority]}
+      </span>
+    ),
+    short: PRIORITY_LABELS[priority],
+    href: href({ priority }),
+  }));
+
+  const tagOptions: FilterOption[] = boardTags.map((tag) => ({
+    value: tag,
+    label: <TagBadge>{tag}</TagBadge>,
+    short: tag,
+    href: href({ tag }),
+  }));
 
   return (
     <>
@@ -110,8 +205,13 @@ export default async function AccountBoardPage({
           Board
         </Command>
         <CommandDivider />
-        {/* A filter, not a third view — it narrows whichever view is showing. */}
-        <Command icon={User} href={href({ mine: !mineOnly })} active={mineOnly}>
+        {/*
+          A filter, not a third view — it narrows whichever view is showing.
+          It writes the same `person` the menu below does rather than a
+          parameter of its own: two ways to say "Anna's work" is two ways for
+          them to disagree.
+        */}
+        <Command icon={User} href={href({ person: mine ? undefined : user.id })} active={mine}>
           My Tasks
         </Command>
 
@@ -133,36 +233,72 @@ export default async function AccountBoardPage({
         </div>
       </CommandBar>
 
-      <FilterBar>
-        <FilterSelect
-          name="campaign"
-          value={campaignId}
-          all="All campaigns"
-          options={campaigns.map((c) => ({ value: c.id, label: c.name }))}
+      {/*
+        Its own row, because five of these would push the verbs off the end of
+        the bar above. They narrow rather than switch, and every option is a
+        link — a board narrowed to one client's launch is a URL you can send.
+      */}
+      <div className="mb-6 flex flex-wrap items-center gap-1">
+        <FilterMenu
+          label="Assignee"
+          icon={User}
+          options={personOptions}
+          value={current.person}
+          clearHref={href({ person: undefined })}
+          empty="Nobody is on this account yet"
         />
-        <FilterSelect
-          name="mine"
-          value={mineOnly ? "1" : ""}
-          all="All people"
-          options={people.map((p) => ({
-            value: p.id === user.id ? "1" : p.id,
-            label: p.id === user.id ? "Just me" : p.name,
-          }))}
+        <FilterMenu
+          label="Campaign"
+          icon={Megaphone}
+          options={campaignOptions}
+          value={current.campaign}
+          clearHref={href({ campaign: undefined })}
+          empty="This account has no campaigns"
         />
-        <FilterSelect
-          name="type"
-          value={type}
-          all="Any task type"
-          options={TASK_TYPES.map((t) => ({ value: t, label: TASK_TYPE_LABELS[t] }))}
+        <FilterMenu
+          label="Type"
+          icon={Shapes}
+          options={typeOptions}
+          value={current.type}
+          clearHref={href({ type: undefined })}
         />
-      </FilterBar>
+        <FilterMenu
+          label="Priority"
+          icon={Flag}
+          options={priorityOptions}
+          value={current.priority}
+          clearHref={href({ priority: undefined })}
+        />
+        <FilterMenu
+          label="Tag"
+          icon={Tag}
+          options={tagOptions}
+          value={current.tag}
+          clearHref={href({ tag: undefined })}
+          empty="Nothing on this board is tagged"
+        />
+      </div>
 
       <div className="mt-6">
         {view.columns.length === 0 ? (
           <EmptyState>This account has no columns yet.</EmptyState>
         ) : view.total === 0 ? (
+          /*
+            One message rather than one per combination. Which filters are on is
+            already legible in the row above, so saying it again here would only
+            be a longer sentence; what is worth adding is the way out.
+          */
           <EmptyState>
-            {filtered ? "Nothing matches those filters today." : "Nothing due here today."}
+            {narrowed ? (
+              <>
+                Nothing on this board matches these filters.{" "}
+                <Link href={unfiltered} className="text-blue-900 underline underline-offset-2">
+                  Show everything
+                </Link>
+              </>
+            ) : (
+              "Nothing due here today."
+            )}
           </EmptyState>
         ) : asList ? (
           <div className="space-y-8">
@@ -192,7 +328,7 @@ export default async function AccountBoardPage({
               ))}
           </div>
         ) : (
-          <TaskBoard board={toBoard(view)} onMove={setTaskStatus} moreHref={href({ list: true })} />
+          <TaskBoard board={toBoard(view)} onMove={moveTask} moreHref={href({ list: true })} />
         )}
       </div>
     </>

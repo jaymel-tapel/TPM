@@ -1,14 +1,15 @@
 import "server-only";
 import { and, asc, eq, gte, lt, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { taskSchedule, tasks, type Priority, type TaskType } from "@/db/schema";
+import { taskSchedule, taskTypes, tasks, type Priority } from "@/db/schema";
+import type { TaskTypeRef } from "@meridian/ui";
 import { TZ } from "./sql";
 import { dayRange, fmt, now, type Zone } from "@/lib/date";
 
 export type PlanEntry = {
   taskId: string;
   title: string;
-  type: TaskType;
+  type: TaskTypeRef;
   priority: Priority;
   done: boolean;
   startsAt: Date;
@@ -34,7 +35,11 @@ export async function getDayPlan(
     .select({
       taskId: taskSchedule.taskId,
       title: tasks.title,
-      type: tasks.type,
+      typeSlug: taskTypes.slug,
+      typeName: taskTypes.name,
+      typeIcon: taskTypes.icon,
+      typeTone: taskTypes.tone,
+      fallbackType: tasks.type,
       priority: tasks.priority,
       completedAt: tasks.completedAt,
       startsAt: taskSchedule.startsAt,
@@ -42,6 +47,8 @@ export async function getDayPlan(
     })
     .from(taskSchedule)
     .innerJoin(tasks, eq(tasks.id, taskSchedule.taskId))
+    // Left, because `type_id` is nullable until the enum column goes.
+    .leftJoin(taskTypes, eq(taskTypes.id, tasks.typeId))
     .where(
       and(
         eq(taskSchedule.userId, userId),
@@ -54,7 +61,12 @@ export async function getDayPlan(
   return rows.map((r) => ({
     taskId: r.taskId,
     title: r.title,
-    type: r.type,
+    type: {
+      slug: r.typeSlug ?? r.fallbackType,
+      label: r.typeName ?? r.fallbackType,
+      icon: r.typeIcon ?? "clipboard-list",
+      tone: r.typeTone ?? "gray",
+    },
     priority: r.priority,
     done: r.completedAt !== null,
     startsAt: r.startsAt,

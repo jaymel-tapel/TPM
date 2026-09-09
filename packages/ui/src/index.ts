@@ -9,6 +9,7 @@ export * from "./components/chat-thread";
 export * from "./components/attachment-list";
 export * from "./components/button-link";
 export * from "./components/command-bar";
+export * from "./components/filter-menu";
 export * from "./components/section";
 export * from "./components/user-avatar";
 export * from "./components/task-board";

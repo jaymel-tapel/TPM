@@ -8,9 +8,9 @@ import { Label } from "@meridian/ui/primitives/label";
 import { login } from "@/actions/auth";
 
 const DEMO = [
-  { role: "Team Member", email: "anna.santos@meridian.co" },
-  { role: "Account Director", email: "sarah.lim@meridian.co" },
-  { role: "Senior Director", email: "elena.rivera@meridian.co" },
+  { role: "Team Member", email: "anna.santos@demo.co" },
+  { role: "Account Director", email: "sarah.lim@demo.co" },
+  { role: "Senior Director", email: "elena.rivera@demo.co" },
 ];
 
 const label = "mb-2 block text-caption-strong uppercase tracking-[0.08em] text-gray-600";
@@ -59,7 +59,7 @@ export function LoginForm() {
                 type="email"
                 required
                 autoComplete="username"
-                defaultValue="anna.santos@meridian.co"
+                defaultValue="anna.santos@demo.co"
               />
             </div>
             <div>

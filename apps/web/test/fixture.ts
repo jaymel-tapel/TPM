@@ -12,6 +12,7 @@ import {
   folders,
   taskAssignees,
   taskDocuments,
+  taskTypes,
   tasks,
   leaveRequests,
   accounts,
@@ -151,7 +152,8 @@ export async function addTask(opts: {
   completedDay?: number | null;
   completedHour?: number;
   status?: Column;
-  type?: "client_work" | "internal" | "admin" | "review" | "meeting" | "creative";
+  /** A `task_types` slug. Migration 0020 seeds the six the enum used to hold. */
+  type?: string;
   /** Makes this a subtask of that task — and that task a container. */
   parent?: string;
 }) {
@@ -164,10 +166,29 @@ export async function addTask(opts: {
       : new Date(TODAY.getTime() + opts.completedDay * DAY + (opts.completedHour ?? 14) * HOUR);
 
   const boardId = boardFor(opts.account);
+  /*
+   * Both columns, exactly as the action writes them: `type_id` is what every
+   * screen and filter reads, and the enum stays populated until it is dropped.
+   * `task_types` survives `resetDb` — it is seeded by the migration, not by a
+   * test, so it is not in the truncate list.
+   */
+  const slug = opts.type ?? "client_work";
+  const [taskType] = await db.select().from(taskTypes).where(eq(taskTypes.slug, slug));
+  if (!taskType) throw new Error(`No task_types row for "${slug}"`);
+
+  /*
+   * A kind somebody added has no enum member, so the old column takes the same
+   * fallback the action gives it. It only has to stay *valid* until 0021 drops
+   * it; `type_id` is the answer either way.
+   */
+  const ENUM_SLUGS = ["client_work", "internal", "admin", "review", "meeting", "creative"];
+  const legacy = (ENUM_SLUGS.includes(slug) ? slug : "internal") as "client_work";
+
   await db.insert(tasks).values({
     id,
     title: `Task ${n}`,
-    type: opts.type ?? "client_work",
+    type: legacy,
+    typeId: taskType.id,
     boardId,
     statusId: statusId(boardId, opts.status ?? (completedAt ? "done" : "todo")),
     priority: "normal",

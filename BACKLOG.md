@@ -30,7 +30,7 @@ Reporting, Quality.
 
 | | | |
 |---|---|---|
-| [WEB-20](https://linear.app/jaymelworkspace/issue/WEB-20) | Filters on the account view | High |
+| [WEB-20](https://linear.app/jaymelworkspace/issue/WEB-20) | Filters — *done on an account's board; nowhere else* | Low |
 | [WEB-21](https://linear.app/jaymelworkspace/issue/WEB-21) | Blocked state: capture the reason | High |
 | [WEB-24](https://linear.app/jaymelworkspace/issue/WEB-24) | Password change — *self-service half* | Medium |
 | [WEB-26](https://linear.app/jaymelworkspace/issue/WEB-26) | Date range selector on reports | Medium |
@@ -42,11 +42,15 @@ Reporting, Quality.
 | [WEB-32](https://linear.app/jaymelworkspace/issue/WEB-32) | CSV export of reports | Low |
 | [WEB-35](https://linear.app/jaymelworkspace/issue/WEB-35) | Recurring tasks | Low |
 
-Two of these have moved since they were written. **WEB-24** is half done: an
-administrator can reset somebody's password from their page, and the reset ends
-their open sessions; nobody can yet change their own. **WEB-27** named a screen
-that no longer exists — My Day folded into a filter on the board — so the issue
-needs restating against the board before it can be picked up.
+Three of these have moved since they were written. **WEB-20** is done where it
+mattered: an account's board narrows by assignee, campaign, type, priority and
+tag, in both its list and its columns, and every one of them is a link so a
+narrowed board is a URL you can send. `FilterMenu` and `workFilterSql` are
+written to serve any other screen that wants the same without changes. **WEB-24** is half done: an administrator can reset
+somebody's password from their page, and the reset ends their open sessions;
+nobody can yet change their own. **WEB-27** named a screen that no longer exists
+— My Day folded into a filter on the board — so the issue needs restating
+against the board before it can be picked up.
 
 ---
 
@@ -373,8 +377,23 @@ fighting over the same row. There is nothing to configure: a folder is a name
 and a place, and the tree is a way of reading the list rather than a structure
 you have to build before you can write anything.
 
-Also no custom status builder and no task-type creation flow — task types are a
-fixed set of six.
+Still no custom status builder. Task types, though, **were** a fixed set of six
+and are now a table an administrator can add to — that decision is reversed, and
+worth reading rather than deleting.
+
+The reason for six was right about the danger and wrong about the cause. What
+makes a vocabulary rot is not its length; it is a *field* people can invent,
+which is what the brief's "custom fields" refuses and what this still refuses. A
+kind of work is a name, a glyph and a tone, and it can never be anything else —
+no per-type fields, no per-type rules, no per-type workflow. Six was one
+agency's six, and an agency that pitches for new business every week has a
+seventh whether the schema admits it or not.
+
+Two things hold the line. The glyph and the colour come from allowlists the
+design system owns, so nobody is choosing hex codes out of a picker. And
+nothing is deleted: a kind is retired, never removed, because `tasks.type_id`
+is `on delete restrict` and last quarter's record should not change because
+somebody tidied a dropdown.
 
 Contribution-level completion on collaborative tasks (Anna—Data, James—Slides)
 is named in the brief as a *future extension* and is deliberately out of scope.
@@ -460,3 +479,72 @@ interface.
 - **A board column is capped, never scrolled.** Done holds seventy cards on a
   fifteen-person roster. The count in the header is the real answer; the list
   view is where you read all of them.
+- **A card dragged into place outranks priority — but only on the board.** A
+  task carries a `position`, and the board sorts by it before falling back to
+  priority and due date. Zero is not a rank; it means nobody has placed the
+  card, and it sorts *after* everything placed, so a column no one has touched
+  reads exactly as it always did and new work cannot land on top of an
+  arrangement. Every other screen ignores `position` entirely: a list asks
+  "what is urgent", and hand-ranking one board should not answer that question
+  everywhere else.
+- **A drop is woven into the column, never ranked against it.** The board never
+  shows a column whole — twelve cards at most, and under a filter a scattered
+  few — so the arrangement that comes back from a drag names only some of the
+  cards. Ranking that list directly would pull those cards to the top and drop
+  everything they were interleaved with behind them, silently, and only visible
+  once the filter comes off and an arrangement somebody made by hand is gone.
+  So the cards you could see keep the slots they occupied and only trade places
+  with each other; a card nobody could see does not move, because nobody moved
+  it. The cap alone was safe because what it hid was always a suffix — a filter
+  is the first thing that makes the visible set sparse, which is the invariant
+  that breaks.
+- **A filter narrows the query, not the result.** The count in a column header
+  has to count what is on the screen, or a board reading "19" over three cards
+  is reporting on a board nobody is looking at.
+- **The URL is the filter.** Type, priority and tag are search params on a
+  server-rendered page, so a narrowed board is a link somebody can send and the
+  back button does what it looks like it does. The same reason the docs search
+  is a plain GET form.
+- **A value that is not a value is dropped, not thrown on.** Filters arrive
+  from a query string, and an unrecognised enum would reach Postgres as an
+  invalid literal. A stale bookmark shows the whole board rather than an error
+  page, and it is the query layer that guarantees it rather than each page.
+- **Pieces have pieces, and only leaves are ever work.** Subtasks used to be
+  one level, on the grounds that a tree is the nesting the brief is a reaction
+  against. What actually makes nesting go wrong is a row that is both a thing
+  you open and a thing that holds other things — the reason `documents` lost
+  its `parent_id` in 0008. Tasks do not have that problem: the moment a task
+  has children it stops counting itself and its children count instead, at
+  every level, so a deeper tree says more about how work is arranged without
+  changing what a day counts. A branch therefore has no completion of its own
+  to report and derives one from what is under it; ticking it is refused.
+  Depth stops at `MAX_SUBTASK_DEPTH`, which is a readability limit — past a
+  handful of levels the indented rows run out of width — checked in
+  `createSubtask` because Postgres cannot express a cross-row property without
+  a trigger, and mirrored in the UI so no control is offered that the server
+  would refuse.
+- **A vocabulary is retired, never deleted.** Both tags and task types carry an
+  `archived_at` rather than a delete button, the same rule Admin already
+  followed for people. Retiring takes a word out of the pickers and leaves it
+  on the work that already wears it — the card projection deliberately does not
+  filter on it — because what was done last quarter should not change because
+  somebody tidied a list this morning. The last remaining task type cannot be
+  retired at all: a picker with nothing in it is a form nobody can submit.
+- **Tags are made by use, managed by exception.** A tag comes into existence
+  because somebody typed it on a task, which is what keeps the vocabulary a
+  record of how work is actually filed rather than a taxonomy designed in
+  advance. Admin exists for the two things a task cannot do: fix a name
+  everybody is now spelling differently, and take one out of circulation.
+  Renaming onto an existing name merges the two, because that is invariably
+  what was meant — and because `tags.name` is unique, so the alternative is a
+  constraint violation shown as a form error.
+
+### Owed: migration 0021, the contract half
+
+`tasks.type` and the `task_type` enum still exist beside `type_id`, and writes
+set both — the enum column taking `internal` for any kind that was not one of
+the original six. It is there only because the other worktree read `k.type` in
+five query files and dropping it mid-session would have broken that app. Once
+this is merged everywhere, 0021 drops the column and the enum, `type_id`
+becomes `NOT NULL`, and `legacyType` in `actions/tasks.ts` goes with them. It
+is a temporary lie and should not be allowed to become permanent.

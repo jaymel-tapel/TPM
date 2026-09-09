@@ -17,6 +17,7 @@ import {
   accounts,
   users,
   type Priority,
+  taskTypes,
   type TaskType,
 } from "./schema";
 import { eq } from "drizzle-orm";
@@ -326,6 +327,9 @@ const TYPE_WEIGHTS: [TaskType, number][] = [
   ["admin", 0.09],
 ];
 
+/** Slug → id for the kinds migration 0020 seeded. Filled in `seed()`. */
+const typeIdBySlug = new Map<string, string>();
+
 function pickType(): TaskType {
   let r = rnd();
   for (const [type, w] of TYPE_WEIGHTS) {
@@ -355,7 +359,7 @@ function pickPriority(): Priority {
 const TAG_NAMES = ["launch", "monthly", "urgent-client", "reporting"];
 
 function emailFor(name: string) {
-  return `${name.toLowerCase().replace(/[^a-z ]/g, "").replace(/ +/g, ".")}@meridian.co`;
+  return `${name.toLowerCase().replace(/[^a-z ]/g, "").replace(/ +/g, ".")}@demo.co`;
 }
 
 type NewTask = typeof tasks.$inferInsert & { id: string };
@@ -390,6 +394,17 @@ async function main() {
   await db.update(accounts).set({ accountDirectorId: null });
   await db.delete(users);
   await db.delete(accounts);
+
+  /*
+   * Task types are not cleared and not created here: migration 0020 seeds the
+   * six the enum used to hold, and anything an administrator has added since
+   * is theirs. A reseed replaces the work, not the vocabulary it is filed
+   * under.
+   */
+  for (const row of await db.select().from(taskTypes)) typeIdBySlug.set(row.slug, row.id);
+  if (typeIdBySlug.size === 0) {
+    throw new Error("No task_types rows — run `pnpm db:migrate` before seeding.");
+  }
 
   console.log("Creating accounts and users…");
   const accountRows = await db
@@ -590,6 +605,9 @@ async function main() {
       title: opts.title,
       description: opts.description ?? null,
       type: opts.type,
+      // Both columns, as the action writes them: the row is what every screen
+      // reads, the enum is what the column that has not gone yet holds.
+      typeId: typeIdBySlug.get(opts.type)!,
       priority: opts.priority,
       boardId: boardOf(opts.account, opts.board).id,
       statusId: statusOf(opts.account, opts.board, COLUMN_FOR[opts.status]).id,

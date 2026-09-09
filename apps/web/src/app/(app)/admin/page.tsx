@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus, UserPlus } from "lucide-react";
+import { Plus, Shapes, Tag, UserPlus } from "lucide-react";
 import {
   ButtonLink,
   Command,
@@ -48,6 +48,16 @@ export default async function AdminPage() {
             <CommandDivider />
             <Command icon={Plus} href="/admin/accounts/new">
               Add an account
+            </Command>
+            <CommandDivider />
+            {/* The two vocabularies work is filed under. Sections rather than
+                rail entries: the rail is a fixed, role-derived list, and these
+                are things you visit from Admin rather than places you go. */}
+            <Command icon={Shapes} href="/admin/task-types">
+              Task types
+            </Command>
+            <Command icon={Tag} href="/admin/tags">
+              Tags
             </Command>
           </CommandBar>
         }
@@ -122,6 +132,34 @@ export default async function AdminPage() {
               </span>
             </li>
           ))}
+        </ul>
+      </Panel>
+
+      <SectionHeader>Vocabulary</SectionHeader>
+      <Panel className="mb-10">
+        <ul className="divide-y divide-gray-300">
+          <li className="flex items-center gap-4 px-4 py-3">
+            <Link
+              href="/admin/task-types"
+              className="min-w-0 flex-1 truncate text-body-strong text-gray-1000 hover:text-blue-800"
+            >
+              Task types
+            </Link>
+            <span className="shrink-0 text-caption text-gray-600">
+              What kind of work a task is
+            </span>
+          </li>
+          <li className="flex items-center gap-4 px-4 py-3">
+            <Link
+              href="/admin/tags"
+              className="min-w-0 flex-1 truncate text-body-strong text-gray-1000 hover:text-blue-800"
+            >
+              Tags
+            </Link>
+            <span className="shrink-0 text-caption text-gray-600">
+              Made on a task; renamed and retired here
+            </span>
+          </li>
         </ul>
       </Panel>
 

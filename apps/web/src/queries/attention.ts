@@ -3,7 +3,6 @@ import { sql } from "drizzle-orm";
 import { db } from "@/db";
 import { dayRange, now, pct, type Zone } from "@/lib/date";
 import { isBlocked, isLeaf, onTimeIn, overdueSql, scopeSql, type Scope } from "./sql";
-import { TASK_TYPE_LABELS } from "@/lib/constants";
 import type { TaskType } from "@/db/schema";
 
 export type AttentionItem = {
@@ -165,10 +164,11 @@ export async function getDepartmentAttention(
   }
 
   const byType = await db.execute(sql`
-    select k.type, count(*) as due, count(*) filter (where ${onTimeIn(zone)}) as done
+    select ty.name as type, count(*) as due, count(*) filter (where ${onTimeIn(zone)}) as done
     from tasks k
+    join task_types ty on ty.id = k.type_id
     where ${isLeaf} and k.due_date >= ${weekStart}
-    group by k.type
+    group by ty.id, ty.name
     having count(*) > 20
     order by (count(*) filter (where ${onTimeIn(zone)}))::numeric / count(*) asc
     limit 1
@@ -177,7 +177,7 @@ export async function getDepartmentAttention(
   if (worst) {
     items.push({
       severity: "medium",
-      headline: TASK_TYPE_LABELS[worst.type as TaskType],
+      headline: worst.type,
       detail: `Lowest completion this week — ${pct(Number(worst.done), Number(worst.due))}%`,
     });
   }

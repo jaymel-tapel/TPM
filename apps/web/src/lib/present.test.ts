@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { toAvailability, toLeaveRequest, toMemberRow, toTaskRow } from "./present";
+import { toAvailability, toLeaveRequest, toMemberRow, toSubtaskTree, toTaskRow } from "./present";
 import type { TaskCard } from "@/queries/sql";
 import type { LeaveRow } from "@/queries/leave";
 import type { MemberRollup } from "@/queries/accounts";
@@ -12,7 +12,7 @@ function task(overrides: Partial<TaskCard> = {}): TaskCard {
     id: "t1",
     title: "Send client performance report",
     description: null,
-    type: "client_work",
+    type: { slug: "client_work", label: "Client Work", icon: "briefcase", tone: "blue" },
     estimateMinutes: null,
     actualMinutes: null,
     statusId: "c-todo",
@@ -104,7 +104,7 @@ describe("a task row's overdue flag", () => {
       id: "t1",
       title: "Draft the brief",
       description: null,
-      type: "client_work",
+      type: { slug: "client_work", label: "Client Work", icon: "briefcase", tone: "blue" },
       priority: "normal",
       dueDate,
       estimateMinutes: null,
@@ -312,5 +312,86 @@ describe("toMemberRow", () => {
     expect(row.away?.label).toBe("Away until 11 Sep");
     // Shown, never subtracted: the percentage is the one the rollup counted.
     expect(row.percent).toBe(50);
+  });
+});
+
+/**
+ * A branch has no completion of its own — `toggleTaskDone` refuses it, because
+ * its pieces are the work — so the tree has to derive one, and the derivation
+ * is the whole reason a deeper tree stays honest.
+ */
+describe("toSubtaskTree", () => {
+  const at = (id: string, parentId: string | null, done: boolean) =>
+    task({
+      id,
+      title: id,
+      parentId,
+      completedAt: done ? new Date("2026-09-07T04:00:00Z") : null,
+    });
+
+  it("nests rows under the parent each one names", () => {
+    const tree = toSubtaskTree(
+      [at("a", "root", false), at("a1", "a", false), at("b", "root", false)],
+      "root",
+      reference,
+    );
+    expect(tree.map((n) => n.id)).toEqual(["a", "b"]);
+    expect(tree[0]!.children.map((n) => n.id)).toEqual(["a1"]);
+    expect(tree[1]!.children).toEqual([]);
+  });
+
+  it("keeps the order the rows arrived in, at every level", () => {
+    const tree = toSubtaskTree(
+      [at("a", "root", false), at("a2", "a", false), at("a1", "a", false)],
+      "root",
+      reference,
+    );
+    // The query orders by due date; a level must not resort behind its back.
+    expect(tree[0]!.children.map((n) => n.id)).toEqual(["a2", "a1"]);
+  });
+
+  it("calls a branch done only when everything under it is", () => {
+    const half = toSubtaskTree(
+      [at("a", "root", false), at("a1", "a", true), at("a2", "a", false)],
+      "root",
+      reference,
+    );
+    expect(half[0]!.done).toBe(false);
+
+    const whole = toSubtaskTree(
+      [at("a", "root", false), at("a1", "a", true), at("a2", "a", true)],
+      "root",
+      reference,
+    );
+    expect(whole[0]!.done).toBe(true);
+  });
+
+  it("reads a branch as done through a level that never was", () => {
+    // The middle row is a container too, so its own `completed_at` is null
+    // forever. Reading that rather than its children would report the whole
+    // branch outstanding no matter how much work was finished.
+    const tree = toSubtaskTree(
+      [at("a", "root", false), at("a1", "a", false), at("a1x", "a1", true)],
+      "root",
+      reference,
+    );
+    expect(tree[0]!.children[0]!.done).toBe(true);
+    expect(tree[0]!.done).toBe(true);
+  });
+
+  it("still reads a leaf's own completion", () => {
+    const tree = toSubtaskTree([at("a", "root", true)], "root", reference);
+    expect(tree[0]!.done).toBe(true);
+  });
+
+  it("drops a row whose parent is not in the branch", () => {
+    // A stale id cannot strand a subtree at the top level pretending to be a
+    // piece of the task being looked at.
+    const tree = toSubtaskTree([at("a", "root", false), at("x", "somewhere", false)], "root", reference);
+    expect(tree.map((n) => n.id)).toEqual(["a"]);
+  });
+
+  it("is empty for a task nobody has broken down", () => {
+    expect(toSubtaskTree([], "root", reference)).toEqual([]);
   });
 });
