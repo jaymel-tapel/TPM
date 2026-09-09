@@ -56,11 +56,6 @@ export type NavItem = {
   label: string;
   icon: NavIcon;
   /**
-   * Starts a new group above this item — a little air, no heading. People and
-   * Reports are about the work; Chat and Docs are somewhere else you go.
-   */
-  gap?: boolean;
-  /**
    * An unread badge. Filled in by the layout, like the accounts — this module
    * runs no queries. Chat is the only item that carries one; everything else
    * in the rail is a place rather than a queue.
@@ -142,16 +137,17 @@ export function navFor(role: Role): { before: NavItem[]; after: NavItem[] } {
   ];
 
   /*
-   * Below them: the ways of reading across every client at once. People and
-   * Reports answer questions about the work; Docs is somewhere else you go,
-   * so it starts its own group.
+   * Below them: the ways of reading across every client at once. One group,
+   * not two — Docs used to start its own, and once Chat and Notifications
+   * moved up top that break was separating two lone items and read as a hole
+   * rather than a grouping.
    */
   const after: NavItem[] = [
     { href: "/people", label: "People", icon: "people" },
     ...(role === "team_member"
       ? []
       : [{ href: "/reports", label: "Reports", icon: "reports" as const }]),
-    { href: "/docs", label: "Docs", icon: "docs", gap: true },
+    { href: "/docs", label: "Docs", icon: "docs" },
     ...(role === "senior_director"
       ? [{ href: "/admin", label: "Admin", icon: "admin" as const }]
       : []),

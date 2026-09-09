@@ -331,9 +331,7 @@ export function AppSidebar({
 
         <div className="mt-6 space-y-0.5">
           {after.map((link) => (
-            <div key={link.href} className={link.gap ? "pt-4" : undefined}>
-              <GlobalItem link={link} pathname={pathname} />
-            </div>
+            <GlobalItem key={link.href} link={link} pathname={pathname} />
           ))}
         </div>
       </nav>
