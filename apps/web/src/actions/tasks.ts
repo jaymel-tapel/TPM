@@ -78,7 +78,11 @@ const taskInput = z.object({
    */
   estimate: z.string().trim().optional().nullable(),
   assignees: z.array(z.string().uuid()).min(1, "Assign the task to someone"),
-  tags: z.array(z.string().trim()).default([]),
+  /*
+   * Capped now that anyone can type one. Until this box existed the client
+   * could only send names it had been given, so neither bound was needed.
+   */
+  tags: z.array(z.string().trim().min(1).max(40)).max(12).default([]),
 });
 
 function parse(formData: FormData) {
@@ -99,26 +103,50 @@ function parse(formData: FormData) {
   });
 }
 
-/** Tags are a small shared vocabulary — created on first use, never managed. */
+/**
+ * Tags are a small shared vocabulary, created on first use and managed under
+ * Admin. Replace rather than diff: a save says what the task carries now.
+ *
+ * Matching folds case, storing does not. `tags.name` is plain text with a
+ * unique index, so `Nike` and `nike` are two perfectly legal rows — and once
+ * anyone can type a name rather than pick one, that is how a vocabulary of
+ * nine becomes a vocabulary of fifteen that reads like nine.
+ */
 async function linkTags(taskId: string, names: string[]) {
   await db.delete(taskTags).where(eq(taskTags.taskId, taskId));
-  if (names.length === 0) return;
 
-  const existing = await db.query.tags.findMany({ where: inArray(tags.name, names) });
-  const known = new Map(existing.map((t) => [t.name, t.id]));
-  const missing = names.filter((n) => !known.has(n));
+  // First spelling wins; the rest are the same tag said differently.
+  const wanted = [...new Map(names.map((n) => [n.toLowerCase(), n])).values()];
+  if (wanted.length === 0) return;
+
+  const lookup = async () => {
+    const found = await db.execute(
+      sql`select id, name from tags where lower(name) in (${sql.join(
+        wanted.map((n) => sql`${n.toLowerCase()}`),
+        sql`, `,
+      )})`,
+    );
+    return new Map(
+      (found.rows as { id: string; name: string }[]).map((t) => [t.name.toLowerCase(), t.id]),
+    );
+  };
+
+  let known = await lookup();
+  const missing = wanted.filter((n) => !known.has(n.toLowerCase()));
 
   if (missing.length > 0) {
-    const created = await db
-      .insert(tags)
-      .values(missing.map((name) => ({ name })))
-      .onConflictDoNothing()
-      .returning();
-    for (const t of created) known.set(t.name, t.id);
+    await db.insert(tags).values(missing.map((name) => ({ name }))).onConflictDoNothing();
+    /*
+     * Read back rather than trusting `returning()`. It returns only the rows
+     * this statement actually inserted, so when two people save the same new
+     * tag at once the loser gets nothing back — and the tag would then be
+     * dropped from their task without a word.
+     */
+    known = await lookup();
   }
 
-  const rows = names
-    .map((n) => known.get(n))
+  const rows = wanted
+    .map((n) => known.get(n.toLowerCase()))
     .filter((id): id is string => Boolean(id))
     .map((tagId) => ({ taskId, tagId }));
   if (rows.length > 0) await db.insert(taskTags).values(rows).onConflictDoNothing();

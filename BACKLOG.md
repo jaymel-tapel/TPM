@@ -377,8 +377,23 @@ fighting over the same row. There is nothing to configure: a folder is a name
 and a place, and the tree is a way of reading the list rather than a structure
 you have to build before you can write anything.
 
-Also no custom status builder and no task-type creation flow — task types are a
-fixed set of six.
+Still no custom status builder. Task types, though, **were** a fixed set of six
+and are now a table an administrator can add to — that decision is reversed, and
+worth reading rather than deleting.
+
+The reason for six was right about the danger and wrong about the cause. What
+makes a vocabulary rot is not its length; it is a *field* people can invent,
+which is what the brief's "custom fields" refuses and what this still refuses. A
+kind of work is a name, a glyph and a tone, and it can never be anything else —
+no per-type fields, no per-type rules, no per-type workflow. Six was one
+agency's six, and an agency that pitches for new business every week has a
+seventh whether the schema admits it or not.
+
+Two things hold the line. The glyph and the colour come from allowlists the
+design system owns, so nobody is choosing hex codes out of a picker. And
+nothing is deleted: a kind is retired, never removed, because `tasks.type_id`
+is `on delete restrict` and last quarter's record should not change because
+somebody tidied a dropdown.
 
 Contribution-level completion on collaborative tasks (Anna—Data, James—Slides)
 is named in the brief as a *future extension* and is deliberately out of scope.
@@ -508,3 +523,28 @@ interface.
   `createSubtask` because Postgres cannot express a cross-row property without
   a trigger, and mirrored in the UI so no control is offered that the server
   would refuse.
+- **A vocabulary is retired, never deleted.** Both tags and task types carry an
+  `archived_at` rather than a delete button, the same rule Admin already
+  followed for people. Retiring takes a word out of the pickers and leaves it
+  on the work that already wears it — the card projection deliberately does not
+  filter on it — because what was done last quarter should not change because
+  somebody tidied a list this morning. The last remaining task type cannot be
+  retired at all: a picker with nothing in it is a form nobody can submit.
+- **Tags are made by use, managed by exception.** A tag comes into existence
+  because somebody typed it on a task, which is what keeps the vocabulary a
+  record of how work is actually filed rather than a taxonomy designed in
+  advance. Admin exists for the two things a task cannot do: fix a name
+  everybody is now spelling differently, and take one out of circulation.
+  Renaming onto an existing name merges the two, because that is invariably
+  what was meant — and because `tags.name` is unique, so the alternative is a
+  constraint violation shown as a form error.
+
+### Owed: migration 0021, the contract half
+
+`tasks.type` and the `task_type` enum still exist beside `type_id`, and writes
+set both — the enum column taking `internal` for any kind that was not one of
+the original six. It is there only because the other worktree read `k.type` in
+five query files and dropping it mid-session would have broken that app. Once
+this is merged everywhere, 0021 drops the column and the enum, `type_id`
+becomes `NOT NULL`, and `legacyType` in `actions/tasks.ts` goes with them. It
+is a temporary lie and should not be allowed to become permanent.

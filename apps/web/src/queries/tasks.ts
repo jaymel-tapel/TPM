@@ -245,8 +245,33 @@ export async function getTaskCard(taskId: string): Promise<TaskCard | null> {
 }
 
 export async function listAllTags(): Promise<string[]> {
-  const result = await db.execute(sql`select name from tags order by name`);
+  // Retired tags are not offered. They stay on the work that already wears
+  // them, which is why the card projection does not filter the same way.
+  const result = await db.execute(sql`select name from tags where archived_at is null order by name`);
   return (result.rows as { name: string }[]).map((r) => r.name);
+}
+
+/**
+ * Every tag with how much work carries it, retired ones included.
+ *
+ * The count is what makes retiring a decision rather than a guess — the same
+ * job `AdminPerson.taskCount` does on the people list.
+ */
+export async function listTagsWithUse(): Promise<
+  { id: string; name: string; taskCount: number; archivedAt: Date | null }[]
+> {
+  const result = await db.execute(sql`
+    select g.id, g.name, g.archived_at as "archivedAt",
+           (select count(*) from task_tags tt where tt.tag_id = g.id)::int as "taskCount"
+    from tags g
+    order by g.name
+  `);
+  return result.rows as unknown as {
+    id: string;
+    name: string;
+    taskCount: number;
+    archivedAt: Date | null;
+  }[];
 }
 
 /**
@@ -263,7 +288,7 @@ export async function listBoardTags(boardId: string): Promise<string[]> {
     from tags g
     join task_tags tt on tt.tag_id = g.id
     join tasks k on k.id = tt.task_id
-    where ${boardScopeSql(boardId)} and ${isLeaf}
+    where ${boardScopeSql(boardId)} and ${isLeaf} and g.archived_at is null
     order by g.name
   `);
   return (result.rows as { name: string }[]).map((r) => r.name);

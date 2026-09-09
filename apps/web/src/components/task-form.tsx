@@ -150,6 +150,20 @@ export function TaskForm({
     return [...map.entries()];
   }, [people, search]);
 
+  const [tagDraft, setTagDraft] = useState("");
+
+  /** Adds what was typed, unless the list already has it under any casing. */
+  function addTag() {
+    const name = tagDraft.trim();
+    if (!name) return;
+    setTags((prev) =>
+      prev.some((t) => t.toLowerCase() === name.toLowerCase())
+        ? prev
+        : [...prev, allTags.find((t) => t.toLowerCase() === name.toLowerCase()) ?? name],
+    );
+    setTagDraft("");
+  }
+
   const toggle = (id: string) =>
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
@@ -326,7 +340,12 @@ export function TaskForm({
         <div>
           <span className={label}>Tags</span>
           <div className="flex flex-wrap gap-2">
-            {allTags.map((tag) => {
+            {/*
+              Everything on offer, plus anything typed that the department has
+              not seen before — without the union a new tag would post but have
+              no chip, so the box would look like it had swallowed it.
+            */}
+            {[...allTags, ...tags.filter((t) => !allTags.includes(t))].map((tag) => {
               const on = tags.includes(tag);
               return (
                 <button
@@ -346,6 +365,38 @@ export function TaskForm({
                 </button>
               );
             })}
+          </div>
+
+          {/*
+            A vocabulary that grows by use. The server has created unknown
+            names on save since it was written; until this box there was no way
+            to send it one, so the department's tags could only come from a
+            seed. Matching folds case, so typing "nike" picks up "Nike" rather
+            than making a second of it.
+          */}
+          <div className="mt-2 flex items-center gap-2">
+            <Input
+              value={tagDraft}
+              onChange={(e) => setTagDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key !== "Enter") return;
+                // Or it would reach the form and save the task instead.
+                e.preventDefault();
+                addTag();
+              }}
+              placeholder="Add a tag"
+              aria-label="Add a tag"
+              className="max-w-56 flex-1"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={addTag}
+              disabled={tagDraft.trim() === ""}
+              className="shrink-0"
+            >
+              Add
+            </Button>
           </div>
         </div>
 

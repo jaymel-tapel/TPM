@@ -176,10 +176,18 @@ export async function addTask(opts: {
   const [taskType] = await db.select().from(taskTypes).where(eq(taskTypes.slug, slug));
   if (!taskType) throw new Error(`No task_types row for "${slug}"`);
 
+  /*
+   * A kind somebody added has no enum member, so the old column takes the same
+   * fallback the action gives it. It only has to stay *valid* until 0021 drops
+   * it; `type_id` is the answer either way.
+   */
+  const ENUM_SLUGS = ["client_work", "internal", "admin", "review", "meeting", "creative"];
+  const legacy = (ENUM_SLUGS.includes(slug) ? slug : "internal") as "client_work";
+
   await db.insert(tasks).values({
     id,
     title: `Task ${n}`,
-    type: slug as "client_work",
+    type: legacy,
     typeId: taskType.id,
     boardId,
     statusId: statusId(boardId, opts.status ?? (completedAt ? "done" : "todo")),
