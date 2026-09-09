@@ -28,7 +28,7 @@ describe("what counts as due today", () => {
   it("depends on the reader, not on the row", async () => {
     // 8pm Monday in Manila is 5am Monday in Los Angeles — but the reader in
     // Los Angeles is still on Sunday, so for them this is tomorrow's work.
-    await addTask({ team: IDS.teamA, assignees: [IDS.anna], dueDay: 0, dueHour: 20 });
+    await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 0, dueHour: 20 });
 
     const manila = await getDayView(IDS.anna, NOW, MANILA);
     const la = await getDayView(IDS.anna, NOW, LA);
@@ -38,8 +38,8 @@ describe("what counts as due today", () => {
   });
 
   it("still adds up for each reader on their own terms", async () => {
-    await addTask({ team: IDS.teamA, assignees: [IDS.anna], dueDay: 0, dueHour: 20 });
-    await addTask({ team: IDS.teamA, assignees: [IDS.anna], dueDay: 0, dueHour: 9 });
+    await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 0, dueHour: 20 });
+    await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 0, dueHour: 9 });
 
     for (const zone of [MANILA, LA]) {
       const view = await getDayView(IDS.anna, NOW, zone);
@@ -52,7 +52,7 @@ describe("what counts as due today", () => {
     // Mid-afternoon Manila is mid-morning the same day in neither reader's
     // edge case; both should see it. A test that only ever disagrees would not
     // catch a helper that had started ignoring its zone argument.
-    await addTask({ team: IDS.teamA, assignees: [IDS.anna], dueDay: 0, dueHour: 12 });
+    await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 0, dueHour: 12 });
     expect((await getDayView(IDS.anna, NOW, MANILA)).due).toBe(1);
     expect((await getDayView(IDS.anna, NOW, LA)).due).toBe(1);
   });
@@ -76,7 +76,7 @@ describe("what counts as finished on time", () => {
      * silent fallback.
      */
     await addTask({
-      team: IDS.teamA,
+      account: IDS.volvo,
       assignees: [IDS.anna],
       dueDay: 0,
       dueHour: 20,
@@ -95,7 +95,7 @@ describe("what counts as finished on time", () => {
     // Finished two days after it was due: no day boundary anywhere makes that
     // punctual.
     await addTask({
-      team: IDS.teamA,
+      account: IDS.volvo,
       assignees: [IDS.anna],
       dueDay: -3,
       dueHour: 10,
@@ -117,10 +117,10 @@ describe("what is still coming", () => {
   });
 
   it("reaches as far ahead as the plan does, and no further", async () => {
-    await addTask({ team: IDS.teamA, assignees: [IDS.anna], dueDay: 2 });
-    await addTask({ team: IDS.teamA, assignees: [IDS.anna], dueDay: 6 });
+    await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 2 });
+    await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 6 });
     // Beyond the horizon: real work, but nothing you could put in a day yet.
-    await addTask({ team: IDS.teamA, assignees: [IDS.anna], dueDay: 30 });
+    await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 30 });
 
     const view = await getDayView(IDS.anna, NOW, MANILA);
     expect(view.upcoming).toHaveLength(2);
@@ -132,8 +132,8 @@ describe("what is still coming", () => {
      * towards it, the number would fall every time somebody planned ahead —
      * which is exactly the behaviour the brief warns against.
      */
-    await addTask({ team: IDS.teamA, assignees: [IDS.anna], dueDay: 0, completedDay: 0 });
-    await addTask({ team: IDS.teamA, assignees: [IDS.anna], dueDay: 3 });
+    await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 0, completedDay: 0 });
+    await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 3 });
 
     const view = await getDayView(IDS.anna, NOW, MANILA);
     expect(view.due).toBe(1);
@@ -145,9 +145,9 @@ describe("what is still coming", () => {
   it("reads in the order the work arrives", async () => {
     // Chronological, not by priority: "what is coming" is a question about
     // time, and the day's own lists are the ones that put urgent work first.
-    await addTask({ team: IDS.teamA, assignees: [IDS.anna], dueDay: 5 });
-    await addTask({ team: IDS.teamA, assignees: [IDS.anna], dueDay: 1 });
-    await addTask({ team: IDS.teamA, assignees: [IDS.anna], dueDay: 3 });
+    await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 5 });
+    await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 1 });
+    await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 3 });
 
     const due = (await getDayView(IDS.anna, NOW, MANILA)).upcoming.map((t) =>
       t.dueDate.getTime(),
@@ -157,7 +157,7 @@ describe("what is still coming", () => {
 
   it("says nothing about work already finished", async () => {
     await addTask({
-      team: IDS.teamA,
+      account: IDS.volvo,
       assignees: [IDS.anna],
       dueDay: 2,
       completedDay: 0,

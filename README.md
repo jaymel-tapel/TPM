@@ -6,8 +6,22 @@ A daily operating system for a 30-person department. Built from
 > ClickUp optimises for flexibility. This system optimises for clarity.
 
 The organisation's shape is fixed — one Senior Director, two Account Directors,
-~15 people per team — so the product knows it rather than asking anyone to
-configure it. There are no spaces, folders, custom views or dashboards to build.
+thirty people, five clients — so the product knows it rather than asking anyone
+to configure it. There are no spaces, folders, custom views or dashboards to
+build.
+
+The department is an automotive marketing agency, and the unit everything hangs
+off is the **account**: a client it works for. People work on as many accounts
+as they work on — a designer covers Volvo and MG, an Account Director carries
+three — which is the one thing a team-shaped product could not say.
+
+The rail says the same thing. Today, Chat and Notifications sit above; People,
+Reports and Docs below; and between them each account expands into the four
+pages that are only about that client — Overview, Tasks, Campaigns, Team. Tasks
+opens once more, into that client's boards, because their creative and their
+media work move through different stages and one set of columns cannot describe
+both. **Board is a view mode**, next to List, rather than a place of its own,
+and there is exactly one client hierarchy in the navigation.
 
 ---
 
@@ -67,13 +81,15 @@ levels from a single login. It is gated behind
 |---|---|---|
 | `/design` | **Design system** | Every component, in every state. No auth required. |
 | `/today` | **My Day** | What's left, what's done, one honest percentage. |
-| `/my-tasks` | My Tasks | Everything open plus today's completions, with compact filters. |
-| `/team` | **Team Today** | An Account Director's team in one screen. A team member opens the same route and gets the same roster, without the management screen around it. |
-| `/team/[id]` | Person | Anyone's day, for a director who can see them. |
+| `/accounts` | **Accounts** | Every client the reader works on, on one axis. The Senior Director's department hero and exceptions sit on top of it. |
+| `/accounts/[id]` | **Account → Overview** | How this client is doing today: the counts, what is running, what needs attention. |
+| `/accounts/[id]/tasks/[boardId]` | Account → Tasks | One of the client's boards, as a list or a board, filtered by campaign, person or type. |
+| `/accounts/[id]/campaigns` | Account → Campaigns | What is running, booked and behind them. |
+| `/accounts/[id]/team` | Account → Team | Who works on this client, and what they are carrying. |
+| `/people`, `/people/[id]` | People | Who is doing what across the agency, and anyone's day. |
 | `/leave` | Leave | File for time off, and settle what is waiting on you. |
-| `/overview` | **Department** | The Senior Director's hero, team comparison and exceptions. |
-| `/teams` | Teams | Both teams side by side. |
-| `/reports` | Report | Six metrics and exactly one chart. |
+| `/reports` | Report | Six metrics and exactly one chart, one account at a time for a director. |
+| `/docs`, `/chat` | Docs, Chat | Documents scoped to an account or the department; direct messages and groups. |
 | `/tasks/new`, `/tasks/[id]` | Task | Eight fields. Nothing else to configure. |
 
 ---
@@ -105,11 +121,24 @@ UI can never disagree about where a day begins.
 
 ## Data model
 
-`users`, `teams`, `tasks`, `task_assignees`, `tags`, `task_tags` — the tables
-the brief names. Assignment is many-to-many through
-`task_assignees`; there is deliberately no `assignee_id` on `tasks`, because one
-task can belong to several people. Completing a shared task completes it for
-everyone assigned.
+`users`, `accounts`, `account_members`, `tasks`, `task_assignees`, `tags`,
+`task_tags` — the brief's tables, with `teams` renamed to what it always
+described and the membership taken off the user row.
+
+**A person's accounts are a table, not a column.** `users.team_id` said
+somebody worked for exactly one client, which is not how an agency staffs
+anything; `account_members` says how many they actually work on. Two
+consequences worth knowing: every permission reads that table rather than a
+field, so the accounts are resolved once per request onto the session (`Viewer`
+in `lib/auth.ts`) and every predicate stays a synchronous list check; and leave
+is signed off by *a* director of an account you work on, because "your Account
+Director" stopped naming exactly one person.
+
+Assignment is many-to-many through `task_assignees`; there is deliberately no
+`assignee_id` on `tasks`, because one task can belong to several people.
+Completing a shared task completes it for everyone assigned. **Membership and
+assignment are different questions** — belonging to Volvo says you may see
+Volvo's work; being on a task says the work is yours.
 
 `leave_requests` is the one table here the brief does not name. Its dates are
 `date` columns rather than timestamps, which is the opposite choice to

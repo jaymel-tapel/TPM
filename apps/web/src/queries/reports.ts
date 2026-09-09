@@ -144,7 +144,7 @@ export async function getCompletionByType(
     .sort((a, b) => a.percent - b.percent);
 }
 
-export type WorkloadRow = { id: string; name: string; teamName: string | null; due: number; done: number; percent: number };
+export type WorkloadRow = { id: string; name: string; accountName: string | null; due: number; done: number; percent: number };
 
 export async function getWorkload(
   scope: Scope,
@@ -155,21 +155,29 @@ export async function getWorkload(
   const { start, end } = windowBounds(days, reference, zone);
   const where = scopeSql(scope);
 
+  /*
+   * The accounts are a subquery rather than a join now. Joining would multiply
+   * a person by their memberships and count their work once per account — and
+   * an inner join, which is what this was, would silently drop anybody on no
+   * account at all.
+   */
   const rows = await db.execute(sql`
-    select u.id, u.name, t.name as team_name,
+    select u.id, u.name,
+           (select string_agg(a.name, ', ' order by a.name)
+            from account_members m join accounts a on a.id = m.account_id
+            where m.user_id = u.id) as account_name,
            count(k.id) as due,
            count(k.id) filter (where ${onTimeIn(zone)}) as done
     from users u
-    join teams t on t.id = u.team_id
     left join task_assignees a on a.user_id = u.id
     left join tasks k on k.id = a.task_id and ${isLeaf} and k.due_date >= ${start} and k.due_date < ${end} and ${where}
-    group by u.id, u.name, t.name
+    group by u.id, u.name
     order by count(k.id) desc, u.name
   `);
 
   return (rows.rows as Record<string, string>[]).map((r) => {
     const due = Number(r.due);
     const done = Number(r.done);
-    return { id: r.id, name: r.name, teamName: r.team_name, due, done, percent: pct(done, due) };
+    return { id: r.id, name: r.name, accountName: r.account_name, due, done, percent: pct(done, due) };
   });
 }

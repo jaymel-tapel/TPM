@@ -1,16 +1,13 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { teams, users, type User } from "@/db/schema";
+import { accountMembers, accounts } from "@/db/schema";
 import { canAdminister } from "@/lib/permissions";
-import { emailTaken, listAdminTeams, listDirectorOptions, listPeople } from "./admin";
-import { IDS, resetDb, seedOrg } from "../../test/fixture";
+import { emailTaken, listAdminAccounts, listDirectorOptions, listPeople } from "./admin";
+import { IDS, addMembership, resetDb, seedOrg, viewerFor } from "../../test/fixture";
 
-const load = async (id: string): Promise<User> => {
-  const user = await db.query.users.findFirst({ where: eq(users.id, id) });
-  if (!user) throw new Error(`no such user ${id}`);
-  return user;
-};
+/** The `Viewer` a page would have been handed — accounts resolved, as in a session. */
+const load = viewerFor;
 
 beforeEach(async () => {
   await resetDb();
@@ -20,7 +17,7 @@ beforeEach(async () => {
 describe("who may change the org chart", () => {
   it("is the senior director alone", async () => {
     expect(canAdminister(await load(IDS.elena))).toBe(true);
-    // An Account Director editing their own team's membership would be editing
+    // An Account Director editing their own account's membership would be editing
     // the thing their own permissions are read from.
     expect(canAdminister(await load(IDS.sarah))).toBe(false);
     expect(canAdminister(await load(IDS.anna))).toBe(false);
@@ -28,10 +25,26 @@ describe("who may change the org chart", () => {
 });
 
 describe("the people list", () => {
-  it("groups by team and leaves the teamless until last", async () => {
+  it("lists everybody by name, with every account they work on", async () => {
+    // Not grouped by account any more: somebody on two would have to be filed
+    // under one of them, and picking either would be a lie about the other.
     const people = await listPeople();
-    expect(people.at(-1)?.name).toBe("Elena Rivera");
-    expect(people[0]?.teamName).toBe("Team A");
+    expect(people.map((p) => p.name)).toEqual([
+      "Anna Santos",
+      "Elena Rivera",
+      "James Cruz",
+      "Mika Villanueva",
+      "Sarah Lim",
+    ]);
+    const anna = people.find((p) => p.name === "Anna Santos")!;
+    expect(anna.accounts.map((a) => a.name)).toEqual(["Volvo"]);
+    expect(people.find((p) => p.name === "Elena Rivera")!.accounts).toEqual([]);
+  });
+
+  it("names both accounts for somebody who works on both", async () => {
+    await addMembership(IDS.mg, IDS.anna);
+    const anna = (await listPeople()).find((p) => p.name === "Anna Santos")!;
+    expect(anna.accounts.map((a) => a.name)).toEqual(["MG", "Volvo"]);
   });
 
   it("counts the work each person is on", async () => {
@@ -40,26 +53,28 @@ describe("the people list", () => {
   });
 });
 
-describe("the teams list", () => {
+describe("the accounts list", () => {
   it("reports headcount, boards and who runs it", async () => {
-    const [teamA, teamB] = await listAdminTeams();
-    expect(teamA.name).toBe("Team A");
-    expect(teamA.headcount).toBe(3);
-    expect(teamA.boardCount).toBe(1);
-    expect(teamA.accountDirectorName).toBe("Sarah Lim");
-    // Team B has nobody running it in the fixture.
-    expect(teamB.accountDirectorName).toBeNull();
+    // Alphabetical, so MG comes first.
+    const [mg, volvo] = await listAdminAccounts();
+    expect(volvo.name).toBe("Volvo");
+    expect(volvo.headcount).toBe(3);
+    expect(volvo.boardCount).toBe(1);
+    expect(volvo.accountDirectorName).toBe("Sarah Lim");
+    // MG has nobody running it in the fixture.
+    expect(mg.name).toBe("MG");
+    expect(mg.accountDirectorName).toBeNull();
   });
 });
 
-describe("who may run a team", () => {
+describe("who may run an account", () => {
   it("offers only the account directors already on it", async () => {
-    const forA = await listDirectorOptions(IDS.teamA);
+    const forA = await listDirectorOptions(IDS.volvo);
     expect(forA.map((d) => d.name)).toEqual(["Sarah Lim"]);
 
-    // Anna is on Team A but is not a director; Sarah is a director but not on
-    // Team B. Neither is eligible for Team B.
-    expect(await listDirectorOptions(IDS.teamB)).toEqual([]);
+    // Anna is on Volvo but is not a director; Sarah is a director but not on
+    // MG. Neither is eligible for MG.
+    expect(await listDirectorOptions(IDS.mg)).toEqual([]);
   });
 });
 
@@ -75,15 +90,17 @@ describe("email is the identity, so it has to be unique", () => {
   });
 });
 
-describe("moving somebody off a team they run", () => {
-  it("leaves the team without a director rather than pointing off it", async () => {
+describe("moving somebody off an account they run", () => {
+  it("leaves the account without a director rather than pointing off it", async () => {
     // What `updatePerson` does, asserted on the shape it has to leave behind:
-    // `canViewTeam` reads the director/team pairing, so a stale one would let
-    // somebody manage a team they had left.
-    await db.update(users).set({ teamId: IDS.teamB }).where(eq(users.id, IDS.sarah));
-    await db.update(teams).set({ accountDirectorId: null }).where(eq(teams.id, IDS.teamA));
+    // `canViewAccount` reads the director/account pairing, so a stale one would let
+    // somebody manage an account they had left.
+    await db
+      .delete(accountMembers)
+      .where(and(eq(accountMembers.userId, IDS.sarah), eq(accountMembers.accountId, IDS.volvo)));
+    await db.update(accounts).set({ accountDirectorId: null }).where(eq(accounts.id, IDS.volvo));
 
-    const [teamA] = await listAdminTeams();
-    expect(teamA.accountDirectorId).toBeNull();
+    const [volvo] = await listAdminAccounts();
+    expect(volvo.accountDirectorId).toBeNull();
   });
 });

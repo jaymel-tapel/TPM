@@ -28,8 +28,8 @@ import { boardOrder, boardWindowSql, isLeaf } from "@/queries/sql";
 import { collectPeople } from "@meridian/ui/editor";
 import { syncMentionedDocs } from "@/lib/doc-links";
 import { deliver, notify } from "@/lib/notify";
-import { assertCanViewTeamWork, loadEditableTask } from "@/lib/permissions";
-import { assigneesOutsideTeam } from "@/queries/team";
+import { assertCanViewAccountWork, loadEditableTask } from "@/lib/permissions";
+import { assigneesOutsideAccount } from "@/queries/accounts";
 import { depthOf } from "@/queries/tasks";
 import { MAX_SUBTASK_DEPTH } from "@/lib/constants";
 
@@ -156,25 +156,25 @@ export async function createTask(_prev: FormState, formData: FormData): Promise<
   const estimate = readDuration(input.estimate);
   if (!estimate.ok) return { error: "Estimate should read like 2d 4h." };
 
-  // The task belongs to the team that owns the board it is filed on, so the
+  // The task belongs to the account that owns the board it is filed on, so the
   // denormalised copy can never disagree with it.
   const [board] = await db
-    .select({ teamId: boards.teamId })
+    .select({ accountId: boards.accountId })
     .from(boards)
     .where(eq(boards.id, input.boardId));
   if (!board) return { error: "Pick a board." };
-  await assertCanViewTeamWork(viewer, board.teamId);
+  await assertCanViewAccountWork(viewer, board.accountId);
 
   /*
-   * Everyone on the task has to be on the board's team. Checked over the whole
+   * Everyone on the task has to be on the board's account. Checked over the whole
    * list, not just the first: the ids come from a form, and a payload naming
    * one teammate and three strangers would otherwise pass on the strength of
    * the teammate.
    */
-  const strangers = await assigneesOutsideTeam(board.teamId, input.assignees);
+  const strangers = await assigneesOutsideAccount(board.accountId, input.assignees);
   if (strangers.length > 0) {
     return {
-      error: `${strangers.join(", ")} ${strangers.length === 1 ? "is" : "are"} not on this board's team.`,
+      error: `${strangers.join(", ")} ${strangers.length === 1 ? "is" : "are"} not on this board's account.`,
     };
   }
 
@@ -191,7 +191,7 @@ export async function createTask(_prev: FormState, formData: FormData): Promise<
       estimateMinutes: estimate.minutes,
       completedAt: completionOnMove(status.kind, null),
       createdBy: viewer.id,
-      teamId: board.teamId,
+      accountId: board.accountId,
     })
     .returning();
 
@@ -241,22 +241,22 @@ export async function updateTask(_prev: FormState, formData: FormData): Promise<
   if (!estimate.ok) return { error: "Estimate should read like 2d 4h." };
 
   const [board] = await db
-    .select({ teamId: boards.teamId })
+    .select({ accountId: boards.accountId })
     .from(boards)
     .where(eq(boards.id, input.boardId));
   if (!board) return { error: "Pick a board." };
-  await assertCanViewTeamWork(viewer, board.teamId);
+  await assertCanViewAccountWork(viewer, board.accountId);
 
   /*
-   * Everyone on the task has to be on the board's team. Checked over the whole
+   * Everyone on the task has to be on the board's account. Checked over the whole
    * list, not just the first: the ids come from a form, and a payload naming
    * one teammate and three strangers would otherwise pass on the strength of
    * the teammate.
    */
-  const strangers = await assigneesOutsideTeam(board.teamId, input.assignees);
+  const strangers = await assigneesOutsideAccount(board.accountId, input.assignees);
   if (strangers.length > 0) {
     return {
-      error: `${strangers.join(", ")} ${strangers.length === 1 ? "is" : "are"} not on this board's team.`,
+      error: `${strangers.join(", ")} ${strangers.length === 1 ? "is" : "are"} not on this board's account.`,
     };
   }
 
@@ -288,7 +288,7 @@ export async function updateTask(_prev: FormState, formData: FormData): Promise<
       priority: input.priority,
       boardId: input.boardId,
       statusId: status.id,
-      teamId: board.teamId,
+      accountId: board.accountId,
       dueDate: new Date(input.dueDate),
       estimateMinutes: estimate.minutes,
       // `actualMinutes` is deliberately absent: it is the sum of logged time
@@ -351,7 +351,7 @@ export async function updateTask(_prev: FormState, formData: FormData): Promise<
     // every save, so notifying it wholesale would re-tell everyone each time.
     nudge.push(
       ...(await notify({
-        task: { ...existing, teamId: board.teamId },
+        task: { ...existing, accountId: board.accountId },
         actorId: viewer.id,
         kind: "assigned",
         activityId,
@@ -361,7 +361,7 @@ export async function updateTask(_prev: FormState, formData: FormData): Promise<
   }
   nudge.push(
     ...(await notify({
-      task: { ...existing, teamId: board.teamId },
+      task: { ...existing, accountId: board.accountId },
       actorId: viewer.id,
       kind: "mentioned",
       userIds: collectPeople(input.description)
@@ -655,16 +655,16 @@ export async function createSubtask(_prev: FormState, formData: FormData): Promi
 
   const assignees = parsed.data.assignees ?? [];
   if (assignees.length > 0) {
-    const strangers = await assigneesOutsideTeam(parent.teamId, assignees);
+    const strangers = await assigneesOutsideAccount(parent.accountId, assignees);
     if (strangers.length > 0) {
       return {
-        error: `${strangers.join(", ")} ${strangers.length === 1 ? "is" : "are"} not on this board's team.`,
+        error: `${strangers.join(", ")} ${strangers.length === 1 ? "is" : "are"} not on this board's account.`,
       };
     }
   }
 
   /*
-   * Board, team and column come from the parent rather than being chosen. The
+   * Board, account and column come from the parent rather than being chosen. The
    * composite keys make that mandatory — a child has to sit on a column of its
    * own board — and it is also the rule folders already follow: scope is
    * copied down, never walked up at read time.
@@ -689,7 +689,7 @@ export async function createSubtask(_prev: FormState, formData: FormData): Promi
       // A piece inherits the whole's deadline unless somebody says otherwise.
       dueDate: parsed.data.dueDate ? new Date(parsed.data.dueDate) : parent.dueDate,
       createdBy: viewer.id,
-      teamId: parent.teamId,
+      accountId: parent.accountId,
     })
     .returning();
 

@@ -11,7 +11,7 @@ import { IDS, NOW, addTask, resetDb, seedOrg } from "../../test/fixture";
  * filter fed from a URL has to survive: a value that is not a value.
  */
 const board = async (filters = {}, assignee: string | null = null) =>
-  (await getBoardView(IDS.boardA, NOW, assignee, undefined, filters))!;
+  (await getBoardView(IDS.boardA, NOW, { ...filters, assigneeId: assignee }))!;
 
 const titles = (view: Awaited<ReturnType<typeof board>>) =>
   view.columns.flatMap((c) => c.tasks.map((t) => t.title));
@@ -38,8 +38,8 @@ beforeEach(async () => {
 
 describe("filtering a board", () => {
   it("shows one type and drops the rest", async () => {
-    const review = await addTask({ team: IDS.teamA, assignees: [IDS.anna], dueDay: 0, type: "review" });
-    const meeting = await addTask({ team: IDS.teamA, assignees: [IDS.anna], dueDay: 0, type: "meeting" });
+    const review = await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 0, type: "review" });
+    const meeting = await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 0, type: "meeting" });
     await rename(review, "Review");
     await rename(meeting, "Meeting");
 
@@ -48,9 +48,9 @@ describe("filtering a board", () => {
   });
 
   it("counts what is on the screen, not what is on the board", async () => {
-    await addTask({ team: IDS.teamA, assignees: [IDS.anna], dueDay: 0, type: "review" });
-    await addTask({ team: IDS.teamA, assignees: [IDS.anna], dueDay: 0, type: "meeting" });
-    await addTask({ team: IDS.teamA, assignees: [IDS.anna], dueDay: 0, type: "meeting" });
+    await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 0, type: "review" });
+    await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 0, type: "meeting" });
+    await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 0, type: "meeting" });
 
     // A header reading "3" over one card would be reporting on a board nobody
     // is looking at.
@@ -58,16 +58,16 @@ describe("filtering a board", () => {
   });
 
   it("shows one priority and drops the rest", async () => {
-    const urgent = await addTask({ team: IDS.teamA, assignees: [IDS.anna], dueDay: 0 });
-    await addTask({ team: IDS.teamA, assignees: [IDS.anna], dueDay: 0 });
+    const urgent = await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 0 });
+    await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 0 });
     await db.update(tasks).set({ priority: "urgent", title: "Urgent" }).where(eq(tasks.id, urgent));
 
     expect(titles(await board({ priority: "urgent" }))).toEqual(["Urgent"]);
   });
 
   it("matches a tag through the join", async () => {
-    const nike = await addTask({ team: IDS.teamA, assignees: [IDS.anna], dueDay: 0 });
-    await addTask({ team: IDS.teamA, assignees: [IDS.anna], dueDay: 0 });
+    const nike = await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 0 });
+    await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 0 });
     await rename(nike, "Nike");
     await tag(nike, "nike");
 
@@ -75,22 +75,22 @@ describe("filtering a board", () => {
   });
 
   it("shows nothing for a tag nobody has used", async () => {
-    await addTask({ team: IDS.teamA, assignees: [IDS.anna], dueDay: 0 });
+    await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 0 });
     // Text, not an enum — an unknown one is a legitimate query with no answer.
     expect(titles(await board({ tag: "no-such-tag" }))).toEqual([]);
   });
 
   it("ignores a type that is not a type rather than throwing", async () => {
-    await addTask({ team: IDS.teamA, assignees: [IDS.anna], dueDay: 0 });
+    await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 0 });
     // A bookmark kept past a rename must show the board, not an error page.
     expect(titles(await board({ type: "not_a_type" }))).toHaveLength(1);
     expect(titles(await board({ priority: "extremely" }))).toHaveLength(1);
   });
 
   it("composes with My Tasks rather than replacing it", async () => {
-    const mine = await addTask({ team: IDS.teamA, assignees: [IDS.anna], dueDay: 0, type: "review" });
-    await addTask({ team: IDS.teamA, assignees: [IDS.james], dueDay: 0, type: "review" });
-    await addTask({ team: IDS.teamA, assignees: [IDS.anna], dueDay: 0, type: "meeting" });
+    const mine = await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 0, type: "review" });
+    await addTask({ account: IDS.volvo, assignees: [IDS.james], dueDay: 0, type: "review" });
+    await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 0, type: "meeting" });
     await rename(mine, "Mine and a review");
 
     expect(titles(await board({ type: "review" }, IDS.anna))).toEqual(["Mine and a review"]);
@@ -99,9 +99,9 @@ describe("filtering a board", () => {
 
 describe("the tags a board's filter offers", () => {
   it("lists only the tags in use on that board, once each, sorted", async () => {
-    const a = await addTask({ team: IDS.teamA, assignees: [IDS.anna], dueDay: 0 });
-    const b = await addTask({ team: IDS.teamA, assignees: [IDS.anna], dueDay: 0 });
-    const other = await addTask({ team: IDS.teamB, assignees: [IDS.mika], dueDay: 0 });
+    const a = await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 0 });
+    const b = await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 0 });
+    const other = await addTask({ account: IDS.mg, assignees: [IDS.mika], dueDay: 0 });
     await tag(a, "nike");
     await tag(b, "nike");
     await tag(b, "aveda");
@@ -113,7 +113,7 @@ describe("the tags a board's filter offers", () => {
   });
 
   it("offers nothing on a board whose work carries no tags", async () => {
-    await addTask({ team: IDS.teamA, assignees: [IDS.anna], dueDay: 0 });
+    await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 0 });
     expect(await listBoardTags(IDS.boardA)).toEqual([]);
   });
 });

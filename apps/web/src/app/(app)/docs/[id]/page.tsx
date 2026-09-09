@@ -14,7 +14,7 @@ import {
 import { RichTextView } from "@meridian/ui/editor";
 import { requireSession } from "@/lib/auth";
 import { canCreateOrgDocs, canEditDoc, canPlaceDoc, isSenior } from "@/lib/permissions";
-import { listTeams } from "@/queries/team";
+import { listAccounts } from "@/queries/accounts";
 import {
   getDoc,
   getDocBacklinks,
@@ -48,12 +48,12 @@ export default async function DocPage({
    */
   const editing = editable && (await searchParams).edit !== undefined;
 
-  const [backlinks, teams, folderOptions] = await Promise.all([
+  const [backlinks, accounts, folderOptions] = await Promise.all([
     getDocBacklinks(user, id),
-    editing ? listTeams() : Promise.resolve([]),
+    editing ? listAccounts() : Promise.resolve([]),
     editing ? listFolderOptions(user) : Promise.resolve([]),
   ]);
-  const scoped = isSenior(user) ? teams : teams.filter((t: { id: string }) => t.id === user.teamId);
+  const scoped = isSenior(user) ? accounts : accounts.filter((t: { id: string }) => user.accountIds.includes(t.id));
   // A document takes its folder's scope, so only offer folders this person is
   // allowed to write in — otherwise the form offers a choice the save refuses.
   const placeable = folderOptions.filter((f) => canPlaceDoc(user, f));
@@ -69,7 +69,7 @@ export default async function DocPage({
         title={doc.title}
         subtitle={
           <span className="inline-flex items-center gap-2">
-            <ScopeBadge scope={doc.visibility} teamName={doc.teamName} />
+            <ScopeBadge scope={doc.visibility} accountName={doc.accountName} />
             {`${doc.authorName} · updated ${format(doc.updatedAt, "d MMM yyyy")}`}
           </span>
         }
@@ -97,7 +97,7 @@ export default async function DocPage({
         <DocForm
           action={updateDoc}
           submitLabel="Save changes"
-          teams={scoped}
+          accounts={scoped}
           folders={placeable.map((f) => ({ id: f.id, name: f.name }))}
           canPublishOrgWide={canCreateOrgDocs(user)}
           values={{
@@ -105,7 +105,7 @@ export default async function DocPage({
             title: doc.title,
             body: doc.body ?? "",
             visibility: doc.visibility,
-            teamId: doc.teamId ?? "",
+            accountId: doc.accountId ?? "",
             folderId: doc.folderId ?? "",
           }}
         />

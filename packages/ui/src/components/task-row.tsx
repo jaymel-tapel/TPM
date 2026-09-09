@@ -91,6 +91,19 @@ export function TaskRow({
             a record of what happened, not something to act on. */}
         {quiet ? null : (
           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-caption text-gray-700">
+            {/*
+              Which client this is for, first and in the stronger weight —
+              on a list that spans accounts it is the thing that orients you
+              before anything else on the line. Supplied only where the page
+              does not already say it: inside an account's own Tasks page every
+              row would repeat the name in the title above.
+            */}
+            {task.account ? (
+              <>
+                <span className="text-caption-strong text-gray-1000">{task.account}</span>
+                <Sep />
+              </>
+            ) : null}
             <TypeLabel type={task.type} />
 
             {shared ? (

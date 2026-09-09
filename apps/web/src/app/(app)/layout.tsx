@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
 import { demoSwitcherEnabled, getSession } from "@/lib/auth";
-import { isSenior, navFor, type NavChild } from "@/lib/permissions";
-import { listTeams } from "@/queries/team";
-import { listBoardsForUser } from "@/queries/tasks";
+import { accountNav, canViewAccount, navFor, type NavAccount } from "@/lib/permissions";
+import { railAccountsFor } from "@/queries/accounts";
+import { listBoardsForAccounts } from "@/queries/tasks";
 import { getInbox, getUnreadCount } from "@/queries/notifications";
 import { getUnreadTotal } from "@/queries/chat";
 import { toInboxItem } from "@/lib/present";
@@ -16,61 +16,29 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const session = await getSession();
   if (!session) redirect("/login");
 
-  const links = navFor(session.user.role);
+  const { before, after } = navFor(session.user.role);
 
   /*
-   * Rail groups are filled from the org chart, not configured: the Teams item
-   * opens to the teams, and the Boards item to the boards that person can
-   * reach. The Senior Director gets both — every team, and every team's work.
+   * Filled in here, not declared in `navFor` — that module runs no queries.
+   * Ranked, not capped: the rail keeps the client you are currently inside
+   * whether or not it is one of the busiest, and only the sidebar knows which
+   * page you are on.
    */
-  if (isSenior(session.user)) {
-    const teams = await listTeams();
-    const item = links.find((l) => l.href === "/teams");
-    if (item) item.children = teams.map((t) => ({ href: `/teams/${t.id}`, label: t.name }));
-  }
+  const rail = await railAccountsFor(session.user);
+  const boards = await listBoardsForAccounts(rail.map((account) => account.id));
+  const accounts: NavAccount[] = rail.map((account) => ({
+    id: account.id,
+    name: account.name,
+    href: `/accounts/${account.id}`,
+    children: accountNav(
+      account.id,
+      boards.filter((board) => board.accountId === account.id),
+    ),
+    // Naming a client's pipelines is the job of whoever runs that client.
+    canAddBoard: canViewAccount(session.user, account.id),
+  }));
 
-  {
-    const boards = await listBoardsForUser(session.user);
-    const item = links.find((l) => l.href === "/boards");
-    if (item) {
-      if (isSenior(session.user)) {
-        /*
-         * Grouped by team, because the Senior Director is the one person who
-         * sees every team's boards at once and a flat list of them is a list
-         * you read rather than scan. The department's own boards have no team
-         * to sit under, so they sit at the top where they belong.
-         */
-        const byTeam = new Map<string, { name: string; children: NavChild[] }>();
-        const department: NavChild[] = [];
-
-        for (const board of boards) {
-          const row = { href: `/boards/${board.id}`, label: board.name };
-          if (!board.teamId) {
-            department.push(row);
-            continue;
-          }
-          const group = byTeam.get(board.teamId);
-          if (group) group.children.push(row);
-          else byTeam.set(board.teamId, { name: board.teamName ?? "Team", children: [row] });
-        }
-
-        item.children = [
-          ...department,
-          ...[...byTeam.values()].map((t) => ({ label: t.name, children: t.children })),
-        ];
-      } else {
-        item.children = boards.map((b) => ({
-          href: `/boards/${b.id}`,
-          label: b.name,
-          // The department's own boards sit alongside their team's, and a
-          // person should be able to tell which is which.
-          note: b.teamId ? undefined : "Department",
-        }));
-      }
-    }
-  }
-
-  // The bell's contents come down with the page, like the rail's boards — no
+  // The bell's contents come down with the page, like the rail's accounts — no
   // client fetch, and nothing reaches the browser that this render did not
   // already authorize.
   const [unread, inbox, chatUnread] = await Promise.all([
@@ -83,7 +51,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // bell's: "Sarah said hi" and "you were assigned a task" are different
   // errands, and merging them would stop the inbox being the place for things
   // that need doing.
-  const chat = links.find((l) => l.href === "/chat");
+  const chat = before.find((l) => l.href === "/chat");
   if (chat) chat.count = chatUnread;
 
   return (
@@ -91,10 +59,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <RealtimeProvider enabled={realtimeEnabled} />
       <RefreshOnFocus />
       <AppSidebar
-        links={links}
+        before={before}
+        accounts={accounts}
+        after={after}
         user={{ name: session.user.name, role: session.user.role }}
-        // Boards are the Account Director's to create, for their own team.
-        canCreateBoard={session.user.role === "account_director" || isSenior(session.user)}
         notifications={inbox.map((entry) => toInboxItem(entry))}
         unread={unread}
       />

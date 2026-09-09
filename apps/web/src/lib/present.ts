@@ -1,5 +1,6 @@
 import "server-only";
 import type {
+  CampaignRowData,
   ActivityItemData,
   ChatMessageData,
   RoomListItemData,
@@ -33,10 +34,12 @@ import {
 import { dayKey, leaveDays, lengthText, rangeText, spanDays } from "@/lib/leave";
 import type { Role, User } from "@/db/schema";
 import { formatDuration } from "@/lib/duration";
+import type { CampaignRollup } from "@/queries/campaigns";
+import type { PersonRollup } from "@/queries/people";
 import { minutesFromMidnight } from "@/lib/plan";
 import type { TaskCard } from "@/queries/sql";
 import type { BoardView } from "@/queries/tasks";
-import type { MemberRollup } from "@/queries/team";
+import type { MemberRollup } from "@/queries/accounts";
 import type { AwayMark, LeaveRow } from "@/queries/leave";
 import type { AttentionItem } from "@/queries/attention";
 import type { ActivityEntry } from "@/queries/activity";
@@ -63,12 +66,18 @@ export function toTaskRow(
   task: TaskCard,
   reference: Date = now(),
   zone?: Zone,
+  /**
+   * Name the client on the row. Off by default, because inside one account
+   * every row would repeat the name the page is already titled with.
+   */
+  showAccount = false,
 ): TaskRowData {
   const done = task.completedAt !== null;
   return {
     id: task.id,
     href: `/tasks/${task.id}`,
     title: task.title,
+    account: showAccount ? task.accountName : null,
     type: task.type as TaskType,
     status: { id: task.statusId, name: task.statusName, kind: task.statusKind },
     priority: task.priority as Priority,
@@ -175,7 +184,7 @@ export function toMemberRow(
    * A string is a base path the person's id is appended to; null is "not a
    * link", which is most of a team member's own roster.
    */
-  href: string | null = "/team",
+  href: string | null = "/people",
   reference: Date = now(),
   zone?: Zone,
 ): MemberRowData {
@@ -183,6 +192,74 @@ export function toMemberRow(
     ...member,
     href: href === null ? null : `${href}/${member.id}`,
     away: toAvailability(member.away, reference, zone),
+  };
+}
+
+/**
+ * How long a campaign has left, in the words somebody would use.
+ *
+ * Weeks rather than days once there is more than a fortnight to go: "in 31
+ * days" is a number you have to convert, and nobody plans a client push to the
+ * day a month out.
+ */
+function elapsedText(startsOn: string, endsOn: string, today: string): string {
+  if (today >= endsOn) return "Ended";
+  if (today < startsOn) {
+    const days = spanDays(today, startsOn) - 1;
+    if (days <= 1) return "Starts tomorrow";
+    if (days < 14) return `Starts in ${days} days`;
+    return `Starts in ${Math.round(days / 7)} weeks`;
+  }
+  const days = spanDays(today, endsOn) - 1;
+  if (days === 0) return "Ends today";
+  if (days === 1) return "1 day left";
+  if (days < 14) return `${days} days left`;
+  return `${Math.round(days / 7)} weeks left`;
+}
+
+export function toCampaignRow(
+  campaign: CampaignRollup,
+  reference: Date = now(),
+  zone?: Zone,
+): CampaignRowData {
+  const today = dayKey(reference, zone);
+  return {
+    id: campaign.id,
+    href: `/accounts/${campaign.accountId}/campaigns`,
+    name: campaign.name,
+    status: campaign.status,
+    rangeText: rangeText(campaign.startsOn, campaign.endsOn),
+    elapsedText: elapsedText(campaign.startsOn, campaign.endsOn, today),
+    total: campaign.total,
+    done: campaign.done,
+    overdue: campaign.overdue,
+    blocked: campaign.blocked,
+    dueSoon: campaign.dueSoon,
+    percent: campaign.percent,
+    elapsed: campaign.elapsed,
+  };
+}
+
+/** A cross-account person row: their craft and their clients, not one team. */
+export function toPersonRow(
+  person: PersonRollup,
+  href: string | null = "/people",
+  reference: Date = now(),
+  zone?: Zone,
+): MemberRowData {
+  return {
+    id: person.id,
+    href: href === null ? null : `${href}/${person.id}`,
+    name: person.name,
+    role: person.role,
+    title: person.title,
+    accounts: person.accounts,
+    due: person.due,
+    done: person.done,
+    overdue: person.overdue,
+    remaining: person.remaining,
+    percent: person.percent,
+    away: toAvailability(person.away, reference, zone),
   };
 }
 
@@ -206,9 +283,9 @@ export function toBoard(board: BoardView, reference: Date = now()): BoardData {
  * Documents. `visibility` is the column's word and `scope` is the reader's —
  * the design system is told whose a document is, not how the row spells it.
  */
-const scopeOf = (doc: { visibility: "org" | "team"; teamName: string | null }) => ({
+const scopeOf = (doc: { visibility: "org" | "account"; accountName: string | null }) => ({
   scope: doc.visibility,
-  teamName: doc.teamName,
+  accountName: doc.accountName,
 });
 
 export function toDocNode(doc: DocSummary): DocNodeData {
@@ -238,13 +315,13 @@ export function toDocFolderRow(folder: FolderSummary): DocFolderData {
   };
 }
 
-export function toDocRef(doc: DocRef & { teamName?: string | null }): DocRefData {
+export function toDocRef(doc: DocRef & { accountName?: string | null }): DocRefData {
   return {
     id: doc.id,
     href: doc.href,
     title: doc.title,
     scope: doc.visibility,
-    teamName: doc.teamName ?? null,
+    accountName: doc.accountName ?? null,
     attached: doc.attached,
     mentioned: doc.mentioned,
   };

@@ -13,10 +13,10 @@ import type { DocFolderData, DocNodeData, DocScope } from "../types";
  */
 export function ScopeBadge({
   scope,
-  teamName,
+  accountName,
 }: {
   scope: DocScope;
-  teamName: string | null;
+  accountName: string | null;
 }) {
   const org = scope === "org";
   const Icon = org ? Globe : Users;
@@ -28,7 +28,7 @@ export function ScopeBadge({
       )}
     >
       <Icon className="size-3 shrink-0" strokeWidth={1.75} />
-      {org ? "Everyone" : (teamName ?? "Team")}
+      {org ? "Everyone" : (accountName ?? "Account")}
     </span>
   );
 }
@@ -154,7 +154,7 @@ function FolderRow({
           <span className="truncate">{folder.name}</span>
         </Link>
 
-        {depth === 0 ? <ScopeBadge scope={folder.scope} teamName={folder.teamName} /> : null}
+        {depth === 0 ? <ScopeBadge scope={folder.scope} accountName={folder.accountName} /> : null}
       </div>
 
       {holdsSomething && expanded ? (

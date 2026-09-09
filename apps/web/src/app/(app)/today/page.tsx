@@ -59,7 +59,8 @@ export default async function TodayPage({
   const { user, zone, hours } = await requireSession();
   const today = now(zone);
   const day = await getDayView(user.id, today, zone);
-  const row = (t: Parameters<typeof toTaskRow>[0]) => toTaskRow(t, today, zone);
+  // Today spans every client too, so each row says which.
+  const row = (t: Parameters<typeof toTaskRow>[0]) => toTaskRow(t, today, zone, true);
 
   const pending = day.today.length;
 
@@ -130,7 +131,7 @@ export default async function TodayPage({
         </header>
 
         {/*
-          The same rollup the team screen uses, so a person and their manager
+          The same rollup the account screen uses, so a person and their manager
           read one shape of summary rather than two. Overdue, pending and
           completed account for every task the day holds — they add up, which
           a percentage on its own never let you check.

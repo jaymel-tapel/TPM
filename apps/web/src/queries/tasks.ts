@@ -1,5 +1,5 @@
 import "server-only";
-import { eq, sql } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   boardStatuses,
@@ -7,7 +7,6 @@ import {
   priorityEnum,
   statusKindEnum,
   taskTypeEnum,
-  teams,
   type Priority,
   type StatusKind,
   type TaskType,
@@ -38,6 +37,7 @@ import {
   taskCardSelect,
   taskOrder,
   userScope,
+  uuids,
   type Scope,
   type TaskCard,
 } from "./sql";
@@ -57,7 +57,7 @@ async function runTaskQuery(
   { containers = false }: { containers?: boolean } = {},
 ) {
   const result = await db.execute(
-    // `isLeaf` here covers every list; the raw counters in team.ts,
+    // `isLeaf` here covers every list; the raw counters in account.ts,
     // department.ts, reports.ts and attention.ts each apply it themselves.
     sql`select ${taskCardSelect} ${taskCardFrom}
         where ${where} ${containers ? sql`` : sql`and ${isLeaf}`}
@@ -280,7 +280,7 @@ export type BoardView = {
 
 /**
  * The board is a second lens on the day, not a second source of truth: it
- * shows exactly what the team screen reasons about — due today, carried over
+ * shows exactly what the account screen reasons about — due today, carried over
  * from an earlier day, and completed today.
  *
  * Showing every task ever would make the Done column grow without bound and
@@ -292,16 +292,28 @@ export type BoardView = {
  * column, because moving into a `done` column is the only thing that stamps
  * `completed_at` and moving out is the only thing that clears it.
  */
+/**
+ * Everything that narrows a board, in one bag.
+ *
+ * `type` used to sit here as its own clause; it is in `WorkFilters` now,
+ * beside priority and tag, so the board and the list mean the same thing by
+ * "Review" and only one place has to guard the value.
+ */
+export type BoardFilters = WorkFilters & {
+  /** Narrows to the work this person is on. Null shows everyone's. */
+  assigneeId?: string | null;
+  /** Narrows to one campaign. Null shows work in and out of campaigns alike. */
+  campaignId?: string | null;
+};
+
 export async function getBoardView(
   boardId: string,
   reference: Date = now(),
-  /** Narrows to the work this person is on. Null shows the whole board. */
-  assigneeId: string | null = null,
+  filters: BoardFilters = {},
   zone?: Zone,
-  /** Type, priority and tag, as the reader asked for them in the URL. */
-  filters: WorkFilters = {},
 ): Promise<BoardView | null> {
   const { start, end } = dayRange(reference, zone);
+  const { assigneeId = null, campaignId = null, ...work } = filters;
 
   const [board] = await db
     .select({ id: boards.id, name: boards.name })
@@ -318,16 +330,17 @@ export async function getBoardView(
   // Reuses the same `exists (…task_assignees…)` fragment every other
   // person-scoped query uses, so "mine" means the same thing everywhere.
   const mine = assigneeId ? sql` and ${scopeSql(userScope(assigneeId))}` : sql``;
+  const inCampaign = campaignId ? sql` and k.campaign_id = ${campaignId}::uuid` : sql``;
   /*
    * Narrowing happens in the query, not after it, so the count in each column
    * header counts what is on the screen. A board that said "19" over three
    * cards would be reporting on a board nobody is looking at.
    */
-  const narrowed = workFilterSql(filters);
+  const narrowed = workFilterSql(work);
   const narrowing = narrowed.length ? sql` and ${sql.join(narrowed, sql` and `)}` : sql``;
 
   const rows = await runTaskQuery(
-    sql`${boardScopeSql(boardId)}${mine}${narrowing} and ${boardWindowSql(start, end)}`,
+    sql`${boardScopeSql(boardId)}${mine}${inCampaign}${narrowing} and ${boardWindowSql(start, end)}`,
     400,
     boardOrder,
   );
@@ -343,32 +356,20 @@ export async function getBoardView(
   };
 }
 
-/** Boards a person can open, newest team first. Drives the sidebar. */
-export async function listBoardsForUser(user: {
-  role: string;
-  teamId: string | null;
-}): Promise<{ id: string; name: string; teamId: string | null; teamName: string | null }[]> {
-  const where =
-    user.role === "senior_director"
-      ? undefined
-      : user.teamId
-        ? // Their team's boards, and the department's, which belong to nobody
-          // and so to everybody.
-          sql`(${eq(boards.teamId, user.teamId)} or ${boards.teamId} is null)`
-        : sql`${boards.teamId} is null`;
-
-  return db
-    .select({
-      id: boards.id,
-      name: boards.name,
-      teamId: boards.teamId,
-      teamName: teams.name,
-    })
+/** Boards a person can open, newest account first. Drives the sidebar. */
+/** Every board on these accounts, for the rail. Ordered as each account arranged them. */
+export async function listBoardsForAccounts(
+  accountIds: string[],
+): Promise<{ id: string; name: string; accountId: string }[]> {
+  if (accountIds.length === 0) return [];
+  const rows = await db
+    .select({ id: boards.id, name: boards.name, accountId: boards.accountId })
     .from(boards)
-    // Left, or the department's own boards drop out of the rail entirely.
-    .leftJoin(teams, eq(teams.id, boards.teamId))
-    .where(where)
-    .orderBy(teams.name, boards.position, boards.name);
+    .where(inArray(boards.accountId, accountIds))
+    .orderBy(boards.position, boards.name);
+  return rows.filter(
+    (row): row is { id: string; name: string; accountId: string } => row.accountId !== null,
+  );
 }
 
 /**

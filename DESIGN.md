@@ -223,12 +223,23 @@ never grows, so it can sit in the same place on every screen and hand the
 working area the full width of the window. The active item carries a leading
 bar as well as a tint, so it survives being read without colour.
 
-A rail item **expands** when the org chart gives it children — the Senior
-Director's Teams item opens to the teams themselves. Expanded, not a dropdown:
-with two teams a popover would hide two items behind a click and add the only
-floating layer in the rail. The label navigates and the chevron discloses,
-because a row that does both makes one of them a surprise. The group follows
-the route until someone works the chevron, after which it is their choice.
+The rail has two levels and one heading. Global items sit at the top and the
+foot; between them, under **ACCOUNTS**, each client **expands** into the four
+pages that belong to it. Expanded, not a dropdown: a popover would hide four
+items behind a click and add the only floating layer in the rail.
+
+An account's name both navigates and opens — it goes to that client's Overview
+and reveals the rest — while the chevron only opens, for looking without
+leaving. That is the opposite of the rule the rail used to follow, and the
+reason is that a client is a container rather than a page: a row that went
+somewhere without opening, or opened without going anywhere, was the more
+surprising of the two every time. One account is open at a time; the group
+follows the route until someone works a chevron, after which it is their
+choice.
+
+The parent row is never tinted. Overview is one of the four children, so on an
+account's front page that child carries the active state — marking the client's
+name as well would highlight two rows for one page.
 
 Page-level verbs go in a **command bar** under the title — icon plus word,
 divided into groups. A page has exactly one primary button, and it is never in

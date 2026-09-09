@@ -17,7 +17,7 @@ const chain = async (depth: number) => {
   let parent: string | undefined;
   for (let i = 0; i < depth; i += 1) {
     const id = await addTask({
-      team: IDS.teamA,
+      account: IDS.volvo,
       assignees: [IDS.anna],
       dueDay: 0,
       dueHour: 9 + i,
@@ -72,7 +72,7 @@ describe("the branch below a task", () => {
 
   it("stays inside its own branch", async () => {
     const mine = await chain(2);
-    const theirs = await addTask({ team: IDS.teamA, assignees: [IDS.anna], dueDay: 0 });
+    const theirs = await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 0 });
     await db.update(tasks).set({ title: "Somebody else" }).where(eq(tasks.id, theirs));
     expect((await listSubtaskTree(mine[0]!)).map((t) => t.title)).toEqual(["L1"]);
   });

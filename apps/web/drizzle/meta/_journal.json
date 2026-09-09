@@ -134,6 +134,13 @@
       "when": 1788893698714,
       "tag": "0018_tiny_expediter",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1788895584151,
+      "tag": "0019_famous_earthquake",
+      "breakpoints": true
     }
   ]
 }

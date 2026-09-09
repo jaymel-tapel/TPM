@@ -2,16 +2,18 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { and, asc, count, eq, isNull, max } from "drizzle-orm";
+import { and, asc, count, eq, max } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import { boardStatuses, boards, statusKindEnum, tasks } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
-import { assertCanManageBoard, assertCanManageTeam } from "@/lib/permissions";
+import { assertCanManageAccount, assertCanManageBoard } from "@/lib/permissions";
 
 const name = z.string().trim().min(1, "Give it a name").max(60);
 
-/** The columns a new board starts with — the four the product had before. */
+export type BoardFormState = { error?: string } | null;
+
+/** The columns a board starts with — the four the product had before. */
 const DEFAULT_COLUMNS = [
   { name: "To Do", kind: "open" as const, position: 0 },
   { name: "In Progress", kind: "open" as const, position: 1 },
@@ -19,95 +21,57 @@ const DEFAULT_COLUMNS = [
   { name: "Blocked", kind: "blocked" as const, position: 3 },
 ];
 
-export type BoardFormState = { error?: string } | null;
-
+/**
+ * A new board on one account.
+ *
+ * A client has more than one because their pipelines do not share stages —
+ * creative moves through concept and rounds, media through setup and
+ * optimisation — and forcing both into one set of columns makes the columns
+ * mean nothing. So: boards are per account, made by the director who runs it,
+ * and they live under that account's Tasks rather than in a section of their
+ * own. There is no department-wide board and no board picker in the rail's top
+ * level; that was the shape that gave every client two homes.
+ */
 export async function createBoard(
   _prev: BoardFormState,
   formData: FormData,
 ): Promise<BoardFormState> {
   const viewer = await requireUser();
-  /*
-   * An empty team is a real choice, not a missing one: it files the board with
-   * the department rather than with a team. Only the Senior Director may make
-   * it — `assertCanManageTeam` refuses a null team to everybody else.
-   */
-  const teamId = String(formData.get("teamId") ?? "") || null;
+  const accountId = String(formData.get("accountId") ?? "");
   const parsed = name.safeParse(formData.get("name"));
   if (!parsed.success) return { error: parsed.error.issues[0]!.message };
 
-  await assertCanManageTeam(viewer, teamId);
+  // Directing it, not merely working on it — the same rule that gates the
+  // columns. Being on a client lets you move a card, not invent a pipeline.
+  await assertCanManageAccount(viewer, accountId);
 
   const [{ next }] = await db
     .select({ next: max(boards.position) })
     .from(boards)
-    .where(teamId === null ? isNull(boards.teamId) : eq(boards.teamId, teamId));
+    .where(eq(boards.accountId, accountId));
 
   let board;
   try {
     [board] = await db
       .insert(boards)
       .values({
-        teamId,
+        accountId,
         name: parsed.data,
         position: (next ?? -1) + 1,
         createdBy: viewer.id,
       })
       .returning();
   } catch {
-    // Either (team_id, name) or, for a department board, the partial unique
-    // index on name alone.
-    return {
-      error: teamId
-        ? "That team already has a board with that name."
-        : "The department already has a board with that name.",
-    };
+    return { error: "That account already has a board with that name." };
   }
 
   // A board with no columns cannot hold work, so it never exists in that state.
   await db
     .insert(boardStatuses)
-    .values(DEFAULT_COLUMNS.map((c) => ({ ...c, boardId: board.id })));
+    .values(DEFAULT_COLUMNS.map((c) => ({ ...c, boardId: board!.id })));
 
   revalidatePath("/", "layout");
-  redirect(`/boards/${board.id}/settings`);
-}
-
-export async function renameBoard(
-  _prev: BoardFormState,
-  formData: FormData,
-): Promise<BoardFormState> {
-  const viewer = await requireUser();
-  const boardId = String(formData.get("boardId") ?? "");
-  const parsed = name.safeParse(formData.get("name"));
-  if (!parsed.success) return { error: parsed.error.issues[0]!.message };
-
-  await assertCanManageBoard(viewer, boardId);
-  await db
-    .update(boards)
-    .set({ name: parsed.data, updatedAt: new Date() })
-    .where(eq(boards.id, boardId));
-
-  revalidatePath("/", "layout");
-  return null;
-}
-
-export async function deleteBoard(formData: FormData) {
-  const viewer = await requireUser();
-  const boardId = String(formData.get("boardId") ?? "");
-  const board = await assertCanManageBoard(viewer, boardId);
-
-  // Cascading would take the work with it. A board is a container, and
-  // emptying it is a decision someone has to make on purpose.
-  const [{ n }] = await db
-    .select({ n: count() })
-    .from(tasks)
-    .where(eq(tasks.boardId, boardId));
-  if (n > 0) throw new Error("Move or delete this board's tasks first");
-
-  await db.delete(boards).where(eq(boards.id, boardId));
-  revalidatePath("/", "layout");
-  // A department board belongs to no team, so there is no team page to land on.
-  redirect(board.teamId ? `/teams/${board.teamId}` : "/boards");
+  redirect(`/accounts/${accountId}/tasks/${board!.id}/columns`);
 }
 
 const columnInput = z.object({

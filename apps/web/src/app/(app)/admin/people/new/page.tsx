@@ -2,7 +2,7 @@ import Link from "next/link";
 import { PageHeader } from "@meridian/ui";
 import { requireSession } from "@/lib/auth";
 import { assertCanAdminister } from "@/lib/permissions";
-import { listTeamOptions } from "@/queries/admin";
+import { listAccountOptions } from "@/queries/admin";
 import { createPerson } from "@/actions/admin";
 import { PersonForm } from "@/components/person-form";
 
@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 export default async function NewPersonPage() {
   const { user } = await requireSession();
   await assertCanAdminister(user);
-  const teams = await listTeamOptions();
+  const accounts = await listAccountOptions();
 
   return (
     <>
@@ -27,8 +27,8 @@ export default async function NewPersonPage() {
       <PersonForm
         action={createPerson}
         submitLabel="Add person"
-        teams={teams}
-        values={{ name: "", email: "", role: "team_member", teamId: teams[0]?.id ?? "" }}
+        accounts={accounts}
+        values={{ name: "", email: "", role: "team_member", title: null, accountIds: [] }}
       />
     </>
   );

@@ -2,6 +2,7 @@ import "server-only";
 import { and, count, eq, isNull, sql } from "drizzle-orm";
 import { toPlainText } from "@meridian/ui/editor";
 import { db } from "@/db";
+import { worksOn } from "./sql";
 import { notifications, type NotificationKind, type Task } from "@/db/schema";
 
 export type InboxEntry = {
@@ -28,11 +29,11 @@ const EXCERPT = 140;
  * hand-written payload can name any user in the department, and every person
  * it names would otherwise receive the task's title in their inbox. So
  * `@`-mentioning would become a way to push text at anyone in the company and
- * to leak the titles of another team's work.
+ * to leak the titles of another account's work.
  *
  * This must agree with `canViewTask` exactly. Where they disagree, the inbox
- * advertises a door that does not open — the failure `canViewTeam` and
- * `canViewTeamWork` were split apart to prevent. `notifications.test.ts` pins
+ * advertises a door that does not open — the failure `canViewAccount` and
+ * `canViewAccountWork` were split apart to prevent. `notifications.test.ts` pins
  * the two together.
  */
 export async function filterUsersWhoCanSeeTask(
@@ -53,11 +54,11 @@ export async function filterUsersWhoCanSeeTask(
     select u.id from users u
     where u.id in (${list}) and (
       u.role = 'senior_director'
-      -- Work with no team is the department's, and everybody is in the
+      -- Work with no account is the department's, and everybody is in the
       -- department. Comparing a column to NULL is never true, so without this
       -- a mention on a department board would notify nobody while
       -- canViewTask said the whole department could read it.
-      or ${task.teamId === null ? sql`true` : sql`u.team_id = ${task.teamId}`}
+      or ${task.accountId === null ? sql`true` : worksOn(task.accountId)}
       or u.id = ${task.createdBy}
       or exists (
         select 1 from task_assignees a

@@ -5,7 +5,7 @@ import { boardStatuses, tasks } from "@/db/schema";
 import { IDS, NOW, addTask, boardFor, resetDb, seedOrg, statusId } from "../../test/fixture";
 import { getDayView } from "./tasks";
 import { getReportMetrics } from "./reports";
-import { getTeamToday } from "./team";
+import { getAccountToday } from "./accounts";
 import { userScope } from "./sql";
 
 /**
@@ -22,7 +22,7 @@ describe("what the numbers read", () => {
   beforeEach(async () => {
     await resetDb();
     await seedOrg();
-    taskId = await addTask({ team: IDS.teamA, assignees: [IDS.anna], dueDay: 0 });
+    taskId = await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 0 });
   });
 
   const complete = (at: Date) =>
@@ -31,7 +31,7 @@ describe("what the numbers read", () => {
   const moveTo = (column: "todo" | "in_progress" | "done" | "blocked") =>
     db
       .update(tasks)
-      .set({ statusId: statusId(boardFor(IDS.teamA), column) })
+      .set({ statusId: statusId(boardFor(IDS.volvo), column) })
       .where(eq(tasks.id, taskId));
 
   it("counts finished work wherever the card is sitting", async () => {
@@ -60,16 +60,16 @@ describe("what the numbers read", () => {
     expect(day.percent).toBe(0);
   });
 
-  it("agrees between the person, the team and the report", async () => {
+  it("agrees between the person, the account and the report", async () => {
     await complete(NOW);
     await moveTo("in_progress");
 
     const day = await getDayView(IDS.anna, NOW);
-    const team = await getTeamToday(IDS.teamA, NOW);
+    const account = await getAccountToday(IDS.volvo, NOW);
     const report = await getReportMetrics(userScope(IDS.anna), 7, NOW);
 
     expect(day.done).toBe(1);
-    expect(team!.done).toBe(1);
+    expect(account!.done).toBe(1);
     expect(report.completed).toBe(1);
   });
 });
@@ -82,7 +82,7 @@ describe("a board with more stages than three", () => {
 
   /** Two extra stages after the finish line, the way a real board runs on. */
   const addStages = async () => {
-    const board = boardFor(IDS.teamA);
+    const board = boardFor(IDS.volvo);
     await db.insert(boardStatuses).values([
       {
         id: "ffffffff-4000-4000-a000-" + board.slice(-12),
@@ -106,8 +106,8 @@ describe("a board with more stages than three", () => {
   };
 
   it("reports exactly what a three-column board reports", async () => {
-    const a = await addTask({ team: IDS.teamA, assignees: [IDS.anna], dueDay: 0 });
-    const b = await addTask({ team: IDS.teamA, assignees: [IDS.anna], dueDay: 0 });
+    const a = await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 0 });
+    const b = await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 0 });
     await db.update(tasks).set({ completedAt: NOW }).where(eq(tasks.id, a));
 
     const before = await getDayView(IDS.anna, NOW);
@@ -130,7 +130,7 @@ describe("a board with more stages than three", () => {
      * to mean the first column *of kind open*, which stops being the first
      * column once a board opens with a stage classified some other way.
      */
-    const board = boardFor(IDS.teamA);
+    const board = boardFor(IDS.volvo);
     const [first] = await db.execute(sql`
       select id, name from board_statuses
       where board_id = ${board} order by position asc limit 1

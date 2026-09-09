@@ -5,14 +5,11 @@ import { db } from "@/db";
 import { notifications, tasks, users, type Task, type User } from "@/db/schema";
 import { canViewTask } from "@/lib/permissions";
 import { notify } from "@/lib/notify";
-import { IDS, addTask, bodyNaming, resetDb, seedOrg } from "../../test/fixture";
+import { IDS, addTask, bodyNaming, resetDb, seedOrg, viewerFor } from "../../test/fixture";
 import { filterUsersWhoCanSeeTask, getInbox, getUnreadCount } from "./notifications";
 
-const load = async (id: string): Promise<User> => {
-  const user = await db.query.users.findFirst({ where: eq(users.id, id) });
-  if (!user) throw new Error(`no such user ${id}`);
-  return user;
-};
+/** The `Viewer` a page would have been handed — accounts resolved, as in a session. */
+const load = viewerFor;
 
 const loadTask = async (id: string): Promise<Task> => {
   const task = await db.query.tasks.findFirst({ where: eq(tasks.id, id) });
@@ -26,15 +23,15 @@ describe("who may be told about a task", () => {
   beforeEach(async () => {
     await resetDb();
     await seedOrg();
-    task = await loadTask(await addTask({ team: IDS.teamA, assignees: [IDS.anna], dueDay: 0 }));
+    task = await loadTask(await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 0 }));
   });
 
   it("agrees with canViewTask, person by person", async () => {
     /*
      * The two answers must match exactly. Where they drift, the inbox either
      * hides something a person may read or advertises a task that 404s when
-     * they follow it — the same failure that split `canViewTeam` from
-     * `canViewTeamWork`.
+     * they follow it — the same failure that split `canViewAccount` from
+     * `canViewAccountWork`.
      */
     const everyone = [IDS.anna, IDS.james, IDS.sarah, IDS.mika, IDS.elena];
     const allowed = new Set(await filterUsersWhoCanSeeTask(task, everyone));
@@ -45,12 +42,12 @@ describe("who may be told about a task", () => {
     }
   });
 
-  it("refuses a name from outside the team, however the mention got there", async () => {
+  it("refuses a name from outside the account, however the mention got there", async () => {
     /*
      * The security case. `userId` arrives inside BlockNote JSON the browser
      * composed, so a hand-written payload can name anyone in the department.
      * Without this filter, `@`-mentioning becomes a way to push text at any of
-     * the thirty and to leak another team's task titles into their inbox.
+     * the thirty and to leak another account's task titles into their inbox.
      */
     const forged = bodyNaming("thoughts? ", [{ id: IDS.mika, name: "Mika Villanueva" }]);
 
@@ -91,8 +88,8 @@ describe("who may be told about a task", () => {
     expect(await getUnreadCount(IDS.james)).toBe(1);
   });
 
-  it("tells the senior director, who sits on no team", async () => {
-    // Elena's `team_id` is null, so a rule written as "same team" alone would
+  it("tells the senior director, who sits on no account", async () => {
+    // Elena's `account_id` is null, so a rule written as "same account" alone would
     // silently exclude the one person who can see everything.
     const told = await notify({
       task,
@@ -110,7 +107,7 @@ describe("an inbox", () => {
   beforeEach(async () => {
     await resetDb();
     await seedOrg();
-    task = await loadTask(await addTask({ team: IDS.teamA, assignees: [IDS.anna], dueDay: 0 }));
+    task = await loadTask(await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 0 }));
   });
 
   const activityOn = async (body: string) => {
@@ -229,21 +226,21 @@ describe("an inbox", () => {
   });
 });
 
-describe("work that belongs to no team", () => {
+describe("work that belongs to no account", () => {
   let root: Task;
 
   beforeEach(async () => {
     await resetDb();
     await seedOrg();
-    const id = await addTask({ team: IDS.teamA, assignees: [IDS.anna], dueDay: 0 });
-    await db.execute(sql`update tasks set team_id = null where id = ${id}`);
+    const id = await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 0 });
+    await db.execute(sql`update tasks set account_id = null where id = ${id}`);
     root = await loadTask(id);
   });
 
   it("can be seen by everyone, and told to everyone", async () => {
     /*
      * The invariant this file exists to protect, at the one point it is
-     * easiest to break. `u.team_id = NULL` is never true, so the notification
+     * easiest to break. `u.account_id = NULL` is never true, so the notification
      * filter would quietly tell nobody while `canViewTask` said the whole
      * department could read it.
      */
@@ -254,7 +251,7 @@ describe("work that belongs to no team", () => {
       const viewer = await load(id);
       expect([id, allowed.has(id)]).toEqual([id, await canViewTask(viewer, root)]);
     }
-    // And that answer is "yes" — including for someone on the other team.
+    // And that answer is "yes" — including for someone on the other account.
     expect(allowed.has(IDS.mika)).toBe(true);
   });
 });

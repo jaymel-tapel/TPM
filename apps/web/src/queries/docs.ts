@@ -1,6 +1,8 @@
 import "server-only";
 import { sql, type SQL } from "drizzle-orm";
 import { db } from "@/db";
+import type { Viewer } from "@/lib/auth";
+import { uuids } from "./sql";
 import type { DocVisibility, User } from "@/db/schema";
 
 /** A document as every screen renders it, with its link already resolved. */
@@ -9,8 +11,8 @@ export type DocSummary = {
   title: string;
   href: string;
   visibility: DocVisibility;
-  teamId: string | null;
-  teamName: string | null;
+  accountId: string | null;
+  accountName: string | null;
   folderId: string | null;
   updatedAt: Date;
 };
@@ -28,8 +30,8 @@ export type FolderSummary = {
   name: string;
   href: string;
   visibility: DocVisibility;
-  teamId: string | null;
-  teamName: string | null;
+  accountId: string | null;
+  accountName: string | null;
   parentId: string | null;
 };
 
@@ -74,7 +76,7 @@ export type DocRef = {
   title: string;
   href: string;
   visibility: DocVisibility;
-  teamName: string | null;
+  accountName: string | null;
   attached: boolean;
   mentioned: boolean;
 };
@@ -84,34 +86,34 @@ export type DocRef = {
  * discipline as `scopeSql`, so the tree, the search and the `@` picker can
  * never disagree about who sees what. Applied to a `documents` row aliased `d`.
  */
-export function docScopeSql(viewer: User): SQL {
+export function docScopeSql(viewer: Viewer): SQL {
   if (viewer.role === "senior_director") return sql`true`;
-  return viewer.teamId
-    ? sql`(d.visibility = 'org' or d.team_id = ${viewer.teamId})`
+  return viewer.accountIds.length > 0
+    ? sql`(d.visibility = 'org' or d.account_id in (${uuids(viewer.accountIds)}))`
     : sql`d.visibility = 'org'`;
 }
 
 /** The same rule as `docScopeSql`, applied to a `folders` row aliased `f`. */
-export function folderScopeSql(viewer: User): SQL {
+export function folderScopeSql(viewer: Viewer): SQL {
   if (viewer.role === "senior_director") return sql`true`;
-  return viewer.teamId
-    ? sql`(f.visibility = 'org' or f.team_id = ${viewer.teamId})`
+  return viewer.accountIds.length > 0
+    ? sql`(f.visibility = 'org' or f.account_id in (${uuids(viewer.accountIds)}))`
     : sql`f.visibility = 'org'`;
 }
 
 const summarySelect = sql`
-  d.id, d.title, d.visibility, d.team_id as "teamId", t.name as "teamName",
+  d.id, d.title, d.visibility, d.account_id as "accountId", t.name as "accountName",
   d.folder_id as "folderId", d.updated_at as "updatedAt"
 `;
 
 const folderSelect = sql`
-  f.id, f.name, f.visibility, f.team_id as "teamId", t.name as "teamName",
+  f.id, f.name, f.visibility, f.account_id as "accountId", t.name as "accountName",
   f.parent_id as "parentId"
 `;
 
 const folderFrom = sql`
   from folders f
-  left join teams t on t.id = f.team_id
+  left join accounts t on t.id = f.account_id
 `;
 
 const withFolderHref = <T extends { id: string }>(row: T) => ({
@@ -121,7 +123,7 @@ const withFolderHref = <T extends { id: string }>(row: T) => ({
 
 const summaryFrom = sql`
   from documents d
-  left join teams t on t.id = d.team_id
+  left join accounts t on t.id = d.account_id
 `;
 
 const withHref = <T extends { id: string }>(row: T) => ({
@@ -139,7 +141,7 @@ const withHref = <T extends { id: string }>(row: T) => ({
  * teaching Postgres the same thing. A folder whose parent is missing is
  * dropped rather than promoted — where a thing sits is part of what it means.
  */
-export async function getDocTree(viewer: User): Promise<{
+export async function getDocTree(viewer: Viewer): Promise<{
   folders: DocTreeNode[];
   documents: DocSummary[];
 }> {
@@ -182,7 +184,7 @@ export async function getDocTree(viewer: User): Promise<{
 
 /** Folders this person may see, flat — for the "which folder" picker. */
 export async function listFolderOptions(
-  viewer: User,
+  viewer: Viewer,
   excludeSubtreeOf?: string,
 ): Promise<FolderSummary[]> {
   const result = await db.execute(sql`
@@ -201,7 +203,7 @@ export async function listFolderOptions(
 
 /** A folder's own row, plus the folders above it. */
 export async function getFolder(
-  viewer: User,
+  viewer: Viewer,
   folderId: string,
 ): Promise<FolderDetail | null> {
   const result = await db.execute(sql`
@@ -233,7 +235,7 @@ export async function getFolder(
 
 /** What is directly inside a folder: its subfolders, then its documents. */
 export async function listFolderContents(
-  viewer: User,
+  viewer: Viewer,
   folderId: string,
 ): Promise<{ folders: FolderSummary[]; documents: DocSummary[] }> {
   const [folderRows, docRows] = await Promise.all([
@@ -254,7 +256,7 @@ export async function listFolderContents(
   };
 }
 
-export async function getDoc(viewer: User, docId: string): Promise<DocDetail | null> {
+export async function getDoc(viewer: Viewer, docId: string): Promise<DocDetail | null> {
   const result = await db.execute(sql`
     with recursive trail as (
       select f.id, f.parent_id, f.name, 0 as depth
@@ -294,7 +296,7 @@ export async function getDoc(viewer: User, docId: string): Promise<DocDetail | n
  * syntax error.
  */
 export async function searchDocs(
-  viewer: User,
+  viewer: Viewer,
   query: string,
   limit = 20,
 ): Promise<DocSearchHit[]> {
@@ -349,14 +351,14 @@ function splitSnippet(raw: string): SnippetRun[] {
 }
 
 /** Documents a task references, however it came to reference them. */
-export async function getLinkedDocs(viewer: User, taskId: string): Promise<DocRef[]> {
+export async function getLinkedDocs(viewer: Viewer, taskId: string): Promise<DocRef[]> {
   const result = await db.execute(sql`
-    select d.id, d.title, d.visibility, t.name as "teamName",
+    select d.id, d.title, d.visibility, t.name as "accountName",
       bool_or(td.source = 'attached') as attached,
       bool_or(td.source = 'mentioned') as mentioned
     from task_documents td
     join documents d on d.id = td.document_id
-    left join teams t on t.id = d.team_id
+    left join accounts t on t.id = d.account_id
     where td.task_id = ${taskId}::uuid and ${docScopeSql(viewer)}
     group by d.id, d.title, d.visibility, t.name
     order by d.title asc
@@ -365,7 +367,7 @@ export async function getLinkedDocs(viewer: User, taskId: string): Promise<DocRe
 }
 
 /** Every task pointing at this document — the other half of a reference. */
-export async function getDocBacklinks(viewer: User, docId: string): Promise<DocBacklink[]> {
+export async function getDocBacklinks(viewer: Viewer, docId: string): Promise<DocBacklink[]> {
   const result = await db.execute(sql`
     select k.id, k.title, s.name as "statusName", s.kind as "statusKind",
       (k.completed_at is not null) as done,
@@ -377,7 +379,11 @@ export async function getDocBacklinks(viewer: User, docId: string): Promise<DocB
       and ${
         viewer.role === "senior_director"
           ? sql`true`
-          : sql`(k.team_id = ${viewer.teamId ?? null}::uuid
+          : sql`(${
+              viewer.accountIds.length > 0
+                ? sql`k.account_id in (${uuids(viewer.accountIds)})`
+                : sql`false`
+            }
                  or exists (select 1 from task_assignees sa
                             where sa.task_id = k.id and sa.user_id = ${viewer.id}))`
       }
@@ -398,7 +404,7 @@ export async function getDocBacklinks(viewer: User, docId: string): Promise<DocB
  * first — otherwise a hand-written description could link a task to a document
  * its author was never shown.
  */
-export async function filterVisibleDocIds(viewer: User, ids: string[]): Promise<string[]> {
+export async function filterVisibleDocIds(viewer: Viewer, ids: string[]): Promise<string[]> {
   if (ids.length === 0) return [];
   // Expanded into placeholders rather than bound as one array: the driver
   // sends a JS array as a single parameter, which Postgres then tries to read
@@ -422,7 +428,7 @@ export async function filterVisibleDocIds(viewer: User, ids: string[]): Promise<
  * keystroke. `subtitle` says whose it is, which is the only thing that
  * distinguishes two documents with the same name.
  */
-export async function listMentionableFor(viewer: User): Promise<MentionOption[]> {
+export async function listMentionableFor(viewer: Viewer): Promise<MentionOption[]> {
   const result = await db.execute(sql`
     select d.id, d.title, coalesce(t.name, 'Everyone') as subtitle
     ${summaryFrom}

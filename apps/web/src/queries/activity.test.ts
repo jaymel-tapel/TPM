@@ -10,7 +10,7 @@ describe("a task's activity", () => {
   beforeEach(async () => {
     await resetDb();
     await seedOrg();
-    taskId = await addTask({ team: IDS.teamA, assignees: [IDS.anna], dueDay: 0 });
+    taskId = await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 0 });
   });
 
   it("reads oldest first, whatever order it was written in", async () => {
@@ -115,7 +115,7 @@ describe("logged time", () => {
   beforeEach(async () => {
     await resetDb();
     await seedOrg();
-    taskId = await addTask({ team: IDS.teamA, assignees: [IDS.anna], dueDay: 0 });
+    taskId = await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 0 });
   });
 
   const actual = async () =>

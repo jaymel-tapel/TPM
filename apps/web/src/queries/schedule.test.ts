@@ -4,14 +4,11 @@ import { db } from "@/db";
 import { taskSchedule, tasks, users, type Task, type User } from "@/db/schema";
 import { canViewTask } from "@/lib/permissions";
 import { atMinutes, minutesFromMidnight, planDays } from "@/lib/plan";
-import { IDS, NOW, addTask, resetDb, seedOrg } from "../../test/fixture";
+import { IDS, NOW, addTask, resetDb, seedOrg, viewerFor } from "../../test/fixture";
 import { getDayPlan, getPlanCounts, plannedTaskIds } from "./schedule";
 
-const load = async (id: string): Promise<User> => {
-  const user = await db.query.users.findFirst({ where: eq(users.id, id) });
-  if (!user) throw new Error(`no such user ${id}`);
-  return user;
-};
+/** The `Viewer` a page would have been handed — accounts resolved, as in a session. */
+const load = viewerFor;
 
 const loadTask = async (id: string): Promise<Task> => {
   const task = await db.query.tasks.findFirst({ where: eq(tasks.id, id) });
@@ -36,7 +33,7 @@ describe("a day plan", () => {
     await seedOrg();
     // One task, two people — the case the table is shaped for.
     shared = await addTask({
-      team: IDS.teamA,
+      account: IDS.volvo,
       assignees: [IDS.anna, IDS.james],
       dueDay: 0,
     });
@@ -90,7 +87,7 @@ describe("a day plan", () => {
   });
 
   it("reads oldest first", async () => {
-    const later = await addTask({ team: IDS.teamA, assignees: [IDS.anna], dueDay: 0 });
+    const later = await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 0 });
     await place(later, IDS.anna, 16 * 60);
     await place(shared, IDS.anna, 9 * 60);
 
@@ -137,7 +134,7 @@ describe("a day plan", () => {
   });
 
   it("says which tasks are already placed, for the list to mark", async () => {
-    const other = await addTask({ team: IDS.teamA, assignees: [IDS.anna], dueDay: 0 });
+    const other = await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 0 });
     await place(shared, IDS.anna, 10 * 60);
 
     const placed = await plannedTaskIds(IDS.anna, NOW);
@@ -155,18 +152,18 @@ describe("what may be planned", () => {
   it("is exactly what the viewer may see", async () => {
     /*
      * `planTask` gates on `loadViewableTask`, so this is the boundary a forged
-     * `taskId` runs into: a team A task is not plannable by team B, however the
+     * `taskId` runs into: an account A task is not plannable by account B, however the
      * id was obtained. Pinning it here means a change to `canViewTask` cannot
      * quietly widen who can file blocks against whose work.
      */
-    const teamATask = await loadTask(
-      await addTask({ team: IDS.teamA, assignees: [IDS.anna], dueDay: 0 }),
+    const volvoTask = await loadTask(
+      await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 0 }),
     );
 
-    expect(await canViewTask(await load(IDS.mika), teamATask)).toBe(false);
-    expect(await canViewTask(await load(IDS.james), teamATask)).toBe(true);
+    expect(await canViewTask(await load(IDS.mika), volvoTask)).toBe(false);
+    expect(await canViewTask(await load(IDS.james), volvoTask)).toBe(true);
     // A director plans time to review work that is not theirs to edit.
-    expect(await canViewTask(await load(IDS.elena), teamATask)).toBe(true);
+    expect(await canViewTask(await load(IDS.elena), volvoTask)).toBe(true);
   });
 });
 
@@ -177,8 +174,8 @@ describe("planning further out", () => {
   beforeEach(async () => {
     await resetDb();
     await seedOrg();
-    a = await addTask({ team: IDS.teamA, assignees: [IDS.anna], dueDay: 0 });
-    b = await addTask({ team: IDS.teamA, assignees: [IDS.anna], dueDay: 0 });
+    a = await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 0 });
+    b = await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 0 });
   });
 
   const on = (day: Date, taskId: string, minutesFromStart: number) =>

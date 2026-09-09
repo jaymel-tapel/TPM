@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { toAvailability, toLeaveRequest, toMemberRow, toSubtaskTree, toTaskRow } from "./present";
 import type { TaskCard } from "@/queries/sql";
 import type { LeaveRow } from "@/queries/leave";
-import type { MemberRollup } from "@/queries/team";
+import type { MemberRollup } from "@/queries/accounts";
 import type { User } from "@/db/schema";
 
 const reference = new Date("2026-09-07T05:00:00Z"); // 1pm Manila, Sep 7
@@ -19,11 +19,13 @@ function task(overrides: Partial<TaskCard> = {}): TaskCard {
     statusName: "To Do",
     statusKind: "open",
     boardId: "b-1",
-    boardName: "Team A",
+    boardName: "Volvo",
     priority: "normal",
     dueDate: new Date("2026-09-07T06:00:00Z"), // 2pm today
     completedAt: null,
-    teamId: "team-a",
+    accountId: "account-a",
+    accountName: "Volvo",
+    campaignId: null,
     createdBy: "u1",
     parentId: null,
     parentTitle: null,
@@ -108,7 +110,9 @@ describe("a task row's overdue flag", () => {
       estimateMinutes: null,
       actualMinutes: null,
       completedAt,
-      teamId: "team",
+      accountId: "account",
+      accountName: "Volvo",
+      campaignId: null,
       boardId: "board",
       boardName: "Board",
       createdBy: "u1",
@@ -159,7 +163,6 @@ function leave(overrides: Partial<LeaveRow> = {}): LeaveRow {
     userId: "u1",
     userName: "Anna Santos",
     role: "team_member",
-    teamId: "team-a",
     kind: "vacation",
     status: "pending",
     startDate: "2026-09-07",
@@ -174,7 +177,7 @@ function leave(overrides: Partial<LeaveRow> = {}): LeaveRow {
 }
 
 const viewer = (overrides: Partial<User> = {}) =>
-  ({ id: "u1", role: "team_member", teamId: "team-a", ...overrides }) as User;
+  ({ id: "u1", role: "team_member", accountId: "account-a", ...overrides }) as User;
 
 describe("toAvailability", () => {
   it("says when they are back, but only while that is still ahead", () => {
@@ -273,6 +276,7 @@ describe("toMemberRow", () => {
     id: "u1",
     name: "Anna Santos",
     role: "team_member",
+    title: "Designer",
     due: 6,
     done: 3,
     overdue: 1,
@@ -283,7 +287,7 @@ describe("toMemberRow", () => {
   });
 
   it("builds a link from the base path it is given", () => {
-    expect(toMemberRow(rollup(), "/team", reference, MANILA).href).toBe("/team/u1");
+    expect(toMemberRow(rollup(), "/account", reference, MANILA).href).toBe("/account/u1");
   });
 
   it("gives no link at all when there is nowhere to go", () => {
@@ -294,14 +298,14 @@ describe("toMemberRow", () => {
   });
 
   it("carries the counts through untouched", () => {
-    const row = toMemberRow(rollup(), "/team", reference, MANILA);
+    const row = toMemberRow(rollup(), "/account", reference, MANILA);
     expect([row.done, row.remaining, row.overdue, row.percent]).toEqual([3, 3, 1, 50]);
   });
 
   it("passes the away marker through as a written label", () => {
     const row = toMemberRow(
       rollup({ away: { away: "full", kind: "vacation", endDate: "2026-09-11" } }),
-      "/team",
+      "/account",
       reference,
       MANILA,
     );

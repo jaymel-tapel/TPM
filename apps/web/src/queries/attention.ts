@@ -45,7 +45,7 @@ export async function getNeedsAttention(
       severity: Number(r.n) >= 5 ? "high" : "medium",
       headline: r.name,
       detail: `${r.n} overdue ${Number(r.n) === 1 ? "task" : "tasks"}`,
-      href: `/team/${r.id}`,
+      href: `/account/${r.id}`,
     });
   }
 
@@ -113,8 +113,8 @@ export async function getNeedsAttention(
 }
 
 /**
- * Department-level signals the Senior Director cannot get from a team view:
- * a team's week-over-week slide, and the weakest kind of work.
+ * Department-level signals the Senior Director cannot get from an account view:
+ * an account's week-over-week slide, and the weakest kind of work.
  */
 export async function getDepartmentAttention(
   reference: Date = now(),
@@ -131,23 +131,37 @@ export async function getDepartmentAttention(
       count(*) filter (where k.due_date >= ${weekStart} and ${onTimeIn(zone)}) as week_done,
       count(*) filter (where k.due_date >= ${priorStart} and k.due_date < ${weekStart}) as prior_due,
       count(*) filter (where k.due_date >= ${priorStart} and k.due_date < ${weekStart} and ${onTimeIn(zone)}) as prior_done
-    from teams t
-    join tasks k on k.team_id = t.id and ${isLeaf} and k.due_date >= ${priorStart}
+    from accounts t
+    join tasks k on k.account_id = t.id and ${isLeaf} and k.due_date >= ${priorStart}
     group by t.id, t.name
   `);
 
-  for (const r of trend.rows as Record<string, string>[]) {
-    const thisWeek = pct(Number(r.week_done), Number(r.week_due));
-    const lastWeek = pct(Number(r.prior_done), Number(r.prior_due));
-    const delta = thisWeek - lastWeek;
-    if (delta <= -5) {
-      items.push({
-        severity: delta <= -10 ? "high" : "medium",
-        headline: r.name,
-        detail: `Completion down ${Math.abs(delta)}% vs last week`,
-        href: `/teams/${r.id}`,
-      });
-    }
+  /*
+   * The two steepest slides, not every account that slipped.
+   *
+   * With two teams this could push at most two items; with five accounts — and
+   * a department where a bad week moves most of them together — it filled all
+   * four slots on `/accounts` and buried both the weakest-work signal and
+   * every person-level one. A list of five things all saying "down a bit" is
+   * not a list of exceptions, it is the trend chart again in words.
+   */
+  const slides = (trend.rows as Record<string, string>[])
+    .map((r) => {
+      const thisWeek = pct(Number(r.week_done), Number(r.week_due));
+      const lastWeek = pct(Number(r.prior_done), Number(r.prior_due));
+      return { id: r.id, name: r.name, delta: thisWeek - lastWeek };
+    })
+    .filter((row) => row.delta <= -5)
+    .sort((a, b) => a.delta - b.delta)
+    .slice(0, 2);
+
+  for (const row of slides) {
+    items.push({
+      severity: row.delta <= -10 ? "high" : "medium",
+      headline: row.name,
+      detail: `Completion down ${Math.abs(row.delta)}% vs last week`,
+      href: `/accounts/${row.id}`,
+    });
   }
 
   const byType = await db.execute(sql`

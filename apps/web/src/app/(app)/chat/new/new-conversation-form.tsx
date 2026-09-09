@@ -8,7 +8,7 @@ import { Label } from "@meridian/ui/primitives/label";
 import { ButtonLink, Panel, UserAvatar } from "@meridian/ui";
 import { startConversation, type ChatState } from "@/actions/chat";
 
-type Person = { id: string; name: string; teamName: string | null };
+type Person = { id: string; name: string; accountName: string | null };
 
 const label = "mb-2 block text-caption-strong uppercase tracking-[0.08em] text-gray-600";
 

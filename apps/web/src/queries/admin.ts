@@ -1,7 +1,7 @@
 import "server-only";
 import { asc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { teams, users, type Role } from "@/db/schema";
+import { accounts, users, type Role } from "@/db/schema";
 
 /** A person as the admin screens list them. */
 export type AdminPerson = {
@@ -9,13 +9,15 @@ export type AdminPerson = {
   name: string;
   email: string;
   role: Role;
-  teamId: string | null;
-  teamName: string | null;
+  /** What they do — "Designer", "Copywriter". Null until somebody fills it in. */
+  title: string | null;
+  /** Every account they work on. Several, now, and often none for the Senior Director. */
+  accounts: { id: string; name: string }[];
   /** Work they own. What makes a person impossible to simply remove. */
   taskCount: number;
 };
 
-export type AdminTeam = {
+export type AdminAccount = {
   id: string;
   name: string;
   accountDirectorId: string | null;
@@ -25,62 +27,81 @@ export type AdminTeam = {
 };
 
 /**
- * Everyone, in reading order: teams together, and the Senior Director — who is
- * on no team — last rather than floating at the top.
+ * Every account a person works on, as a JSON array on their row.
+ *
+ * Grouping in SQL rather than joining and stitching in TypeScript: a person on
+ * three accounts would otherwise be three rows, and every caller would have to
+ * remember to fold them back together.
  */
+const accountsOf = sql`
+  coalesce(
+    (select json_agg(json_build_object('id', a.id, 'name', a.name) order by a.name)
+     from account_members m join accounts a on a.id = m.account_id
+     where m.user_id = u.id),
+    '[]'::json
+  ) as accounts`;
+
+/** Everyone, by name. Nobody has one account to sort by any more. */
 export async function listPeople(): Promise<AdminPerson[]> {
   const rows = await db.execute(sql`
-    select u.id, u.name, u.email, u.role,
-      u.team_id as "teamId", t.name as "teamName",
+    select u.id, u.name, u.email, u.role, u.title,
+      ${accountsOf},
       (select count(*) from task_assignees a where a.user_id = u.id)::int as "taskCount"
     from users u
-    left join teams t on t.id = u.team_id
-    order by (u.team_id is null), t.name, u.name
+    order by u.name
   `);
   return rows.rows as unknown as AdminPerson[];
 }
 
 export async function getPerson(userId: string): Promise<AdminPerson | null> {
   const rows = await db.execute(sql`
-    select u.id, u.name, u.email, u.role,
-      u.team_id as "teamId", t.name as "teamName",
+    select u.id, u.name, u.email, u.role, u.title,
+      ${accountsOf},
       (select count(*) from task_assignees a where a.user_id = u.id)::int as "taskCount"
     from users u
-    left join teams t on t.id = u.team_id
     where u.id = ${userId}::uuid
   `);
   return (rows.rows as unknown as AdminPerson[])[0] ?? null;
 }
 
-export async function listAdminTeams(): Promise<AdminTeam[]> {
+export async function listAdminAccounts(): Promise<AdminAccount[]> {
   const rows = await db.execute(sql`
     select t.id, t.name,
       t.account_director_id as "accountDirectorId", d.name as "accountDirectorName",
-      (select count(*) from users u where u.team_id = t.id)::int as headcount,
-      (select count(*) from boards b where b.team_id = t.id)::int as "boardCount"
-    from teams t
+      (select count(*) from account_members m where m.account_id = t.id)::int as headcount,
+      (select count(*) from boards b where b.account_id = t.id)::int as "boardCount"
+    from accounts t
     left join users d on d.id = t.account_director_id
     order by t.name
   `);
-  return rows.rows as unknown as AdminTeam[];
+  return rows.rows as unknown as AdminAccount[];
 }
 
-export async function getAdminTeam(teamId: string): Promise<AdminTeam | null> {
-  const all = await listAdminTeams();
-  return all.find((t) => t.id === teamId) ?? null;
+export async function getAdminAccount(accountId: string): Promise<AdminAccount | null> {
+  const all = await listAdminAccounts();
+  return all.find((t) => t.id === accountId) ?? null;
 }
 
-/** Who may be made a team's Account Director: the directors already on it. */
-export async function listDirectorOptions(teamId: string) {
-  return db
-    .select({ id: users.id, name: users.name })
-    .from(users)
-    .where(sql`${users.teamId} = ${teamId}::uuid and ${users.role} = 'account_director'`)
-    .orderBy(asc(users.name));
+/**
+ * Who may be made an account's Account Director: the directors working on it.
+ *
+ * Still membership-first, the way it was when membership was a column — a
+ * director has to be on the account before they can run it, so the pairing
+ * `canViewAccount` reads can never point at somebody who left.
+ */
+export async function listDirectorOptions(accountId: string) {
+  const rows = await db.execute(sql`
+    select u.id, u.name
+    from users u
+    join account_members m on m.user_id = u.id
+    where m.account_id = ${accountId}::uuid and u.role = 'account_director'
+    order by u.name
+  `);
+  return rows.rows as unknown as { id: string; name: string }[];
 }
 
-export async function listTeamOptions() {
-  return db.select({ id: teams.id, name: teams.name }).from(teams).orderBy(asc(teams.name));
+export async function listAccountOptions() {
+  return db.select({ id: accounts.id, name: accounts.name }).from(accounts).orderBy(asc(accounts.name));
 }
 
 /** Whether an email is already taken by somebody else. */

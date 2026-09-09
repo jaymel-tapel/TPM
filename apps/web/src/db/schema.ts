@@ -52,17 +52,57 @@ export const taskTypeEnum = pgEnum("task_type", [
   "creative",
 ]);
 
-export const teams = pgTable("teams", {
+/**
+ * A client the department works for, and the unit everything else is scoped
+ * by — its boards, its tasks, its documents, its people.
+ *
+ * Exactly one Account Director, because somebody has to be answerable for a
+ * client; one person may direct several. Who *works* on the account is the
+ * many-to-many below, and it is deliberately a different question: a director
+ * runs three accounts, a designer works on two, and neither fact is derivable
+ * from the other.
+ */
+export const accounts = pgTable("accounts", {
   id: uuid("id").primaryKey().defaultRandom(),
-  name: text("name").notNull(),
+  name: text("name").notNull().unique(),
   // Set after users exist; the FK is added in a follow-up migration statement
-  // because users.team_id -> teams.id and teams.account_director_id -> users.id
-  // form a cycle.
+  // because account_members.user_id -> users.id and
+  // accounts.account_director_id -> users.id would otherwise need users first.
   accountDirectorId: uuid("account_director_id"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
 });
+
+/**
+ * Who works on an account.
+ *
+ * This table is the whole point of the shape. Agency people are shared — a
+ * designer covers two clients, a copywriter one, an Account Director three —
+ * and a single `users.account_id` could only ever tell one of those stories.
+ * Every permission in the app reads membership through here.
+ *
+ * Membership is not assignment. Belonging to Volvo says you may see Volvo's
+ * work; being on a task says the work is yours.
+ */
+export const accountMembers = pgTable(
+  "account_members",
+  {
+    accountId: uuid("account_id")
+      .notNull()
+      .references(() => accounts.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    joinedAt: timestamp("joined_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.accountId, t.userId] }),
+    // Every page asks "which accounts is this person on" before it asks
+    // anything else, so the reverse direction earns its own index.
+    index("account_members_user_idx").on(t.userId),
+  ],
+);
 
 export const users = pgTable(
   "users",
@@ -72,8 +112,13 @@ export const users = pgTable(
     email: text("email").notNull().unique(),
     passwordHash: text("password_hash").notNull(),
     role: roleEnum("role").notNull().default("team_member"),
-    // Null for the Senior Director, who sits above both teams.
-    teamId: uuid("team_id").references(() => teams.id),
+    /*
+     * What they do, in their own words — "Designer", "Copywriter", "Paid
+     * Media". A craft is a fact about the person, not about one client, so it
+     * sits here rather than on the membership row: nobody is a designer on
+     * Volvo and something else on MG. Null until somebody fills it in.
+     */
+    title: text("title"),
     /*
      * How this person reckons a day.
      *
@@ -100,26 +145,25 @@ export const users = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (t) => [index("users_team_idx").on(t.teamId)],
 );
 
 /**
  * A board is a container, not a view: work lives on exactly one board.
  *
- * `team_id` is null for a board that belongs to the department rather than to
- * a team — a company retro, a tool trial, anything that is nobody's client
- * work. Only the Senior Director creates those; an Account Director's boards
- * belong to their team as they always did.
+ * `account_id` is null for a board that belongs to the department rather than
+ * to a client — a company retro, a tool trial, anything that is nobody's
+ * client work. Only the Senior Director creates those; an Account Director's
+ * boards belong to an account they direct.
  *
- * The consequence, stated because it is easy to miss: work with no team is
- * visible to everyone. A team's board is scoped by the team; a board with no
- * team has nothing to scope by, so the department is the scope.
+ * The consequence, stated because it is easy to miss: work with no account is
+ * visible to everyone. An account's board is scoped by the account; a board
+ * with no account has nothing to scope by, so the department is the scope.
  */
 export const boards = pgTable(
   "boards",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    teamId: uuid("team_id").references(() => teams.id, { onDelete: "cascade" }),
+    accountId: uuid("account_id").references(() => accounts.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     position: integer("position").notNull().default(0),
     createdBy: uuid("created_by")
@@ -129,25 +173,26 @@ export const boards = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    index("boards_team_idx").on(t.teamId),
+    index("boards_account_idx").on(t.accountId),
     /*
-     * Two names cannot collide inside one team. Postgres treats nulls as
+     * Two names cannot collide inside one account. Postgres treats nulls as
      * distinct in a unique constraint, so this says nothing about the
      * department's own boards — `uniqueIndex` below covers those.
      */
-    unique("boards_team_name_key").on(t.teamId, t.name),
+    unique("boards_account_name_key").on(t.accountId, t.name),
     uniqueIndex("boards_root_name_key")
       .on(t.name)
-      .where(sql`team_id is null`),
+      .where(sql`account_id is null`),
     /*
-     * Lets `tasks` carry a composite key proving its team matches its board's.
+     * Lets `tasks` carry a composite key proving its account matches its
+     * board's.
      *
      * That proof lapses for the department's own boards: a composite foreign
      * key is satisfied automatically when any of its columns is null, so a
-     * task with no team is not checked against its board. `createTask` and
-     * `updateTask` copy the board's team either way, and a test pins it.
+     * task with no account is not checked against its board. `createTask` and
+     * `updateTask` copy the board's account either way, and a test pins it.
      */
-    unique("boards_id_team_key").on(t.id, t.teamId),
+    unique("boards_id_account_key").on(t.id, t.accountId),
   ],
 );
 
@@ -169,6 +214,49 @@ export const boardStatuses = pgTable(
     unique("board_statuses_board_name_key").on(t.boardId, t.name),
     // Lets `tasks` carry a composite key proving the status is on its board.
     unique("board_statuses_id_board_key").on(t.id, t.boardId),
+  ],
+);
+
+export const campaignStatusEnum = pgEnum("campaign_status", [
+  "planned",
+  "live",
+  "wrapped",
+]);
+
+/**
+ * A time-boxed push inside one account — "Summer Launch", "Volvo Run Club".
+ *
+ * Deliberately shallow. A campaign holds tasks and nothing else: no phases, no
+ * sub-campaigns, no per-campaign fields. It exists to give a fortnight of work
+ * a name and a deadline, which is the thing a tag could never do because a tag
+ * has no dates and no end.
+ *
+ * The dates are `date` columns rather than timestamps, the same choice
+ * `leave_requests` makes and for the same reason: "Q4 ends on 30 November" has
+ * to be true for the director reading it in London and the designer reading it
+ * in Manila, or a schedule is a rumour.
+ */
+export const campaigns = pgTable(
+  "campaigns",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    accountId: uuid("account_id")
+      .notNull()
+      .references(() => accounts.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    startsOn: date("starts_on", { mode: "string" }).notNull(),
+    endsOn: date("ends_on", { mode: "string" }).notNull(),
+    status: campaignStatusEnum("status").notNull().default("planned"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("campaigns_account_idx").on(t.accountId),
+    unique("campaigns_account_name_key").on(t.accountId, t.name),
+    // The target of the composite key on `tasks` that proves a task's campaign
+    // and its account agree.
+    unique("campaigns_id_account_key").on(t.id, t.accountId),
+    check("campaigns_range_ck", sql`ends_on >= starts_on`),
   ],
 );
 
@@ -217,13 +305,24 @@ export const tasks = pgTable(
       .notNull()
       .references(() => users.id),
     /*
-     * Null on work that belongs to the department rather than to a team,
-     * which is to say work on a board with no team. Every team-scoped query
-     * compares `team_id = <a team>`, so these rows fall out of team rollups on
-     * their own; the department's own totals count them, and `canViewTask`
-     * lets everybody read them.
+     * Null on work that belongs to the department rather than to a client,
+     * which is to say work on a board with no account. Every account-scoped
+     * query compares `account_id = <an account>`, so these rows fall out of
+     * account rollups on their own; the department's own totals count them,
+     * and `canViewTask` lets everybody read them.
      */
-    teamId: uuid("team_id").references(() => teams.id),
+    accountId: uuid("account_id").references(() => accounts.id),
+    /*
+     * The campaign this work is part of, if any. Most work is not — a
+     * retainer's monthly reporting belongs to the account and to nothing
+     * smaller.
+     *
+     * `set null` rather than cascade: wrapping up a campaign must not delete
+     * the work done for it. The composite key below proves the campaign and
+     * the task belong to the same account, so a Volvo task can never carry an
+     * MG campaign.
+     */
+    campaignId: uuid("campaign_id"),
     /*
      * The task this one is a piece of. Null for ordinary work.
      *
@@ -256,13 +355,14 @@ export const tasks = pgTable(
   },
   (t) => [
     index("tasks_due_idx").on(t.dueDate),
-    index("tasks_team_due_idx").on(t.teamId, t.dueDate),
+    index("tasks_account_due_idx").on(t.accountId, t.dueDate),
     index("tasks_completed_idx").on(t.completedAt),
     index("tasks_board_idx").on(t.boardId),
     // Read by every board render, and by the re-rank a drop performs.
     index("tasks_status_position_idx").on(t.statusId, t.position),
     // Read by `isLeaf`, which runs on every list and count in the product.
     index("tasks_parent_idx").on(t.parentId),
+    index("tasks_campaign_idx").on(t.campaignId),
     /*
      * Declared here rather than inline, the way `folders_parent_fk` is: a
      * self-reference cannot name its own table from the column definition.
@@ -275,21 +375,37 @@ export const tasks = pgTable(
       name: "tasks_parent_fk",
     }).onDelete("cascade"),
     /*
-     * Two composite keys the database enforces so nothing else has to:
-     * a task's team always matches its board's team, and its status always
-     * belongs to its own board. `team_id` stays denormalised because every
-     * report scopes on it, and this is what keeps that copy honest.
+     * Three composite keys the database enforces so nothing else has to: a
+     * task's account always matches its board's, its status always belongs to
+     * its own board, and its campaign always belongs to its own account.
+     * `account_id` stays denormalised because every report scopes on it, and
+     * these are what keep that copy honest.
      */
     foreignKey({
-      columns: [t.boardId, t.teamId],
-      foreignColumns: [boards.id, boards.teamId],
-      name: "tasks_board_team_fk",
+      columns: [t.boardId, t.accountId],
+      foreignColumns: [boards.id, boards.accountId],
+      name: "tasks_board_account_fk",
     }),
     foreignKey({
       columns: [t.statusId, t.boardId],
       foreignColumns: [boardStatuses.id, boardStatuses.boardId],
       name: "tasks_status_board_fk",
     }),
+    foreignKey({
+      columns: [t.campaignId, t.accountId],
+      foreignColumns: [campaigns.id, campaigns.accountId],
+      name: "tasks_campaign_account_fk",
+    }),
+    /*
+     * A composite foreign key is satisfied automatically when any of its
+     * columns is null, so the key above says nothing about a task with no
+     * account. This closes that hole: department work has no client, and so
+     * cannot be part of a client's campaign.
+     */
+    check(
+      "tasks_campaign_needs_account_ck",
+      sql`campaign_id is null or account_id is not null`,
+    ),
   ],
 );
 
@@ -416,11 +532,11 @@ export const taskTags = pgTable(
 
 /**
  * Reference material: the standing instructions a task points at rather than
- * restates. A document is either the whole department's or one team's, and it
+ * restates. A document is either the whole department's or one account's, and it
  * can parent others — the tree is the only structure there is, because a doc
  * that lives in two places is a doc nobody can find.
  */
-export const docVisibilityEnum = pgEnum("doc_visibility", ["org", "team"]);
+export const docVisibilityEnum = pgEnum("doc_visibility", ["org", "account"]);
 
 /**
  * How a task came to reference a document. The two are maintained by different
@@ -451,7 +567,7 @@ export const folders = pgTable(
     name: text("name").notNull(),
     parentId: uuid("parent_id"),
     visibility: docVisibilityEnum("visibility").notNull(),
-    teamId: uuid("team_id").references(() => teams.id, { onDelete: "cascade" }),
+    accountId: uuid("account_id").references(() => accounts.id, { onDelete: "cascade" }),
     position: integer("position").notNull().default(0),
     createdBy: uuid("created_by")
       .notNull()
@@ -466,10 +582,10 @@ export const folders = pgTable(
       name: "folders_parent_fk",
     }).onDelete("cascade"),
     index("folders_parent_idx").on(t.parentId),
-    index("folders_team_idx").on(t.teamId),
+    index("folders_account_idx").on(t.accountId),
     check(
-      "folders_visibility_team_ck",
-      sql`(visibility = 'org') = (team_id is null)`,
+      "folders_visibility_account_ck",
+      sql`(visibility = 'org') = (account_id is null)`,
     ),
   ],
 );
@@ -491,11 +607,11 @@ export const documents = pgTable(
     /*
      * Visibility is a property of the tree, set at its root: a child always
      * carries its root's values. Per-doc visibility inside a tree makes holes —
-     * a team-only child under an org-wide parent is a gap in everyone else's
+     * an account-only child under an org-wide parent is a gap in everyone else's
      * tree and a broken breadcrumb, and the reverse leaks by link.
      */
     visibility: docVisibilityEnum("visibility").notNull(),
-    teamId: uuid("team_id").references(() => teams.id, { onDelete: "cascade" }),
+    accountId: uuid("account_id").references(() => accounts.id, { onDelete: "cascade" }),
     /** The folder it lives in, or null for one sitting at the top level. */
     folderId: uuid("folder_id").references(() => folders.id, { onDelete: "cascade" }),
     position: integer("position").notNull().default(0),
@@ -511,12 +627,12 @@ export const documents = pgTable(
   },
   (t) => [
     index("documents_folder_idx").on(t.folderId),
-    index("documents_team_idx").on(t.teamId),
-    // Org-wide means no team and team-scoped means a team. Enforced here so no
+    index("documents_account_idx").on(t.accountId),
+    // Org-wide means no account and account-scoped means an account. Enforced here so no
     // query has to defend against the third, meaningless combination.
     check(
-      "documents_visibility_team_ck",
-      sql`(visibility = 'org') = (team_id is null)`,
+      "documents_visibility_account_ck",
+      sql`(visibility = 'org') = (account_id is null)`,
     ),
   ],
 );
@@ -866,7 +982,10 @@ export type Priority = (typeof priorityEnum.enumValues)[number];
 export type TaskType = (typeof taskTypeEnum.enumValues)[number];
 
 export type User = typeof users.$inferSelect;
-export type Team = typeof teams.$inferSelect;
+export type Account = typeof accounts.$inferSelect;
+export type AccountMember = typeof accountMembers.$inferSelect;
+export type Campaign = typeof campaigns.$inferSelect;
+export type CampaignStatus = (typeof campaignStatusEnum.enumValues)[number];
 export type Task = typeof tasks.$inferSelect;
 export type DocVisibility = (typeof docVisibilityEnum.enumValues)[number];
 export type DocLinkSource = (typeof docLinkSourceEnum.enumValues)[number];

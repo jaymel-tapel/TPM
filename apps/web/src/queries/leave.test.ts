@@ -2,11 +2,11 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "@/db";
 import { eq } from "drizzle-orm";
 import { users } from "@/db/schema";
-import { IDS, addLeave, day, resetDb, seedOrg } from "../../test/fixture";
-import { awayOn, listMyLeave, listPendingFor, listTeamLeave, overlappingLeave } from "./leave";
+import { IDS, addLeave, day, resetDb, seedOrg, viewerFor } from "../../test/fixture";
+import { awayOn, listMyLeave, listPendingFor, listAccountLeave, overlappingLeave } from "./leave";
 
-const load = async (id: string) =>
-  (await db.query.users.findFirst({ where: eq(users.id, id) }))!;
+/** The `Viewer` a page would have been handed — accounts resolved, as in a session. */
+const load = viewerFor;
 
 beforeEach(async () => {
   await resetDb();
@@ -16,53 +16,53 @@ beforeEach(async () => {
 describe("awayOn", () => {
   it("counts only approved leave", async () => {
     // The load-bearing assertion of the whole feature. A pending request is a
-    // plan; a roster that showed it would be telling the team somebody is off
+    // plan; a roster that showed it would be telling the account somebody is off
     // before the person who decides that has agreed.
     await addLeave({ user: IDS.anna, startDay: 0, status: "pending" });
     await addLeave({ user: IDS.james, startDay: 0, status: "declined" });
     await addLeave({ user: IDS.sarah, startDay: 0, status: "cancelled" });
 
-    expect(await awayOn([IDS.teamA], day(0))).toEqual(new Map());
+    expect(await awayOn([IDS.volvo], day(0))).toEqual(new Map());
   });
 
   it("includes both ends of the range and stops after it", async () => {
     await addLeave({ user: IDS.anna, startDay: 1, endDay: 3 });
 
-    expect((await awayOn([IDS.teamA], day(0))).has(IDS.anna)).toBe(false);
-    expect((await awayOn([IDS.teamA], day(1))).has(IDS.anna)).toBe(true);
-    expect((await awayOn([IDS.teamA], day(2))).has(IDS.anna)).toBe(true);
-    expect((await awayOn([IDS.teamA], day(3))).has(IDS.anna)).toBe(true);
-    expect((await awayOn([IDS.teamA], day(4))).has(IDS.anna)).toBe(false);
+    expect((await awayOn([IDS.volvo], day(0))).has(IDS.anna)).toBe(false);
+    expect((await awayOn([IDS.volvo], day(1))).has(IDS.anna)).toBe(true);
+    expect((await awayOn([IDS.volvo], day(2))).has(IDS.anna)).toBe(true);
+    expect((await awayOn([IDS.volvo], day(3))).has(IDS.anna)).toBe(true);
+    expect((await awayOn([IDS.volvo], day(4))).has(IDS.anna)).toBe(false);
   });
 
   it("carries which half of the day, and when they are back", async () => {
     await addLeave({ user: IDS.anna, startDay: 0, half: "pm", kind: "personal" });
 
-    expect((await awayOn([IDS.teamA], day(0))).get(IDS.anna)).toEqual({
+    expect((await awayOn([IDS.volvo], day(0))).get(IDS.anna)).toEqual({
       away: "pm",
       kind: "personal",
       endDate: day(0),
     });
   });
 
-  it("does not leak another team", async () => {
+  it("does not leak another account", async () => {
     await addLeave({ user: IDS.mika, startDay: 0 });
 
-    expect((await awayOn([IDS.teamA], day(0))).has(IDS.mika)).toBe(false);
-    expect((await awayOn([IDS.teamB], day(0))).has(IDS.mika)).toBe(true);
+    expect((await awayOn([IDS.volvo], day(0))).has(IDS.mika)).toBe(false);
+    expect((await awayOn([IDS.mg], day(0))).has(IDS.mika)).toBe(true);
   });
 
-  it("reads both teams in one query", async () => {
+  it("reads both accounts in one query", async () => {
     await addLeave({ user: IDS.anna, startDay: 0 });
     await addLeave({ user: IDS.mika, startDay: 0 });
 
-    const away = await awayOn([IDS.teamA, IDS.teamB], day(0));
+    const away = await awayOn([IDS.volvo, IDS.mg], day(0));
     expect([...away.keys()].sort()).toEqual([IDS.anna, IDS.mika].sort());
   });
 });
 
 describe("listPendingFor", () => {
-  it("gives an Account Director their own team's members, and nobody else's", async () => {
+  it("gives an Account Director their own account's members, and nobody else's", async () => {
     await addLeave({ user: IDS.anna, startDay: 1, status: "pending" });
     await addLeave({ user: IDS.mika, startDay: 1, status: "pending" });
 
@@ -92,7 +92,7 @@ describe("who may read a note", () => {
   });
 
   const noteOn = async (viewerId: string) => {
-    const rows = await listTeamLeave(await load(viewerId), IDS.teamA, day(0), day(7));
+    const rows = await listAccountLeave(await load(viewerId), IDS.volvo, day(0), day(7));
     return rows[0].note;
   };
 

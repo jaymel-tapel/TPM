@@ -155,6 +155,12 @@ export type TaskRowData = {
   id: string;
   href: string;
   title: string;
+  /**
+   * The client this is for. Set on lists that span accounts — My Tasks, Today
+   * — and deliberately absent inside one account, where the page has already
+   * said it and every row repeating it is noise.
+   */
+  account?: string | null;
   type: TaskType;
   status: StatusRef;
   priority: Priority;
@@ -192,6 +198,10 @@ export type MemberRowData = {
   href: string | null;
   name: string;
   role: Role;
+  /** Their craft — "Designer", "Copywriter". Shown instead of the role when set. */
+  title?: string | null;
+  /** The accounts they work on. Only worth showing where a roster spans them. */
+  accounts?: string[];
   due: number;
   done: number;
   overdue: number;
@@ -245,6 +255,33 @@ export const LEAVE_STATUS_LABELS: Record<LeaveStatus, string> = {
 
 export const LEAVE_KINDS = Object.keys(LEAVE_KIND_LABELS) as LeaveKind[];
 export const LEAVE_STATUSES = Object.keys(LEAVE_STATUS_LABELS) as LeaveStatus[];
+
+export type CampaignStatus = "planned" | "live" | "wrapped";
+
+export const CAMPAIGN_STATUS_LABELS: Record<CampaignStatus, string> = {
+  planned: "Planned",
+  live: "Live",
+  wrapped: "Wrapped",
+};
+
+export type CampaignRowData = {
+  id: string;
+  href: string;
+  name: string;
+  status: CampaignStatus;
+  /** "12 May – 30 Jun", already formatted: this package has no clock. */
+  rangeText: string;
+  /** How far through its own dates it is, as words — "3 weeks left". */
+  elapsedText: string;
+  total: number;
+  done: number;
+  overdue: number;
+  blocked: number;
+  dueSoon: number;
+  percent: number;
+  /** 0–100, the calendar rather than the work. */
+  elapsed: number;
+};
 
 export type AttentionItemData = {
   severity: "high" | "medium";
@@ -305,7 +342,7 @@ export const STATUS_KINDS = Object.keys(STATUS_KIND_LABELS) as StatusKind[];
 export const PRIORITIES = Object.keys(PRIORITY_LABELS) as Priority[];
 
 /** Whose a document is, as the reader sees it. */
-export type DocScope = "org" | "team";
+export type DocScope = "org" | "account";
 
 /** A document, as it sits in the tree. Documents do not contain documents. */
 export type DocNodeData = {
@@ -314,7 +351,7 @@ export type DocNodeData = {
   title: string;
   scope: DocScope;
   /** The team's name, or null when the document is everyone's. */
-  teamName: string | null;
+  accountName: string | null;
 };
 
 /**
@@ -326,7 +363,7 @@ export type DocFolderData = {
   href: string;
   name: string;
   scope: DocScope;
-  teamName: string | null;
+  accountName: string | null;
   folders: DocFolderData[];
   documents: DocNodeData[];
 };
@@ -337,7 +374,7 @@ export type DocRefData = {
   href: string;
   title: string;
   scope: DocScope;
-  teamName: string | null;
+  accountName: string | null;
   /** Attached deliberately, so it can be detached. */
   attached: boolean;
   /** Named in the description, so it can only be removed by editing the prose. */
@@ -352,7 +389,7 @@ export type DocHitData = {
   href: string;
   title: string;
   scope: DocScope;
-  teamName: string | null;
+  accountName: string | null;
   snippet: SnippetRunData[];
 };
 

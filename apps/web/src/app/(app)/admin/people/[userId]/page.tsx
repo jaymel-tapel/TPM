@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { PageHeader } from "@meridian/ui";
 import { requireSession } from "@/lib/auth";
 import { assertCanAdminister } from "@/lib/permissions";
-import { getPerson, listTeamOptions } from "@/queries/admin";
+import { getPerson, listAccountOptions } from "@/queries/admin";
 import { updatePerson } from "@/actions/admin";
 import { PersonForm } from "@/components/person-form";
 import { ResetPassword } from "@/components/reset-password";
@@ -19,7 +19,7 @@ export default async function EditPersonPage({
   const { user } = await requireSession();
   await assertCanAdminister(user);
 
-  const [person, teams] = await Promise.all([getPerson(userId), listTeamOptions()]);
+  const [person, accounts] = await Promise.all([getPerson(userId), listAccountOptions()]);
   if (!person) notFound();
 
   return (
@@ -28,7 +28,7 @@ export default async function EditPersonPage({
         title={person.name}
         subtitle={
           person.taskCount > 0
-            ? `On ${person.taskCount} ${person.taskCount === 1 ? "task" : "tasks"}. Moving them off a team leaves the work where it is.`
+            ? `On ${person.taskCount} ${person.taskCount === 1 ? "task" : "tasks"}. Moving them off an account leaves the work where it is.`
             : "Not on any work yet."
         }
         aside={
@@ -40,13 +40,14 @@ export default async function EditPersonPage({
       <PersonForm
         action={updatePerson}
         submitLabel="Save changes"
-        teams={teams}
+        accounts={accounts}
         values={{
           id: person.id,
           name: person.name,
           email: person.email,
           role: person.role,
-          teamId: person.teamId ?? teams[0]?.id ?? "",
+          accountIds: person.accounts.map((a) => a.id),
+          title: person.title,
         }}
       />
 
