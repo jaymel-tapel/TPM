@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useOptimistic, useState, useTransition } from "react";
+import { useCallback, useMemo, useOptimistic, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { Check, GripVertical } from "lucide-react";
 import {
@@ -12,9 +12,12 @@ import {
   TouchSensor,
   closestCorners,
   defaultDropAnimationSideEffects,
+  getFirstCollision,
+  pointerWithin,
   useDroppable,
   useSensor,
   useSensors,
+  type CollisionDetection,
   type DragEndEvent,
   type DragOverEvent,
   type DragStartEvent,
@@ -366,6 +369,34 @@ export function TaskBoard({
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
+  /** The last droppable this drag resolved to. See `collide`. */
+  const lastOver = useRef<string | null>(null);
+
+  /*
+   * The pointer first; rects only when it is over nothing.
+   *
+   * Splicing a card into another column moves every rect on the board, so a
+   * purely rect-based answer changes without the pointer having moved: the
+   * source column closes up, the card is suddenly nearest its old home again,
+   * `onDragOver` fires back the other way, and the two columns trade the card
+   * frame after frame until React gives up with "maximum update depth
+   * exceeded". The pointer is the one thing that does not move when the
+   * layout does, which is what breaks the loop.
+   *
+   * `closestCorners` still answers for the gaps between columns, where the
+   * pointer is inside nothing at all, and the last answer is held rather than
+   * letting a card in flight snap back to where it came from.
+   */
+  const collide = useCallback<CollisionDetection>((args) => {
+    const hits = pointerWithin(args);
+    const id = getFirstCollision(hits.length > 0 ? hits : closestCorners(args), "id");
+    if (id != null) {
+      lastOver.current = String(id);
+      return [{ id }];
+    }
+    return lastOver.current ? [{ id: lastOver.current }] : [];
+  }, []);
+
   function submit(taskId: string, to: string, order: string[]) {
     if (!onMove) return;
     const data = new FormData();
@@ -379,6 +410,7 @@ export function TaskBoard({
   }
 
   function handleDragStart(event: DragStartEvent) {
+    lastOver.current = null;
     setActiveId(String(event.active.id));
     setDraft(shown);
   }
@@ -415,6 +447,7 @@ export function TaskBoard({
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     const columns = draft;
+    lastOver.current = null;
     setActiveId(null);
     setDraft(null);
     if (!columns || !over || !onMove) return;
@@ -435,6 +468,7 @@ export function TaskBoard({
   /* Escape puts the board back. The old implementation could not: it cleared
      its drag state before awaiting, so cancelled and pending looked alike. */
   function handleDragCancel() {
+    lastOver.current = null;
     setActiveId(null);
     setDraft(null);
   }
@@ -485,7 +519,7 @@ export function TaskBoard({
        */
       id="task-board"
       sensors={sensors}
-      collisionDetection={closestCorners}
+      collisionDetection={collide}
       /* Splicing a card into another column changes the layout under the
          pointer; stale droppable rects are what that looks like when this is
          left at its default. */
