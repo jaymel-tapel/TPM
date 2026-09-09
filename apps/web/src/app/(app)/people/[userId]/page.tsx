@@ -50,11 +50,11 @@ export default async function PersonPage({
             <p className="mt-1 text-body text-gray-700">{fmtLongDate(now(zone), zone)}</p>
           </div>
         </div>
-        <Link
-          href={viewer.role === "senior_director" ? "/accounts" : "/account"}
-          className="text-body-strong text-blue-700 hover:text-blue-800"
-        >
-          ← Back to account
+        {/* People, not an account: this page is reached from the cross-account
+            list as often as from one client's Team, and a person belongs to
+            several of them anyway. */}
+        <Link href="/people" className="text-body-strong text-blue-700 hover:text-blue-800">
+          ← Back to people
         </Link>
       </div>
 

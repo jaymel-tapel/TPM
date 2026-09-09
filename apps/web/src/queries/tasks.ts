@@ -1,5 +1,5 @@
 import "server-only";
-import { eq, sql } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   boardStatuses,
@@ -144,16 +144,7 @@ export type TaskFilters = {
   priority?: string;
   tag?: string;
   person?: string;
-  /** One client's work. The cross-account screens narrow with this. */
-  account?: string;
-  campaign?: string;
-  /**
-   * `today`, `upcoming` and `completed` deliberately do not overlap: a task
-   * due today and finished appears under Completed and nowhere else. The
-   * alternative is one task in two lists on one screen, which reads as a bug
-   * every time.
-   */
-  range?: "today" | "upcoming" | "week" | "overdue" | "completed" | "all";
+  range?: "today" | "week" | "overdue" | "all";
 };
 
 /** Backs the person drilldown. Kept narrow: filters, not a query builder. */
@@ -179,8 +170,6 @@ export async function listTasks(
     clauses.push(sql`s.kind = ${filters.status}`);
   }
   if (filters.type) clauses.push(sql`k.type = ${filters.type}`);
-  if (filters.account) clauses.push(sql`k.account_id = ${filters.account}::uuid`);
-  if (filters.campaign) clauses.push(sql`k.campaign_id = ${filters.campaign}::uuid`);
   if (filters.priority) clauses.push(sql`k.priority = ${filters.priority}`);
   if (filters.person) {
     clauses.push(
@@ -194,18 +183,7 @@ export async function listTasks(
   }
   switch (filters.range) {
     case "today":
-      clauses.push(
-        sql`k.due_date >= ${start} and k.due_date < ${end} and k.completed_at is null`,
-      );
-      break;
-    case "upcoming":
-      clauses.push(
-        sql`k.due_date >= ${end} and k.due_date < ${new Date(end.getTime() + 6 * 86_400_000)}
-            and k.completed_at is null`,
-      );
-      break;
-    case "completed":
-      clauses.push(sql`k.completed_at >= ${start} and k.completed_at < ${end}`);
+      clauses.push(sql`k.due_date >= ${start} and k.due_date < ${end}`);
       break;
     case "week":
       clauses.push(sql`k.due_date >= ${start} and k.due_date < ${new Date(end.getTime() + 6 * 86_400_000)}`);
@@ -320,24 +298,19 @@ export async function getBoardView(
 }
 
 /** Boards a person can open, newest account first. Drives the sidebar. */
-/**
- * The board an account's work lives on.
- *
- * One per account, made with the account. There is no board picker any more —
- * a board is not a thing anybody navigates to, it is the set of columns the
- * account's Tasks page is drawn with. `position` then `name` so the answer is
- * stable if a second one ever exists.
- */
-export async function getAccountBoard(
-  accountId: string,
-): Promise<{ id: string; name: string } | null> {
-  const [board] = await db
-    .select({ id: boards.id, name: boards.name })
+/** Every board on these accounts, for the rail. Ordered as each account arranged them. */
+export async function listBoardsForAccounts(
+  accountIds: string[],
+): Promise<{ id: string; name: string; accountId: string }[]> {
+  if (accountIds.length === 0) return [];
+  const rows = await db
+    .select({ id: boards.id, name: boards.name, accountId: boards.accountId })
     .from(boards)
-    .where(eq(boards.accountId, accountId))
-    .orderBy(boards.position, boards.name)
-    .limit(1);
-  return board ?? null;
+    .where(inArray(boards.accountId, accountIds))
+    .orderBy(boards.position, boards.name);
+  return rows.filter(
+    (row): row is { id: string; name: string; accountId: string } => row.accountId !== null,
+  );
 }
 
 export async function listSubtasks(parentId: string): Promise<TaskCard[]> {

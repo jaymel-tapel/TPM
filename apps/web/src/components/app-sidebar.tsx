@@ -11,26 +11,23 @@ import {
   ChevronRight,
   ShieldCheck,
   FileText,
-  LayoutDashboard,
-  ListChecks,
   LogOut,
   Users,
   MessageSquare,
+  Plus,
 } from "lucide-react";
 import { ROLE_LABELS, UserAvatar, cn, type InboxItemData, type Role } from "@meridian/ui";
-import type { NavAccount, NavItem } from "@/lib/permissions";
+import type { NavAccount, NavChild, NavItem } from "@/lib/permissions";
 import { logout } from "@/actions/auth";
 import { NotificationBell } from "./notification-bell";
 
 const ICONS: Record<NavItem["icon"], typeof CalendarCheck> = {
   chat: MessageSquare,
   today: CalendarCheck,
-  mytasks: ListChecks,
   docs: FileText,
   accounts: Building2,
   people: Users,
   reports: BarChart3,
-  overview: LayoutDashboard,
   admin: ShieldCheck,
 };
 
@@ -141,22 +138,66 @@ function AccountGroup({
 
       {expanded ? (
         <div className="mt-0.5 space-y-0.5">
-          {account.children.map((child) => {
-            const active = pathname === child.href;
+          {account.children.map((child) => (
+            <SectionRow key={child.href} child={child} pathname={pathname} />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * One of an account's four sections, and — for Tasks — the boards under it.
+ *
+ * Tasks opens whenever you are on one of its boards and stays open, because
+ * moving between a client's boards is the thing people do all day and a list
+ * you have to reopen is a click on every hop. The other three never open,
+ * because they have nothing inside them.
+ */
+function SectionRow({ child, pathname }: { child: NavChild; pathname: string }) {
+  const active = pathname === child.href;
+  const boards = child.children ?? [];
+  const inside = boards.some((board) => pathname === board.href);
+
+  return (
+    <div>
+      <Link
+        href={child.href}
+        aria-current={active ? "page" : undefined}
+        className={cn(
+          "relative block truncate rounded-md py-1.5 pl-12 pr-3 text-body transition-colors",
+          active
+            ? "bg-blue-100 text-blue-900"
+            : "text-gray-700 hover:bg-gray-100 hover:text-gray-1000",
+        )}
+      >
+        {active ? <ActiveBar /> : null}
+        {child.label}
+      </Link>
+
+      {boards.length > 0 && (active || inside) ? (
+        <div className="mt-0.5 space-y-0.5">
+          {boards.map((board) => {
+            const on = pathname === board.href;
             return (
               <Link
-                key={child.href}
-                href={child.href}
-                aria-current={active ? "page" : undefined}
+                key={board.href}
+                href={board.href}
+                // The rail is 224px and a board sits three levels in, so a long
+                // name truncates. The full one is a hover away rather than a
+                // wider rail or a shorter name.
+                title={board.label}
+                aria-current={on ? "page" : undefined}
                 className={cn(
-                  "relative block truncate rounded-md py-1.5 pl-12 pr-3 text-body transition-colors",
-                  active
+                  "relative block truncate rounded-md py-1 pl-16 pr-3 text-caption transition-colors",
+                  on
                     ? "bg-blue-100 text-blue-900"
-                    : "text-gray-700 hover:bg-gray-100 hover:text-gray-1000",
+                    : "text-gray-600 hover:bg-gray-100 hover:text-gray-1000",
                 )}
               >
-                {active ? <ActiveBar /> : null}
-                {child.label}
+                {on ? <ActiveBar /> : null}
+                {board.label}
               </Link>
             );
           })}
@@ -232,27 +273,24 @@ export function AppSidebar({
           <GlobalItem key={link.href} link={link} pathname={pathname} />
         ))}
 
+        {/* With Chat, not below the accounts: the two queues in the product,
+            side by side, and neither of them moves as the client list grows. */}
+        <NotificationBell items={notifications} unread={unread} />
+
         {accounts.length > 0 ? (
           <>
-            {/* A label, not a link. The rail's one heading. */}
-            <p className="mt-6 mb-1 px-3 text-caption-strong uppercase tracking-[0.08em] text-gray-600">
-              Accounts
-            </p>
-            <Link
-              href="/accounts"
-              aria-current={pathname === "/accounts" ? "page" : undefined}
+            {/* A label, not a link. The rail's one heading — and no space above
+                it for the Senior Director, whose rail starts here. */}
+            <p
               className={cn(
-                "relative block truncate rounded-md py-1.5 pl-6 pr-3 text-body transition-colors",
-                pathname === "/accounts"
-                  ? "bg-blue-100 text-blue-900"
-                  : "text-gray-700 hover:bg-gray-100 hover:text-gray-1000",
+                "mb-1 px-3 text-caption-strong uppercase tracking-[0.08em] text-gray-600",
+                before.length > 0 && "mt-6",
               )}
             >
-              {pathname === "/accounts" ? <ActiveBar /> : null}
-              All Accounts
-            </Link>
+              Accounts
+            </p>
 
-            <div className="mt-0.5 space-y-0.5">
+            <div className="space-y-0.5">
               {shown.map((account) => (
                 <AccountGroup
                   key={account.id}
@@ -265,6 +303,28 @@ export function AppSidebar({
                   onToggle={() => setOpen(openId === account.id ? null : account.id)}
                 />
               ))}
+
+              {/*
+                Only when the cap actually hides something. An "All Accounts"
+                row sat here permanently and was a click past the list to reach
+                a longer version of the same list — for almost everybody, the
+                rail already shows every client they have.
+              */}
+              {accounts.length > shown.length ? (
+                <Link
+                  href="/accounts"
+                  aria-current={pathname === "/accounts" ? "page" : undefined}
+                  className={cn(
+                    "relative block truncate rounded-md py-1.5 pl-6 pr-3 text-caption transition-colors",
+                    pathname === "/accounts"
+                      ? "bg-blue-100 text-blue-900"
+                      : "text-gray-600 hover:bg-gray-100 hover:text-gray-1000",
+                  )}
+                >
+                  {pathname === "/accounts" ? <ActiveBar /> : null}
+                  {accounts.length - shown.length} more…
+                </Link>
+              ) : null}
             </div>
           </>
         ) : null}
@@ -279,13 +339,9 @@ export function AppSidebar({
       </nav>
 
       <div className="shrink-0 border-t border-gray-300 p-3">
-        {/* Above the account, below the navigation: the last thing read on the
-            way down, and the one row whose job is to be noticed. */}
-        <NotificationBell items={notifications} unread={unread} />
-
         {/* Reads as a rail item rather than an icon in a corner: it is the
             one thing down here you would go looking for by name. */}
-        <form action={logout} className="mt-3">
+        <form action={logout}>
           <button
             type="submit"
             className={cn(

@@ -141,7 +141,7 @@ export async function getDepartmentAttention(
    *
    * With two teams this could push at most two items; with five accounts — and
    * a department where a bad week moves most of them together — it filled all
-   * four slots on `/overview` and buried both the weakest-work signal and
+   * four slots on `/accounts` and buried both the weakest-work signal and
    * every person-level one. A list of five things all saying "down a bit" is
    * not a list of exceptions, it is the trend chart again in words.
    */

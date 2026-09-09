@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { demoSwitcherEnabled, getSession } from "@/lib/auth";
-import { accountNav, navFor, type NavAccount } from "@/lib/permissions";
+import { accountNav, canViewAccount, navFor, type NavAccount } from "@/lib/permissions";
 import { railAccountsFor } from "@/queries/accounts";
+import { listBoardsForAccounts } from "@/queries/tasks";
 import { getInbox, getUnreadCount } from "@/queries/notifications";
 import { getUnreadTotal } from "@/queries/chat";
 import { toInboxItem } from "@/lib/present";
@@ -24,11 +25,17 @@ export default async function AppLayout({ children }: { children: React.ReactNod
    * page you are on.
    */
   const rail = await railAccountsFor(session.user);
+  const boards = await listBoardsForAccounts(rail.map((account) => account.id));
   const accounts: NavAccount[] = rail.map((account) => ({
     id: account.id,
     name: account.name,
     href: `/accounts/${account.id}`,
-    children: accountNav(account.id),
+    children: accountNav(
+      account.id,
+      boards.filter((board) => board.accountId === account.id),
+    ),
+    // Naming a client's pipelines is the job of whoever runs that client.
+    canAddBoard: canViewAccount(session.user, account.id),
   }));
 
   // The bell's contents come down with the page, like the rail's accounts — no
@@ -44,7 +51,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // bell's: "Sarah said hi" and "you were assigned a task" are different
   // errands, and merging them would stop the inbox being the place for things
   // that need doing.
-  const chat = after.find((l) => l.href === "/chat");
+  const chat = before.find((l) => l.href === "/chat");
   if (chat) chat.count = chatUnread;
 
   return (

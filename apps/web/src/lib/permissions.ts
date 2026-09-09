@@ -29,18 +29,26 @@ export const isSenior = (u: User) => u.role === "senior_director";
  */
 export type NavIcon =
   | "today"
-  | "mytasks"
   | "docs"
   | "accounts"
   | "people"
   | "reports"
-  | "overview"
   | "admin"
   | "chat";
 
 export type NavChild = {
   href: string;
   label: string;
+  /**
+   * One more level, and only under Tasks: an account's boards.
+   *
+   * A board is still not a destination in its own right — it is which set of
+   * columns the client's work is drawn with, and there is more than one
+   * because a client's creative pipeline and its media pipeline do not share
+   * stages. Listing them under Tasks says exactly that. Nothing else in the
+   * rail nests this far, and nothing else should.
+   */
+  children?: NavChild[];
 };
 
 export type NavItem = {
@@ -74,14 +82,31 @@ export type NavAccount = {
   name: string;
   href: string;
   children: NavChild[];
+  /** Whether this reader may add a board here — the director of it, or the SD. */
+  canAddBoard: boolean;
 };
 
-/** The four pages every account has. More than four is a workspace. */
-export function accountNav(accountId: string): NavChild[] {
+/**
+ * The four pages every account has. More than four is a workspace.
+ *
+ * Tasks is the one that opens further, into the account's boards. The boards
+ * are passed in rather than looked up — this module runs no queries.
+ */
+export function accountNav(
+  accountId: string,
+  boards: { id: string; name: string }[] = [],
+): NavChild[] {
   const base = `/accounts/${accountId}`;
   return [
     { href: base, label: "Overview" },
-    { href: `${base}/tasks`, label: "Tasks" },
+    {
+      href: `${base}/tasks`,
+      label: "Tasks",
+      children: boards.map((board) => ({
+        href: `${base}/tasks/${board.id}`,
+        label: board.name,
+      })),
+    },
     { href: `${base}/campaigns`, label: "Campaigns" },
     { href: `${base}/team`, label: "Team" },
   ];
@@ -101,32 +126,45 @@ export function accountNav(accountId: string): NavChild[] {
  * same client names.
  */
 export function navFor(role: Role): { before: NavItem[]; after: NavItem[] } {
-  const overview: NavItem = { href: "/overview", label: "Overview", icon: "overview" };
-  const today: NavItem = { href: "/today", label: "Today", icon: "today" };
-  const mine: NavItem = { href: "/my-tasks", label: "My Tasks", icon: "mytasks" };
+  /*
+   * Above the accounts: the two things you open without having a client in
+   * mind. Your own day, and the conversation. Both are places you go *from*,
+   * so they sit where the eye lands first and never move as the account list
+   * grows underneath them.
+   *
+   * Chat is here rather than at the foot for one concrete reason: it carries
+   * the rail's only unread badge, and a badge below a list that changes length
+   * is a badge that moves.
+   */
+  const before: NavItem[] = [
+    { href: "/today", label: "Today", icon: "today" },
+    { href: "/chat", label: "Chat", icon: "chat" },
+  ];
 
+  /*
+   * Below them: the ways of reading across every client at once. People and
+   * Reports answer questions about the work; Docs is somewhere else you go,
+   * so it starts its own group.
+   */
   const after: NavItem[] = [
     { href: "/people", label: "People", icon: "people" },
     ...(role === "team_member"
       ? []
       : [{ href: "/reports", label: "Reports", icon: "reports" as const }]),
-    { href: "/chat", label: "Chat", icon: "chat", gap: true },
-    { href: "/docs", label: "Docs", icon: "docs" },
+    { href: "/docs", label: "Docs", icon: "docs", gap: true },
     ...(role === "senior_director"
       ? [{ href: "/admin", label: "Admin", icon: "admin" as const }]
       : []),
   ];
 
-  /*
-   * The Senior Director has no day of their own — no work is assigned to them
-   * — so Today and My Tasks would open on an empty page every morning.
-   */
-  const before = role === "senior_director" ? [overview] : [overview, today, mine];
   return { before, after };
 }
 
 export function homeFor(role: Role): string {
-  return role === "senior_director" ? "/overview" : "/today";
+  // The Senior Director carries no work of their own, so their morning starts
+  // on the clients rather than on a day with nothing in it. They still have a
+  // Today in the rail — it is theirs to open, not the thing they open onto.
+  return role === "senior_director" ? "/accounts" : "/today";
 }
 
 /**

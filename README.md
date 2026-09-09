@@ -15,12 +15,13 @@ off is the **account**: a client it works for. People work on as many accounts
 as they work on — a designer covers Volvo and MG, an Account Director carries
 three — which is the one thing a team-shaped product could not say.
 
-The rail says the same thing. Global items (Overview, Today, My Tasks, People,
-Reports) work across every client you can reach; each account expands into the
-four pages that are only about that client. There is exactly one client
-hierarchy in the navigation, and **a board is not part of it** — a board is the
-set of columns an account's Tasks page is drawn with, and Board is a way of
-looking at Tasks rather than a place of its own.
+The rail says the same thing. Today, Chat and Notifications sit above; People,
+Reports and Docs below; and between them each account expands into the four
+pages that are only about that client — Overview, Tasks, Campaigns, Team. Tasks
+opens once more, into that client's boards, because their creative and their
+media work move through different stages and one set of columns cannot describe
+both. **Board is a view mode**, next to List, rather than a place of its own,
+and there is exactly one client hierarchy in the navigation.
 
 ---
 
@@ -80,15 +81,13 @@ levels from a single login. It is gated behind
 |---|---|---|
 | `/design` | **Design system** | Every component, in every state. No auth required. |
 | `/today` | **My Day** | What's left, what's done, one honest percentage. |
-| `/my-tasks` | **My Tasks** | Everything on you, across every client you work on. |
-| `/accounts` | **Accounts** | Every client the reader works on, side by side. |
+| `/accounts` | **Accounts** | Every client the reader works on, on one axis. The Senior Director's department hero and exceptions sit on top of it. |
 | `/accounts/[id]` | **Account → Overview** | How this client is doing today: the counts, what is running, what needs attention. |
-| `/accounts/[id]/tasks` | Account → Tasks | The client's work as a list or a board, filtered by campaign, person or type. |
+| `/accounts/[id]/tasks/[boardId]` | Account → Tasks | One of the client's boards, as a list or a board, filtered by campaign, person or type. |
 | `/accounts/[id]/campaigns` | Account → Campaigns | What is running, booked and behind them. |
 | `/accounts/[id]/team` | Account → Team | Who works on this client, and what they are carrying. |
 | `/people`, `/people/[id]` | People | Who is doing what across the agency, and anyone's day. |
 | `/leave` | Leave | File for time off, and settle what is waiting on you. |
-| `/overview` | **Department** | The Senior Director's hero, account comparison and exceptions. |
 | `/reports` | Report | Six metrics and exactly one chart, one account at a time for a director. |
 | `/docs`, `/chat` | Docs, Chat | Documents scoped to an account or the department; direct messages and groups. |
 | `/tasks/new`, `/tasks/[id]` | Task | Eight fields. Nothing else to configure. |

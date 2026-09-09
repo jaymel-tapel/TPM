@@ -11,11 +11,13 @@ import {
 import { openNotification } from "@/actions/notifications";
 
 /**
- * The bell, at the foot of the rail above the account.
+ * The bell, in the rail beside Chat.
  *
  * It reads as a row rather than an icon — a bare bell tucked beside the
  * wordmark was easy to miss, and this is the one control whose whole job is to
- * be noticed. Labelled, full width, with the count where a count belongs.
+ * be noticed. Labelled, full width, with the count where a count belongs. It
+ * sits with Chat because those are the product's two queues, and above the
+ * accounts because neither of them should move as the client list grows.
  *
  * Its contents are rendered on the server and handed down as props — the same
  * way the rail gets its boards — so opening it costs nothing and there is no

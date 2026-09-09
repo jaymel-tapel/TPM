@@ -1,30 +1,79 @@
 "use server";
 
+import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { and, asc, count, eq, max } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { boardStatuses, statusKindEnum, tasks } from "@/db/schema";
+import { boardStatuses, boards, statusKindEnum, tasks } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
-import { assertCanManageBoard } from "@/lib/permissions";
+import { assertCanManageAccount, assertCanManageBoard } from "@/lib/permissions";
 
 const name = z.string().trim().min(1, "Give it a name").max(60);
 
 export type BoardFormState = { error?: string } | null;
 
+/** The columns a board starts with — the four the product had before. */
+const DEFAULT_COLUMNS = [
+  { name: "To Do", kind: "open" as const, position: 0 },
+  { name: "In Progress", kind: "open" as const, position: 1 },
+  { name: "Done", kind: "done" as const, position: 2 },
+  { name: "Blocked", kind: "blocked" as const, position: 3 },
+];
+
 /**
- * Nobody creates a board any more.
+ * A new board on one account.
  *
- * An account gets exactly one when the account is made — see `createAccount`
- * in `actions/admin.ts` — and a board is not a place, it is the columns that
- * account's Tasks page is drawn with. Creating, renaming and deleting them
- * were the three verbs that made a board look like a workspace object, and
- * they went with the Boards section.
- *
- * The columns themselves are still an Account Director's to shape, at
- * `/accounts/[id]/columns`. That is the part the brief always allowed: naming
- * the stages a client's work moves through, not building a place to put it.
+ * A client has more than one because their pipelines do not share stages —
+ * creative moves through concept and rounds, media through setup and
+ * optimisation — and forcing both into one set of columns makes the columns
+ * mean nothing. So: boards are per account, made by the director who runs it,
+ * and they live under that account's Tasks rather than in a section of their
+ * own. There is no department-wide board and no board picker in the rail's top
+ * level; that was the shape that gave every client two homes.
  */
+export async function createBoard(
+  _prev: BoardFormState,
+  formData: FormData,
+): Promise<BoardFormState> {
+  const viewer = await requireUser();
+  const accountId = String(formData.get("accountId") ?? "");
+  const parsed = name.safeParse(formData.get("name"));
+  if (!parsed.success) return { error: parsed.error.issues[0]!.message };
+
+  // Directing it, not merely working on it — the same rule that gates the
+  // columns. Being on a client lets you move a card, not invent a pipeline.
+  await assertCanManageAccount(viewer, accountId);
+
+  const [{ next }] = await db
+    .select({ next: max(boards.position) })
+    .from(boards)
+    .where(eq(boards.accountId, accountId));
+
+  let board;
+  try {
+    [board] = await db
+      .insert(boards)
+      .values({
+        accountId,
+        name: parsed.data,
+        position: (next ?? -1) + 1,
+        createdBy: viewer.id,
+      })
+      .returning();
+  } catch {
+    return { error: "That account already has a board with that name." };
+  }
+
+  // A board with no columns cannot hold work, so it never exists in that state.
+  await db
+    .insert(boardStatuses)
+    .values(DEFAULT_COLUMNS.map((c) => ({ ...c, boardId: board!.id })));
+
+  revalidatePath("/", "layout");
+  redirect(`/accounts/${accountId}/tasks/${board!.id}/columns`);
+}
+
 const columnInput = z.object({
   name,
   kind: z.enum(statusKindEnum.enumValues),

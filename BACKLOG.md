@@ -168,21 +168,33 @@ client's name appeared twice — once under Accounts and again under Boards, wit
 its board nested beneath. Two hierarchies describing one thing, and the second
 one implied a board was somewhere you go.
 
-It is not. A board is the set of columns an account's Tasks page is drawn with.
-So: **Tasks is the section, Board is a view mode**, next to List, and the rail
-carries accounts alone. Each account expands into exactly four pages — Overview,
-Tasks, Campaigns, Team — and one account is open at a time, because five
-expanded clients is a column you scroll past to reach Docs.
+It is not a place *beside* the client. A board is which set of columns that
+client's work is drawn with, so it belongs **inside** the account: the rail
+carries accounts, each opens into exactly four pages — Overview, Tasks,
+Campaigns, Team — and Tasks opens once more into that account's boards. One
+account is expanded at a time, because five expanded clients is a column you
+scroll past to reach Docs.
+
+**A client has more than one board**, because their pipelines do not share
+stages: creative work moves through concepts and rounds, media work through
+setup and optimisation, and forcing both into one set of columns is what makes
+columns stop meaning anything. So the page is one board at a time — two boards
+have two sets of columns and there is no honest way to draw both at once — and
+**Board is a view mode** on it, next to List.
+
+Three levels is one more than the rail had, and it is the only place it goes
+that deep. Campaigns deliberately do not nest here: they are dated pushes
+inside a client, they live on the Campaigns page, and putting them in the rail
+would be the second hierarchy all over again.
 
 Consequences worth stating:
 
-- **Nobody creates a board.** An account gets one when the account is made, in
-  `createAccount`. `createBoard`, `renameBoard` and `deleteBoard` were the three
-  verbs that made a board look like a workspace object and they are gone; the
-  columns are still an Account Director's to shape, at `/accounts/[id]/columns`,
-  which is the part the brief always allowed. This finally makes true the thing
-  the *"No user-created boards"* paragraph claimed and the code had stopped
-  doing.
+- **A board is made inside a client, by whoever runs it.** Not from a Boards
+  section, not for the department, and never by somebody who merely works on
+  the account — `assertCanManageAccount`, the same rule that gates the columns.
+  `renameBoard` and `deleteBoard` are gone: the name is only ever read inside
+  the client it belongs to, and deleting a pipeline with work on it is not a
+  button, it is a conversation.
 - **Clicking a client both opens and navigates.** The name goes to its Overview
   and reveals the four pages; the chevron only reveals. A row that did one but
   not the other was the more surprising of the two options every time.
@@ -197,6 +209,20 @@ Consequences worth stating:
 - **Cross-account lists name the client on the row; an account's own list does
   not.** `TaskRowData.account` is set on My Tasks and Today and left off inside
   an account, where every row would repeat the page's own title.
+
+**Three global items became one.** The rail carried Overview, Today and My
+Tasks above the accounts, and two of them earned their place badly: My Tasks
+was Today's four sections without the day plan, and Overview was All Accounts
+with a hero on top. Today keeps the sections *and* the plan; the department
+hero and the exceptions list moved onto All Accounts, above the rows they were
+already describing. The Senior Director gets no Today at all — no work is
+assigned to them, so it would open empty every morning — and their home is
+Accounts.
+
+**"All Accounts" is not a rail row.** It was a click past the list of clients
+to reach a longer version of the same list, and for almost everybody the rail
+already shows every account they have. It appears as a quiet "N more…" only
+when the five-account cap is actually hiding something.
 
 Campaigns are real now: three per client in the seed, matched to tasks by the
 calendar rather than at random, so a campaign that ended in August cannot

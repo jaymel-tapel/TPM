@@ -448,27 +448,42 @@ async function main() {
    * "Volvo" sitting under a rail group called "Volvo" reads as a mistake — one
    * line saying the same word twice.
    */
-  const BOARD_NAME: Record<string, string> = {
-    Volvo: "Brand & Creative",
-    MG: "Always-On Social",
-    Kia: "Campaign Delivery",
-    Peugeot: "Performance & Media",
-    BYD: "Content & Reporting",
+  /*
+   * Two per client, because their pipelines do not share stages. Creative work
+   * moves through concepts and rounds; media work through setup and
+   * optimisation. Forcing both into one set of columns is what makes columns
+   * stop meaning anything, and it is the reason a board is per-account rather
+   * than one-per-account.
+   */
+  const BOARD_NAMES = ["Brand & Creative", "Performance & Media"] as const;
+
+  /** Which board a person's work lands on, from what they do. */
+  const BOARD_FOR_TITLE: Record<string, (typeof BOARD_NAMES)[number]> = {
+    Designer: "Brand & Creative",
+    "Motion Designer": "Brand & Creative",
+    Copywriter: "Brand & Creative",
+    Strategist: "Brand & Creative",
+    "Account Manager": "Brand & Creative",
+    "Account Director": "Brand & Creative",
+    "Paid Media": "Performance & Media",
+    Analyst: "Performance & Media",
   };
 
   const boardRows = await db
     .insert(boards)
     .values(
-      CLIENTS.map((name) => ({
-        accountId: accountId(name),
-        name: BOARD_NAME[name]!,
-        position: 0,
-        createdBy: idOf(BOOK.A.includes(name as never) ? "Sarah Lim" : "Michael Ortega"),
-      })),
+      CLIENTS.flatMap((name) =>
+        BOARD_NAMES.map((boardName, position) => ({
+          accountId: accountId(name),
+          name: boardName,
+          position,
+          createdBy: idOf(BOOK.A.includes(name as never) ? "Sarah Lim" : "Michael Ortega"),
+        })),
+      ),
     )
     .returning();
-  const boardOf = (client: string) =>
-    boardRows.find((b) => b.accountId === accountId(client))!;
+  const boardOf = (client: string, boardName: string) =>
+    boardRows.find((b) => b.accountId === accountId(client) && b.name === boardName)!;
 
   const DEFAULT_COLUMNS = [
     { name: "To Do", kind: "open" as const, position: 0 },
@@ -485,8 +500,8 @@ async function main() {
     .returning();
 
   /** Board + legacy status name -> the status row to file work under. */
-  const statusOf = (client: string, name: string) =>
-    statusRows.find((r) => r.boardId === boardOf(client).id && r.name === name)!;
+  const statusOf = (client: string, boardName: string, name: string) =>
+    statusRows.find((r) => r.boardId === boardOf(client, boardName).id && r.name === name)!;
 
   /*
    * A campaign is a fortnight of work with a name and an end, which is the
@@ -561,6 +576,8 @@ async function main() {
     due: Date;
     /** The client this work is for, by name. */
     account: string;
+    /** Which of that client's boards it is filed on. */
+    board: string;
     createdBy: string;
     assignees: string[];
     status: SeedStatus;
@@ -574,8 +591,8 @@ async function main() {
       description: opts.description ?? null,
       type: opts.type,
       priority: opts.priority,
-      boardId: boardOf(opts.account).id,
-      statusId: statusOf(opts.account, COLUMN_FOR[opts.status]).id,
+      boardId: boardOf(opts.account, opts.board).id,
+      statusId: statusOf(opts.account, opts.board, COLUMN_FOR[opts.status]).id,
       dueDate: opts.due,
       createdBy: opts.createdBy,
       accountId: accountId(opts.account),
@@ -658,6 +675,9 @@ async function main() {
        * composite key on `tasks` would refuse it anyway.
        */
       const clientFor = () => (mine.length === 1 || chance(0.7) ? mine[0]! : pick(mine.slice(1)));
+      // A designer's work goes on the creative board, a media buyer's on the
+      // media one. The split is the whole reason a client has two.
+      const boardFor = BOARD_FOR_TITLE[person.title ?? ""] ?? BOARD_NAMES[0];
       const podDirector = person.pod === "A" ? "Sarah Lim" : "Michael Ortega";
       let count = intBetween(person.perDay[0], person.perDay[1]);
       if (weekend && !isToday) count = Math.max(0, count - 3);
@@ -694,6 +714,7 @@ async function main() {
           priority: pickPriority(),
           due,
           account: client,
+          board: boardFor,
           createdBy: chance(0.75) ? uid : idOf(podDirector),
           assignees: [uid],
           status: outcome.status,
@@ -736,6 +757,8 @@ async function main() {
         priority: chance(0.5) ? "high" : "normal",
         due,
         account: client,
+        // Shared work sits with whatever most of the group does.
+        board: BOARD_FOR_TITLE[group[0]?.title ?? ""] ?? BOARD_NAMES[0],
         createdBy: idOf(ad),
         assignees: group.map((p) => idOf(p.name)),
         status: completedAt ? "done" : chance(0.5) ? "in_progress" : "todo",
@@ -758,6 +781,7 @@ async function main() {
       priority: "high",
       due: new Date(wallClock.getTime() + between(0.5, 1.8) * HOUR),
       account: client,
+      board: BOARD_FOR_TITLE[person.title ?? ""] ?? BOARD_NAMES[0],
       createdBy: idOf(person.pod === "A" ? "Sarah Lim" : "Michael Ortega"),
       assignees: [idOf(name)],
       status: "todo",

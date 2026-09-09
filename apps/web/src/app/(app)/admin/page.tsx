@@ -132,8 +132,8 @@ export default async function AdminPage() {
       </p>
 
       <div className="mt-6">
-        <ButtonLink href="/overview" variant="ghost">
-          ← Back to overview
+        <ButtonLink href="/accounts" variant="ghost">
+          ← Back to accounts
         </ButtonLink>
       </div>
     </>
