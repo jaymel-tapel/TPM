@@ -82,7 +82,7 @@ export const accounts = pgTable("accounts", {
  * and a single `users.account_id` could only ever tell one of those stories.
  * Every permission in the app reads membership through here.
  *
- * Membership is not assignment. Belonging to Nike says you may see Nike's
+ * Membership is not assignment. Belonging to Volvo says you may see Volvo's
  * work; being on a task says the work is yours.
  */
 export const accountMembers = pgTable(
@@ -116,7 +116,7 @@ export const users = pgTable(
      * What they do, in their own words — "Designer", "Copywriter", "Paid
      * Media". A craft is a fact about the person, not about one client, so it
      * sits here rather than on the membership row: nobody is a designer on
-     * Nike and something else on Adidas. Null until somebody fills it in.
+     * Volvo and something else on MG. Null until somebody fills it in.
      */
     title: text("title"),
     /*
@@ -224,7 +224,7 @@ export const campaignStatusEnum = pgEnum("campaign_status", [
 ]);
 
 /**
- * A time-boxed push inside one account — "Summer Launch", "Nike Run Club".
+ * A time-boxed push inside one account — "Summer Launch", "Volvo Run Club".
  *
  * Deliberately shallow. A campaign holds tasks and nothing else: no phases, no
  * sub-campaigns, no per-campaign fields. It exists to give a fortnight of work
@@ -307,8 +307,8 @@ export const tasks = pgTable(
      *
      * `set null` rather than cascade: wrapping up a campaign must not delete
      * the work done for it. The composite key below proves the campaign and
-     * the task belong to the same account, so a Nike task can never carry an
-     * Adidas campaign.
+     * the task belong to the same account, so a Volvo task can never carry an
+     * MG campaign.
      */
     campaignId: uuid("campaign_id"),
     /*

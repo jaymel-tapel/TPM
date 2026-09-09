@@ -10,7 +10,6 @@ import {
   addColumn,
   deleteColumn,
   moveColumn,
-  renameBoard,
   updateColumn,
   type BoardFormState,
 } from "@/actions/boards";
@@ -48,40 +47,23 @@ function KindSelect({ name, defaultValue }: { name: string; defaultValue?: strin
   );
 }
 
+/*
+ * The board's own name went with the Boards section. Nothing displays it any
+ * more — the page it draws is called Tasks and sits under the client's name —
+ * so a field for renaming it was a control with no visible effect.
+ */
 export function BoardSettings({
   boardId,
-  boardName,
   columns,
 }: {
   boardId: string;
-  boardName: string;
   columns: BoardStatus[];
 }) {
-  const [renameState, rename] = useActionState(renameBoard, null);
   const [addState, add] = useActionState(addColumn, null);
   const [editState, edit] = useActionState(updateColumn, null);
 
   return (
     <div className="space-y-10">
-      <section>
-        <SectionHeader>Board</SectionHeader>
-        <Panel className="p-6">
-          <form action={rename} className="flex flex-wrap items-end gap-3">
-            <input type="hidden" name="boardId" value={boardId} />
-            <div className="min-w-56 flex-1">
-              <Label htmlFor="board-name" className={label}>
-                Name
-              </Label>
-              <Input id="board-name" name="name" defaultValue={boardName} required />
-            </div>
-            <Button type="submit" variant="secondary">
-              Rename
-            </Button>
-          </form>
-          <Error state={renameState} />
-        </Panel>
-      </section>
-
       <section>
         <SectionHeader aside="Kind is what reports read; the name is what people read">
           Columns

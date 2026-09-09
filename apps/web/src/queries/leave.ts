@@ -74,7 +74,7 @@ function readableNote(viewer: Viewer): SQL {
    * A director reads the note of anybody on an account they direct — which is
    * exactly the set they may decide for, and the note exists to be weighed
    * when deciding. `directedIds`, not `accountIds`: working alongside somebody
-   * on Nike is not a reason to learn why they are off.
+   * on Volvo is not a reason to learn why they are off.
    */
   if (viewer.role === "account_director" && viewer.directedIds.length > 0) {
     return sql`case when l.user_id = ${viewer.id}::uuid or ${worksOnAny(viewer.directedIds)}
@@ -144,16 +144,17 @@ export async function listAccountLeave(
  * today, and the day boundary belongs to whoever is asking.
  */
 export async function awayOn(
-  accountIds: string[],
+  /** Whose rosters to look at. `null` is everybody — the department-wide read. */
+  accountIds: string[] | null,
   day: string,
 ): Promise<Map<string, AwayMark>> {
-  if (accountIds.length === 0) return new Map();
+  if (accountIds !== null && accountIds.length === 0) return new Map();
 
   const result = await db.execute(sql`
     select l.user_id as "userId", l.kind, l.half, l.end_date as "endDate"
     from leave_requests l
     join users u on u.id = l.user_id
-    where ${worksOnAny(accountIds)}
+    where ${accountIds === null ? sql`true` : worksOnAny(accountIds)}
       and l.status = 'approved'
       and l.start_date <= ${day}::date
       and l.end_date >= ${day}::date

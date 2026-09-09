@@ -6,28 +6,29 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   BarChart3,
+  Building2,
   CalendarCheck,
   ChevronRight,
   ShieldCheck,
-  Columns3,
   FileText,
   LayoutDashboard,
+  ListChecks,
   LogOut,
-  Plus,
-  Building2,
+  Users,
   MessageSquare,
 } from "lucide-react";
 import { ROLE_LABELS, UserAvatar, cn, type InboxItemData, type Role } from "@meridian/ui";
-import type { NavChild, NavIcon, NavItem } from "@/lib/permissions";
+import type { NavAccount, NavItem } from "@/lib/permissions";
 import { logout } from "@/actions/auth";
 import { NotificationBell } from "./notification-bell";
 
-const ICONS: Record<NavIcon, typeof CalendarCheck> = {
+const ICONS: Record<NavItem["icon"], typeof CalendarCheck> = {
   chat: MessageSquare,
   today: CalendarCheck,
-  boards: Columns3,
+  mytasks: ListChecks,
   docs: FileText,
   accounts: Building2,
+  people: Users,
   reports: BarChart3,
   overview: LayoutDashboard,
   admin: ShieldCheck,
@@ -39,9 +40,17 @@ const ICONS: Record<NavIcon, typeof CalendarCheck> = {
  * it stays in the same place on every screen, and the working area gets the
  * full width of the window.
  *
+ * Two levels, and the split is the information architecture. Global items work
+ * across every client the reader can reach; an account is a container, and
+ * everything inside one is about that client alone. There is exactly one
+ * client hierarchy in here.
+ *
  * The active item is marked by a bar on the leading edge as well as a tint, so
  * it survives being read at a glance or without colour.
  */
+/** Three to five, per the handoff. Five is where a scrollable rail starts. */
+const RAIL_LIMIT = 5;
+
 const itemStyles =
   "relative flex items-center gap-3 rounded-md px-3 py-2 text-body-strong transition-colors";
 
@@ -51,214 +60,106 @@ function ActiveBar() {
   );
 }
 
-/**
- * A row under a nav group, and — for the Senior Director — the accounts that hold
- * the boards beneath it.
- *
- * Two levels and no more. One flat list of every account's boards is a list you
- * read rather than scan; a third level would be the nested spaces the brief
- * refuses.
- */
-/** Whether the page you are on is this group, or anything inside it. */
-function holdsPath(child: NavChild, pathname: string): boolean {
-  if (child.href === pathname) return true;
-  return (child.children ?? []).some((c) => holdsPath(c, pathname));
-}
-
-function NavChildRow({
-  child,
-  pathname,
-  depth = 0,
-}: {
-  child: NavChild;
-  pathname: string;
-  depth?: number;
-}) {
-  const active = pathname === child.href;
-  const hasChildren = Boolean(child.children?.length);
-  /*
-   * Groups start closed, and open themselves around wherever you are.
-   *
-   * The Senior Director is the only person who gets this second level, and
-   * every account open at once buried Docs and Reports below the fold — the rail
-   * became a list of every board in the department. Closed, it is a list of
-   * accounts, which is how that person thinks about it.
-   *
-   * Null until it is touched, so until then the answer comes from the path:
-   * following a link to a board from anywhere else opens the account holding it
-   * rather than leaving the current page hidden inside a shut group.
-   */
-  const [open, setOpen] = useState<boolean | null>(null);
-  const expanded = open ?? holdsPath(child, pathname);
-
-  // pl-10 at the first level lines up under the parent's label rather than its
-  // icon; each level after that steps in by one more.
-  const indent = depth === 0 ? "pl-10" : "pl-14";
-  const shell = cn(
-    "relative block rounded-md py-1.5 pr-3 text-body transition-colors",
-    indent,
-    active
-      ? "bg-blue-100 text-blue-900"
-      : "text-gray-700 hover:bg-gray-100 hover:text-gray-1000",
-  );
-
-  const body = (
-    <>
-      {active ? <ActiveBar /> : null}
-      <span className="block truncate">{child.label}</span>
-      {/* A quieter second line — the rail is 224px and the label deserves it. */}
-      {child.note ? (
-        <span className="block truncate text-caption text-gray-600">{child.note}</span>
-      ) : null}
-    </>
-  );
-
-  if (!hasChildren) {
-    return child.href ? (
-      <Link href={child.href} aria-current={active ? "page" : undefined} className={shell}>
-        {body}
-      </Link>
-    ) : (
-      <div className={shell}>{body}</div>
-    );
-  }
+function GlobalItem({ link, pathname }: { link: NavItem; pathname: string }) {
+  const Icon = ICONS[link.icon];
+  const active = pathname === link.href || pathname.startsWith(`${link.href}/`);
 
   return (
-    <div>
-      <button
-        type="button"
-        onClick={() => setOpen(!expanded)}
-        aria-expanded={expanded}
-        className={cn(shell, "flex w-full items-center gap-2 text-left")}
-      >
-        <ChevronRight
-          className={cn("size-3.5 shrink-0 transition-transform", expanded && "rotate-90")}
-          strokeWidth={2}
-        />
-        <span className="min-w-0 flex-1 truncate">{child.label}</span>
-      </button>
-
-      {expanded ? (
-        <div className="mt-0.5 space-y-0.5">
-          {child.children!.map((grandchild) => (
-            <NavChildRow
-              key={grandchild.href ?? grandchild.label}
-              child={grandchild}
-              pathname={pathname}
-              depth={depth + 1}
-            />
-          ))}
-        </div>
+    <Link
+      href={link.href}
+      aria-current={active ? "page" : undefined}
+      className={cn(
+        itemStyles,
+        active
+          ? "bg-blue-100 text-blue-900"
+          : "text-gray-700 hover:bg-gray-100 hover:text-gray-1000",
+      )}
+    >
+      {active ? <ActiveBar /> : null}
+      <Icon className="size-4 shrink-0" strokeWidth={1.75} />
+      <span className="min-w-0 flex-1 truncate">{link.label}</span>
+      {/* The one badge in the navigation. Chat is a queue; everywhere else in
+          the rail is a place, and a count on a place means nothing. */}
+      {link.count ? (
+        <span className="tabular grid h-5 min-w-5 place-items-center rounded-full bg-blue-700 px-1.5 text-caption-strong text-white">
+          {link.count > 9 ? "9+" : link.count}
+        </span>
       ) : null}
-    </div>
+    </Link>
   );
 }
 
-function NavGroup({
-  link,
+/**
+ * One client, and the four pages inside it.
+ *
+ * The name both navigates and opens: clicking MG takes you to its Overview
+ * *and* reveals the rest, which is what anybody means by clicking a client.
+ * The chevron only opens, for looking without leaving.
+ *
+ * The parent row is never tinted. Overview is one of the four children, so on
+ * the account's own front page that child carries the active state — tinting
+ * the client's name as well would mark two rows for one page and make the
+ * account look like a fifth destination alongside its own sections.
+ */
+function AccountGroup({
+  account,
   pathname,
-  addHref,
-  addLabel,
+  expanded,
+  onOpen,
+  onToggle,
 }: {
-  link: NavItem;
+  account: NavAccount;
   pathname: string;
-  /** Renders a create affordance at the foot of an expanded group. */
-  addHref?: string;
-  addLabel?: string;
+  expanded: boolean;
+  onOpen: () => void;
+  onToggle: () => void;
 }) {
-  const Icon = ICONS[link.icon];
-  const onSelf = pathname === link.href;
-  const inSection = onSelf || pathname.startsWith(`${link.href}/`);
-  const hasChildren = Boolean(link.children?.length);
-
-  /*
-   * Open by default, not "open because you are already inside it".
-   *
-   * The earlier behaviour followed the route, which meant the one moment you
-   * could not see the other boards was the moment you were on a board and
-   * wanted to switch. Boards are how people move between clients all day, and
-   * a list you have to open first is a click on every hop.
-   *
-   * The chevron still works, and once someone uses it the choice is theirs.
-   */
-  const [open, setOpen] = useState<boolean | null>(null);
-  const expanded = open ?? true;
-
-  if (!hasChildren) {
-    return (
-      <Link
-        href={link.href}
-        aria-current={inSection ? "page" : undefined}
-        className={cn(
-          itemStyles,
-          inSection
-            ? "bg-blue-100 text-blue-900"
-            : "text-gray-700 hover:bg-gray-100 hover:text-gray-1000",
-        )}
-      >
-        {inSection ? <ActiveBar /> : null}
-        <Icon className="size-4 shrink-0" strokeWidth={1.75} />
-        <span className="min-w-0 flex-1 truncate">{link.label}</span>
-        {/* The one badge in the navigation. Chat is a queue; everywhere else in
-            the rail is a place, and a count on a place means nothing. */}
-        {link.count ? (
-          <span className="tabular grid h-5 min-w-5 place-items-center rounded-full bg-blue-700 px-1.5 text-caption-strong text-white">
-            {link.count > 9 ? "9+" : link.count}
-          </span>
-        ) : null}
-      </Link>
-    );
-  }
-
   return (
     <div>
       <div
         className={cn(
-          itemStyles,
-          "pr-1",
-          onSelf
-            ? "bg-blue-100 text-blue-900"
-            : "text-gray-700 hover:bg-gray-100 hover:text-gray-1000",
+          "relative flex items-center gap-1 rounded-md py-1.5 pl-6 pr-1 text-body-strong transition-colors",
+          "text-gray-800 hover:bg-gray-100 hover:text-gray-1000",
         )}
       >
-        {onSelf ? <ActiveBar /> : null}
-        <Icon className="size-4 shrink-0" strokeWidth={1.75} />
-        {/* The label navigates and the chevron discloses. Making the whole row
-            do both means one of them is a surprise. */}
-        <Link href={link.href} className="flex-1 truncate">
-          {link.label}
-        </Link>
         <button
           type="button"
-          onClick={() => setOpen(!expanded)}
+          onClick={onToggle}
           aria-expanded={expanded}
-          aria-label={`${expanded ? "Collapse" : "Expand"} ${link.label}`}
+          aria-label={`${expanded ? "Collapse" : "Expand"} ${account.name}`}
           className="rounded-md p-0.5 text-gray-600 transition-colors hover:bg-gray-200 hover:text-gray-1000"
         >
           <ChevronRight
-            className={cn("size-4 transition-transform", expanded && "rotate-90")}
-            strokeWidth={1.75}
+            className={cn("size-3.5 transition-transform", expanded && "rotate-90")}
+            strokeWidth={2}
           />
         </button>
+        <Link href={account.href} onClick={onOpen} className="min-w-0 flex-1 truncate">
+          {account.name}
+        </Link>
       </div>
 
       {expanded ? (
         <div className="mt-0.5 space-y-0.5">
-          {link.children!.map((child) => (
-            <NavChildRow key={child.href ?? child.label} child={child} pathname={pathname} />
-          ))}
-
-          {/* Creating a board sits with the boards, not in a settings screen
-              somewhere else — it is the same list, one row further down. */}
-          {addHref ? (
-            <Link
-              href={addHref}
-              className="flex items-center gap-2 rounded-md py-1.5 pl-10 pr-3 text-body text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-1000"
-            >
-              <Plus className="size-3.5 shrink-0" strokeWidth={2} />
-              {addLabel}
-            </Link>
-          ) : null}
+          {account.children.map((child) => {
+            const active = pathname === child.href;
+            return (
+              <Link
+                key={child.href}
+                href={child.href}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "relative block truncate rounded-md py-1.5 pl-12 pr-3 text-body transition-colors",
+                  active
+                    ? "bg-blue-100 text-blue-900"
+                    : "text-gray-700 hover:bg-gray-100 hover:text-gray-1000",
+                )}
+              >
+                {active ? <ActiveBar /> : null}
+                {child.label}
+              </Link>
+            );
+          })}
         </div>
       ) : null}
     </div>
@@ -266,19 +167,49 @@ function NavGroup({
 }
 
 export function AppSidebar({
-  links,
+  before,
+  accounts,
+  after,
   user,
-  canCreateBoard = false,
   notifications,
   unread,
 }: {
-  links: NavItem[];
+  before: NavItem[];
+  accounts: NavAccount[];
+  after: NavItem[];
   user: { name: string; role: Role };
-  canCreateBoard?: boolean;
   notifications: InboxItemData[];
   unread: number;
 }) {
   const pathname = usePathname();
+
+  /*
+   * Which account is open. `undefined` means "nobody has said", and the answer
+   * comes from the route — following a link into Volvo from anywhere else opens
+   * Volvo rather than leaving the page you are on hidden inside a shut group.
+   * Once somebody works the chevron the choice is theirs, and `null` is their
+   * choice of none.
+   */
+  const [open, setOpen] = useState<string | null | undefined>(undefined);
+  const onPath = accounts.find(
+    (a) => pathname === a.href || pathname.startsWith(`${a.href}/`),
+  );
+  const openId = open === undefined ? (onPath?.id ?? null) : open;
+
+  /*
+   * Three to five, not all of them: each account expands, and six expandable
+   * clients is a rail you scroll past to reach Docs. The list arrives ranked
+   * by the reader's own open work, so the top five are the ones they are
+   * actually in — but the account they are *looking at* outranks all of them,
+   * and takes the last slot rather than making it six.
+   */
+  const shown = accounts.slice(0, RAIL_LIMIT);
+  if (onPath && !shown.some((a) => a.id === onPath.id)) {
+    shown.splice(RAIL_LIMIT - 1, 1, onPath);
+  }
+  // Alphabetical once chosen. Ranking picks *which*; it should not also make
+  // the list reshuffle under somebody as they tick things off.
+  shown.sort((a, b) => a.name.localeCompare(b.name));
 
   return (
     <aside className="sticky top-0 flex h-screen w-56 shrink-0 flex-col border-r border-gray-400 bg-background-100">
@@ -297,15 +228,54 @@ export function AppSidebar({
       </Link>
 
       <nav className="flex-1 overflow-y-auto p-2">
-        {links.map((link) => (
-          <NavGroup
-            key={link.href}
-            link={link}
-            pathname={pathname}
-            addHref={canCreateBoard && link.href === "/boards" ? "/boards/new" : undefined}
-            addLabel="New board"
-          />
+        {before.map((link) => (
+          <GlobalItem key={link.href} link={link} pathname={pathname} />
         ))}
+
+        {accounts.length > 0 ? (
+          <>
+            {/* A label, not a link. The rail's one heading. */}
+            <p className="mt-6 mb-1 px-3 text-caption-strong uppercase tracking-[0.08em] text-gray-600">
+              Accounts
+            </p>
+            <Link
+              href="/accounts"
+              aria-current={pathname === "/accounts" ? "page" : undefined}
+              className={cn(
+                "relative block truncate rounded-md py-1.5 pl-6 pr-3 text-body transition-colors",
+                pathname === "/accounts"
+                  ? "bg-blue-100 text-blue-900"
+                  : "text-gray-700 hover:bg-gray-100 hover:text-gray-1000",
+              )}
+            >
+              {pathname === "/accounts" ? <ActiveBar /> : null}
+              All Accounts
+            </Link>
+
+            <div className="mt-0.5 space-y-0.5">
+              {shown.map((account) => (
+                <AccountGroup
+                  key={account.id}
+                  account={account}
+                  pathname={pathname}
+                  expanded={openId === account.id}
+                  // Clicking the name opens this one, which closes whichever
+                  // was open: five expanded clients is a rail you scroll.
+                  onOpen={() => setOpen(account.id)}
+                  onToggle={() => setOpen(openId === account.id ? null : account.id)}
+                />
+              ))}
+            </div>
+          </>
+        ) : null}
+
+        <div className="mt-6 space-y-0.5">
+          {after.map((link) => (
+            <div key={link.href} className={link.gap ? "pt-4" : undefined}>
+              <GlobalItem link={link} pathname={pathname} />
+            </div>
+          ))}
+        </div>
       </nav>
 
       <div className="shrink-0 border-t border-gray-300 p-3">

@@ -29,97 +29,100 @@ export const isSenior = (u: User) => u.role === "senior_director";
  */
 export type NavIcon =
   | "today"
-  | "boards"
+  | "mytasks"
   | "docs"
   | "accounts"
+  | "people"
   | "reports"
   | "overview"
   | "admin"
   | "chat";
+
 export type NavChild = {
-  /** Absent on a row that only groups the rows beneath it. */
-  href?: string;
+  href: string;
   label: string;
-  /**
-   * A quieter second line, where a label alone would be ambiguous.
-   */
-  note?: string;
-  /**
-   * One more level, and only one. The Senior Director sees every account's
-   * boards, and a flat list of them is a list you have to read rather than
-   * scan; grouping by account is the org chart the rest of the product already
-   * uses. A third level would be the nested spaces the brief refuses.
-   */
-  children?: NavChild[];
 };
+
 export type NavItem = {
   href: string;
   label: string;
   icon: NavIcon;
   /**
-   * An unread badge. Filled in by the layout, like `children` — this module
+   * Starts a new group above this item — a little air, no heading. People and
+   * Reports are about the work; Chat and Docs are somewhere else you go.
+   */
+  gap?: boolean;
+  /**
+   * An unread badge. Filled in by the layout, like the accounts — this module
    * runs no queries. Chat is the only item that carries one; everything else
    * in the rail is a place rather than a queue.
    */
   count?: number;
-  /**
-   * Filled in by the layout from the org chart, not declared here — this
-   * module has no business running a query. A group with no children renders
-   * as a plain link, so a role that has nothing to expand shows no chevron.
-   */
-  children?: NavChild[];
 };
+
+/**
+ * One account, and the four pages inside it.
+ *
+ * Kept apart from `NavItem` because an account is not a global destination
+ * that happens to have children: it is a container, it draws differently, and
+ * only one of them is open at a time. Modelling it as a nav item with children
+ * is what produced a rail with an Accounts list *and* a Boards list, each
+ * repeating every client's name.
+ */
+export type NavAccount = {
+  id: string;
+  name: string;
+  href: string;
+  children: NavChild[];
+};
+
+/** The four pages every account has. More than four is a workspace. */
+export function accountNav(accountId: string): NavChild[] {
+  const base = `/accounts/${accountId}`;
+  return [
+    { href: base, label: "Overview" },
+    { href: `${base}/tasks`, label: "Tasks" },
+    { href: `${base}/campaigns`, label: "Campaigns" },
+    { href: `${base}/team`, label: "Team" },
+  ];
+}
 
 /**
  * Navigation is derived from the role rather than hand-maintained, so a link
  * can never appear for someone the permission checks would refuse.
+ *
+ * Two levels of navigation, and the split is the whole point. The items here
+ * work across every account the reader can reach; the accounts themselves are
+ * added by the layout, and everything inside one is about that client alone.
+ *
+ * There is deliberately no Boards item. A board is the set of columns an
+ * account's Tasks page is drawn with, not a place — listing boards beside
+ * accounts gave the rail two hierarchies for one thing, each repeating the
+ * same client names.
  */
-export function navFor(role: Role): NavItem[] {
-  switch (role) {
-    case "senior_director":
-      return [
-        { href: "/overview", label: "Overview", icon: "overview" },
-        /*
-         * Above the groups that open. Accounts and Boards each expand into a list,
-         * so anything under them moves as those lists grow — and the one item
-         * carrying an unread count is the one that has to sit still.
-         */
-        { href: "/chat", label: "Chat", icon: "chat" },
-        { href: "/accounts", label: "Accounts", icon: "accounts" },
-        // Every account's boards, not one account's. The rail is the quickest way
-        // into a client's work, and the person who spans both accounts is the one
-        // who most often has to cross between them.
-        { href: "/boards", label: "Boards", icon: "boards" },
-        { href: "/docs", label: "Docs", icon: "docs" },
-        { href: "/reports", label: "Reports", icon: "reports" },
-        { href: "/admin", label: "Admin", icon: "admin" },
-      ];
-    case "account_director":
-      return [
-        { href: "/today", label: "Today", icon: "today" },
-        // Above Boards, which expands into a list that pushes everything under
-        // it down as boards are made.
-        { href: "/chat", label: "Chat", icon: "chat" },
-        { href: "/boards", label: "Boards", icon: "boards" },
-        { href: "/accounts", label: "Accounts", icon: "accounts" },
-        { href: "/docs", label: "Docs", icon: "docs" },
-        { href: "/reports", label: "Reports", icon: "reports" },
-      ];
-    default:
-      return [
-        { href: "/today", label: "Today", icon: "today" },
-        { href: "/chat", label: "Chat", icon: "chat" },
-        { href: "/boards", label: "Boards", icon: "boards" },
-        /*
-         * A team member's Accounts is not the Account Director's. The rollup is
-         * still management's — `canViewAccount` refuses them and that has not
-         * changed. This one answers "who is on my clients this week", which is
-         * their own accounts' business the same way their boards are.
-         */
-        { href: "/accounts", label: "Accounts", icon: "accounts" },
-        { href: "/docs", label: "Docs", icon: "docs" },
-      ];
-  }
+export function navFor(role: Role): { before: NavItem[]; after: NavItem[] } {
+  const overview: NavItem = { href: "/overview", label: "Overview", icon: "overview" };
+  const today: NavItem = { href: "/today", label: "Today", icon: "today" };
+  const mine: NavItem = { href: "/my-tasks", label: "My Tasks", icon: "mytasks" };
+
+  const after: NavItem[] = [
+    { href: "/people", label: "People", icon: "people" },
+    ...(role === "team_member"
+      ? []
+      : [{ href: "/reports", label: "Reports", icon: "reports" as const }]),
+    { href: "/chat", label: "Chat", icon: "chat", gap: true },
+    { href: "/docs", label: "Docs", icon: "docs" },
+    ...(role === "senior_director"
+      ? [{ href: "/admin", label: "Admin", icon: "admin" as const }]
+      : []),
+  ];
+
+  /*
+   * The Senior Director has no day of their own — no work is assigned to them
+   * — so Today and My Tasks would open on an empty page every morning.
+   */
+  const before = role === "senior_director" ? [overview] : [overview, today, mine];
+  return { before, after };
 }
 
 export function homeFor(role: Role): string {
@@ -281,7 +284,7 @@ export async function assertCanManageAccount(viewer: Viewer, accountId: string |
   // A board with no account is the department's, and the department is the
   // Senior Director's to shape.
   if (accountId === null) notFound();
-  // Directing it, not merely working on it. Being on Nike lets you move a card;
+  // Directing it, not merely working on it. Being on Volvo lets you move a card;
   // it does not let you invent the column it moves into.
   if (viewer.role === "account_director" && viewer.directedIds.includes(accountId)) return;
   notFound();
@@ -307,7 +310,7 @@ export async function assertCanManageAccount(viewer: Viewer, accountId: string |
  * person sat on exactly one team. Now that they work on several accounts the
  * chart has more than one edge into them, and the honest rule is that **any
  * director of an account they work on** may sign it off — whoever gets there
- * first settles it. Anna is on Nike and Adidas; if Sarah directs both, nothing
+ * first settles it. Anna is on Volvo and MG; if Sarah directs both, nothing
  * changed for her, and if two directors split them, either can answer.
  *
  * Two things carry over unchanged. An Account Director's own leave is still

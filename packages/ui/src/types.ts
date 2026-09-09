@@ -148,6 +148,12 @@ export type TaskRowData = {
   id: string;
   href: string;
   title: string;
+  /**
+   * The client this is for. Set on lists that span accounts — My Tasks, Today
+   * — and deliberately absent inside one account, where the page has already
+   * said it and every row repeating it is noise.
+   */
+  account?: string | null;
   type: TaskType;
   status: StatusRef;
   priority: Priority;
@@ -242,6 +248,33 @@ export const LEAVE_STATUS_LABELS: Record<LeaveStatus, string> = {
 
 export const LEAVE_KINDS = Object.keys(LEAVE_KIND_LABELS) as LeaveKind[];
 export const LEAVE_STATUSES = Object.keys(LEAVE_STATUS_LABELS) as LeaveStatus[];
+
+export type CampaignStatus = "planned" | "live" | "wrapped";
+
+export const CAMPAIGN_STATUS_LABELS: Record<CampaignStatus, string> = {
+  planned: "Planned",
+  live: "Live",
+  wrapped: "Wrapped",
+};
+
+export type CampaignRowData = {
+  id: string;
+  href: string;
+  name: string;
+  status: CampaignStatus;
+  /** "12 May – 30 Jun", already formatted: this package has no clock. */
+  rangeText: string;
+  /** How far through its own dates it is, as words — "3 weeks left". */
+  elapsedText: string;
+  total: number;
+  done: number;
+  overdue: number;
+  blocked: number;
+  dueSoon: number;
+  percent: number;
+  /** 0–100, the calendar rather than the work. */
+  elapsed: number;
+};
 
 export type AttentionItemData = {
   severity: "high" | "medium";

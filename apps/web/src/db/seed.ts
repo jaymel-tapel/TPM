@@ -4,6 +4,7 @@ import { pool, db } from "./index";
 import {
   accountMembers,
   boardStatuses,
+  campaigns,
   boards,
   documents,
   folders,
@@ -119,8 +120,8 @@ const SENIOR: Person = {
  * leave off.
  */
 const BOOK = {
-  A: ["Nike", "Adidas", "Coca-Cola"],
-  B: ["Cortado", "Halcyon"],
+  A: ["Volvo", "MG", "Kia"],
+  B: ["Peugeot", "BYD"],
 } as const;
 
 type Pod = keyof typeof BOOK;
@@ -151,7 +152,7 @@ const PEOPLE: Person[] = [
   director("Sarah Lim", "A", 0.86),
   director("Michael Ortega", "B", 0.83),
 
-  // Sarah's book — Nike, Adidas and Coca-Cola. The brief's named people, plus
+  // Sarah's book — Volvo, MG and Kia. The brief's named people, plus
   // the rest of the roster.
   member("Anna Santos", "A", "Designer", 0.85),
   member("James Cruz", "A", "Copywriter", 0.46, 0.42), // the person Needs Attention should surface
@@ -168,7 +169,7 @@ const PEOPLE: Person[] = [
   member("Camille Yap", "A", "Copywriter", 0.83),
   member("Victor Salazar", "A", "Account Manager", 0.75, 0.25),
 
-  // Michael's book — Cortado and Halcyon.
+  // Michael's book — Peugeot and BYD.
   member("Grace Tolentino", "B", "Paid Media", 0.88),
   member("Leo Mendoza", "B", "Analyst", 0.8),
   member("Patricia Uy", "B", "Designer", 0.85),
@@ -192,7 +193,7 @@ const PEOPLE: Person[] = [
  * the same book. Deterministic per person, so tuning one roster never
  * reshuffles anybody else's.
  *
- * Anna Santos is pinned to Nike and Adidas: she is the person the brief's
+ * Anna Santos is pinned to Volvo and MG: she is the person the brief's
  * worked example follows, and the handoff's own illustration of somebody
  * shared between two clients.
  */
@@ -200,7 +201,7 @@ function accountsFor(person: Person, index: number): string[] {
   if (!person.pod) return [];
   const book = BOOK[person.pod];
   if (person.role === "account_director") return [...book];
-  if (person.name === "Anna Santos") return ["Nike", "Adidas"];
+  if (person.name === "Anna Santos") return ["Volvo", "MG"];
 
   const home = book[index % book.length]!;
   const stream = streamFor(`${person.name}:accounts`);
@@ -228,6 +229,45 @@ function dayFactor(daysAgo: number): number {
 /** Every account, in the order the two books declare them. */
 const CLIENTS = [...BOOK.A, ...BOOK.B];
 
+/**
+ * Three campaigns per client — one finished, one running, one booked.
+ *
+ * Offsets are days from today rather than fixed dates, so a seed run in
+ * February shows the same shape as one in September: something to look back
+ * on, something to be in the middle of, and something to prepare for.
+ *
+ * The finished one has to sit *inside* the three weeks of history the seed
+ * writes, or it wraps with no work in it and reads as broken. The booked one
+ * legitimately has none — nothing is due yet, which is what "planned" means.
+ */
+const CAMPAIGNS: Record<string, { name: string; from: number; to: number }[]> = {
+  Volvo: [
+    { name: "EX30 Launch", from: -20, to: -11 },
+    { name: "Safety Always-On", from: -10, to: 20 },
+    { name: "Year-End Sales Event", from: 30, to: 74 },
+  ],
+  MG: [
+    { name: "ZS Hybrid Reveal", from: -19, to: -12 },
+    { name: "Always-On Social", from: -11, to: 26 },
+    { name: "Motor Show Stand", from: 34, to: 70 },
+  ],
+  Kia: [
+    { name: "Sonet Facelift", from: -21, to: -13 },
+    { name: "Service Retention", from: -12, to: 24 },
+    { name: "New Year Test Drive", from: 28, to: 66 },
+  ],
+  Peugeot: [
+    { name: "3008 Relaunch", from: -18, to: -10 },
+    { name: "Dealer Co-Op", from: -9, to: 22 },
+    { name: "Spring Showroom", from: 32, to: 68 },
+  ],
+  BYD: [
+    { name: "Seal Launch", from: -20, to: -14 },
+    { name: "Always-On Demand", from: -13, to: 28 },
+    { name: "Fleet & Corporate", from: 26, to: 62 },
+  ],
+};
+
 const TITLES: Record<TaskType, string[]> = {
   client_work: [
     "Prepare client monthly report",
@@ -237,6 +277,8 @@ const TITLES: Record<TaskType, string[]> = {
     "Draft {client} campaign brief",
     "Reconcile {client} spend",
     "Pull weekly {client} metrics",
+    "Update {client} model page copy",
+    "Brief dealer co-op assets for {client}",
   ],
   internal: [
     "Update campaign budget",
@@ -254,7 +296,7 @@ const TITLES: Record<TaskType, string[]> = {
   review: [
     "Review campaign launch assets",
     "Review {client} landing page copy",
-    "QA tracking setup",
+    "QA test-drive booking flow",
     "Sign off on creative rounds",
     "Proof final creative assets",
   ],
@@ -267,7 +309,8 @@ const TITLES: Record<TaskType, string[]> = {
   ],
   creative: [
     "Draft social concepts for {client}",
-    "Storyboard launch video",
+    "Storyboard launch film",
+    "Book showroom photography",
     "Design report cover",
     "Write ad variations",
     "Send final creative assets",
@@ -304,7 +347,7 @@ function pickPriority(): Priority {
 }
 
 /*
- * Tags stop pretending to be clients. "Nike" is an account now — a row with an
+ * Tags stop pretending to be clients. "Volvo" is an account now — a row with an
  * owner, a board and a roster — and leaving it in the tag list as well would
  * give the same fact two homes that could disagree. What is left is what a tag
  * was always good at: a word about the *kind* of work.
@@ -339,6 +382,8 @@ async function main() {
   await db.delete(taskTags);
   await db.delete(taskAssignees);
   await db.delete(tasks);
+  // After tasks: a task points at its campaign, so the campaign cannot go first.
+  await db.delete(campaigns);
   await db.delete(tags);
   await db.delete(boardStatuses);
   await db.delete(boards);
@@ -374,7 +419,7 @@ async function main() {
   /*
    * Who works on what. This is the table the whole shape exists for, so the
    * demo has to show it rather than describe it: roughly a third of the roster
-   * carries two clients, and Anna carries Nike and Adidas by name.
+   * carries two clients, and Anna carries Volvo and MG by name.
    */
   const accountsOf = new Map<string, string[]>(
     PEOPLE.map((p, index) => [p.name, accountsFor(p, index)]),
@@ -400,15 +445,15 @@ async function main() {
    * it can create a task.
    *
    * Named for the work, not for the account that owns it. A board called
-   * "Nike" sitting under a rail group called "Nike" reads as a mistake — one
+   * "Volvo" sitting under a rail group called "Volvo" reads as a mistake — one
    * line saying the same word twice.
    */
   const BOARD_NAME: Record<string, string> = {
-    Nike: "Brand & Creative",
-    Adidas: "Always-On Social",
-    "Coca-Cola": "Campaign Delivery",
-    Cortado: "Performance & Media",
-    Halcyon: "Content & Reporting",
+    Volvo: "Brand & Creative",
+    MG: "Always-On Social",
+    Kia: "Campaign Delivery",
+    Peugeot: "Performance & Media",
+    BYD: "Content & Reporting",
   };
 
   const boardRows = await db
@@ -442,6 +487,48 @@ async function main() {
   /** Board + legacy status name -> the status row to file work under. */
   const statusOf = (client: string, name: string) =>
     statusRows.find((r) => r.boardId === boardOf(client).id && r.name === name)!;
+
+  /*
+   * A campaign is a fortnight of work with a name and an end, which is the
+   * thing a tag could never be. Status follows the dates rather than being
+   * chosen separately: a campaign that ended last month is wrapped, whatever
+   * anybody clicked.
+   */
+  const campaignRows = await db
+    .insert(campaigns)
+    .values(
+      CLIENTS.flatMap((client) =>
+        CAMPAIGNS[client]!.map((c) => ({
+          accountId: accountId(client),
+          name: c.name,
+          startsOn: dayKey(new Date(today.getTime() + c.from * DAY)),
+          endsOn: dayKey(new Date(today.getTime() + c.to * DAY)),
+          status: (c.to < 0 ? "wrapped" : c.from > 0 ? "planned" : "live") as
+            | "wrapped"
+            | "planned"
+            | "live",
+        })),
+      ),
+    )
+    .returning();
+
+  /**
+   * The campaign a piece of work belongs to, if any.
+   *
+   * Matched on the calendar rather than picked at random: work due in October
+   * cannot be part of a campaign that ended in August. Plenty of work belongs
+   * to no campaign at all — a retainer's monthly reporting belongs to the
+   * client and to nothing smaller — so this only claims about half of what it
+   * could.
+   */
+  const campaignFor = (client: string, due: Date): string | null => {
+    const day = dayKey(due);
+    const candidates = campaignRows.filter(
+      (c) => c.accountId === accountId(client) && c.startsOn <= day && c.endsOn >= day,
+    );
+    if (candidates.length === 0 || !chance(0.55)) return null;
+    return pick(candidates).id;
+  };
 
   const tagRows = await db
     .insert(tags)
@@ -492,6 +579,7 @@ async function main() {
       dueDate: opts.due,
       createdBy: opts.createdBy,
       accountId: accountId(opts.account),
+      campaignId: campaignFor(opts.account, opts.due),
       completedAt: opts.completedAt,
       createdAt: new Date(opts.due.getTime() - between(0.2, 1.6) * DAY),
       updatedAt: opts.completedAt ?? opts.due,
@@ -566,7 +654,7 @@ async function main() {
       /*
        * Work lands on one of the accounts they actually work on, weighted to
        * the first — somebody covering two clients still has a main one. Doing
-       * it any other way would put Anna's Adidas work on Nike's board, and the
+       * it any other way would put Anna's MG work on Volvo's board, and the
        * composite key on `tasks` would refuse it anyway.
        */
       const clientFor = () => (mine.length === 1 || chance(0.7) ? mine[0]! : pick(mine.slice(1)));
@@ -787,39 +875,39 @@ async function main() {
     author: "Elena Rivera",
   });
 
-  const nikeFolder = await makeFolder({
-    name: "Nike",
-    account: accountId("Nike"),
+  const volvoFolder = await makeFolder({
+    name: "Volvo",
+    account: accountId("Volvo"),
     author: "Sarah Lim",
   });
 
   const runbookA = await writeDoc({
     title: "Runbook",
-    lines: ["How Nike files work, names columns and hands over on a Friday."],
-    account: accountId("Nike"),
-    folderId: nikeFolder.id,
+    lines: ["How Volvo files work, names columns and hands over on a Friday."],
+    account: accountId("Volvo"),
+    folderId: volvoFolder.id,
     author: "Sarah Lim",
   });
 
   await writeDoc({
     title: "Reporting checklist",
     lines: ["Pull the numbers on Monday. Completion is measured against the day a task was due."],
-    account: accountId("Nike"),
-    folderId: nikeFolder.id,
+    account: accountId("Volvo"),
+    folderId: volvoFolder.id,
     author: "Sarah Lim",
   });
 
-  const adidasFolder = await makeFolder({
-    name: "Adidas",
-    account: accountId("Adidas"),
+  const mgFolder = await makeFolder({
+    name: "MG",
+    account: accountId("MG"),
     author: "Michael Ortega",
   });
 
   await writeDoc({
     title: "Runbook",
-    lines: ["How Adidas files work. Not visible to a client that is not Adidas."],
-    account: accountId("Adidas"),
-    folderId: adidasFolder.id,
+    lines: ["How MG files work. Not visible to a client that is not MG."],
+    account: accountId("MG"),
+    folderId: mgFolder.id,
     author: "Michael Ortega",
   });
 
@@ -834,8 +922,8 @@ async function main() {
    * A couple of tasks that actually reference something, so the chips, the
    * backlinks and the `@` picker all have something to show on a fresh seed.
    */
-  const nikeTasks = taskRows.filter((t) => t.accountId === accountId("Nike")).slice(0, 2);
-  if (nikeTasks[0]) {
+  const volvoTasks = taskRows.filter((t) => t.accountId === accountId("Volvo")).slice(0, 2);
+  if (volvoTasks[0]) {
     // The prose has to actually name it: a `mentioned` row is derived from the
     // description on every save, so one without a matching chip would vanish
     // the first time anybody touched the task.
@@ -856,20 +944,20 @@ async function main() {
           },
         ]),
       })
-      .where(eq(tasks.id, nikeTasks[0].id!));
+      .where(eq(tasks.id, volvoTasks[0].id!));
 
     await db
       .insert(taskDocuments)
       .values([
-        { taskId: nikeTasks[0].id!, documentId: brand.id, source: "attached" as const },
-        { taskId: nikeTasks[0].id!, documentId: escalation.id, source: "mentioned" as const },
+        { taskId: volvoTasks[0].id!, documentId: brand.id, source: "attached" as const },
+        { taskId: volvoTasks[0].id!, documentId: escalation.id, source: "mentioned" as const },
       ])
       .onConflictDoNothing();
   }
-  if (nikeTasks[1]) {
+  if (volvoTasks[1]) {
     await db
       .insert(taskDocuments)
-      .values({ taskId: nikeTasks[1].id!, documentId: runbookA.id, source: "attached" as const })
+      .values({ taskId: volvoTasks[1].id!, documentId: runbookA.id, source: "attached" as const })
       .onConflictDoNothing();
   }
 

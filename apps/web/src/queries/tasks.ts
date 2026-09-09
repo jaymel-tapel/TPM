@@ -1,7 +1,14 @@
 import "server-only";
 import { eq, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { boardStatuses, boards, statusKindEnum, accounts, type StatusKind } from "@/db/schema";
+import {
+  boardStatuses,
+  boards,
+  statusKindEnum,
+  accounts,
+  type StatusKind,
+  type TaskType,
+} from "@/db/schema";
 
 const isStatusKind = (value: string): value is StatusKind =>
   (statusKindEnum.enumValues as readonly string[]).includes(value);
@@ -137,7 +144,16 @@ export type TaskFilters = {
   priority?: string;
   tag?: string;
   person?: string;
-  range?: "today" | "week" | "overdue" | "all";
+  /** One client's work. The cross-account screens narrow with this. */
+  account?: string;
+  campaign?: string;
+  /**
+   * `today`, `upcoming` and `completed` deliberately do not overlap: a task
+   * due today and finished appears under Completed and nowhere else. The
+   * alternative is one task in two lists on one screen, which reads as a bug
+   * every time.
+   */
+  range?: "today" | "upcoming" | "week" | "overdue" | "completed" | "all";
 };
 
 /** Backs the person drilldown. Kept narrow: filters, not a query builder. */
@@ -163,6 +179,8 @@ export async function listTasks(
     clauses.push(sql`s.kind = ${filters.status}`);
   }
   if (filters.type) clauses.push(sql`k.type = ${filters.type}`);
+  if (filters.account) clauses.push(sql`k.account_id = ${filters.account}::uuid`);
+  if (filters.campaign) clauses.push(sql`k.campaign_id = ${filters.campaign}::uuid`);
   if (filters.priority) clauses.push(sql`k.priority = ${filters.priority}`);
   if (filters.person) {
     clauses.push(
@@ -176,7 +194,18 @@ export async function listTasks(
   }
   switch (filters.range) {
     case "today":
-      clauses.push(sql`k.due_date >= ${start} and k.due_date < ${end}`);
+      clauses.push(
+        sql`k.due_date >= ${start} and k.due_date < ${end} and k.completed_at is null`,
+      );
+      break;
+    case "upcoming":
+      clauses.push(
+        sql`k.due_date >= ${end} and k.due_date < ${new Date(end.getTime() + 6 * 86_400_000)}
+            and k.completed_at is null`,
+      );
+      break;
+    case "completed":
+      clauses.push(sql`k.completed_at >= ${start} and k.completed_at < ${end}`);
       break;
     case "week":
       clauses.push(sql`k.due_date >= ${start} and k.due_date < ${new Date(end.getTime() + 6 * 86_400_000)}`);
@@ -235,14 +264,22 @@ export type BoardView = {
  * column, because moving into a `done` column is the only thing that stamps
  * `completed_at` and moving out is the only thing that clears it.
  */
+export type BoardFilters = {
+  /** Narrows to the work this person is on. Null shows everyone's. */
+  assigneeId?: string | null;
+  /** Narrows to one campaign. Null shows work in and out of campaigns alike. */
+  campaignId?: string | null;
+  type?: TaskType | null;
+};
+
 export async function getBoardView(
   boardId: string,
   reference: Date = now(),
-  /** Narrows to the work this person is on. Null shows the whole board. */
-  assigneeId: string | null = null,
+  filters: BoardFilters = {},
   zone?: Zone,
 ): Promise<BoardView | null> {
   const { start, end } = dayRange(reference, zone);
+  const { assigneeId = null, campaignId = null, type = null } = filters;
 
   const [board] = await db
     .select({ id: boards.id, name: boards.name })
@@ -259,9 +296,11 @@ export async function getBoardView(
   // Reuses the same `exists (…task_assignees…)` fragment every other
   // person-scoped query uses, so "mine" means the same thing everywhere.
   const mine = assigneeId ? sql` and ${scopeSql(userScope(assigneeId))}` : sql``;
+  const inCampaign = campaignId ? sql` and k.campaign_id = ${campaignId}::uuid` : sql``;
+  const ofType = type ? sql` and k.type = ${type}` : sql``;
 
   const rows = await runTaskQuery(
-    sql`${boardScopeSql(boardId)}${mine} and (
+    sql`${boardScopeSql(boardId)}${mine}${inCampaign}${ofType} and (
       (k.due_date >= ${start} and k.due_date < ${end})
       or ${overdueSql(start)}
       or (k.completed_at >= ${start} and k.completed_at < ${end})
@@ -281,40 +320,26 @@ export async function getBoardView(
 }
 
 /** Boards a person can open, newest account first. Drives the sidebar. */
-export async function listBoardsForUser(user: {
-  role: string;
-  accountIds: string[];
-}): Promise<{ id: string; name: string; accountId: string | null; accountName: string | null }[]> {
-  const where =
-    user.role === "senior_director"
-      ? undefined
-      : user.accountIds.length > 0
-        ? // Every account they work on, and the department's own boards, which
-          // belong to nobody and so to everybody.
-          sql`(${boards.accountId} in (${uuids(user.accountIds)}) or ${boards.accountId} is null)`
-        : sql`${boards.accountId} is null`;
-
-  return db
-    .select({
-      id: boards.id,
-      name: boards.name,
-      accountId: boards.accountId,
-      accountName: accounts.name,
-    })
+/**
+ * The board an account's work lives on.
+ *
+ * One per account, made with the account. There is no board picker any more —
+ * a board is not a thing anybody navigates to, it is the set of columns the
+ * account's Tasks page is drawn with. `position` then `name` so the answer is
+ * stable if a second one ever exists.
+ */
+export async function getAccountBoard(
+  accountId: string,
+): Promise<{ id: string; name: string } | null> {
+  const [board] = await db
+    .select({ id: boards.id, name: boards.name })
     .from(boards)
-    // Left, or the department's own boards drop out of the rail entirely.
-    .leftJoin(accounts, eq(accounts.id, boards.accountId))
-    .where(where)
-    .orderBy(accounts.name, boards.position, boards.name);
+    .where(eq(boards.accountId, accountId))
+    .orderBy(boards.position, boards.name)
+    .limit(1);
+  return board ?? null;
 }
 
-/**
- * The pieces a task was broken into, in the order they will be worked.
- *
- * Deliberately not filtered by `isLeaf` — this asks for children, and a child
- * that has somehow acquired children of its own should still be visible rather
- * than silently missing.
- */
 export async function listSubtasks(parentId: string): Promise<TaskCard[]> {
   return runTaskQuery(sql`k.parent_id = ${parentId}`, 100, byDueDate, { containers: true });
 }

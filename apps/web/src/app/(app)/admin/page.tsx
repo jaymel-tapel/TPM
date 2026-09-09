@@ -113,8 +113,8 @@ export default async function AdminPage() {
               <span className="w-36 text-right text-caption text-gray-700">
                 {ROLE_LABELS[person.role]}
               </span>
-              {/* Every account, not the first one: "Nike" beside somebody who
-                  also carries Adidas is the old model showing through. */}
+              {/* Every account, not the first one: "Volvo" beside somebody who
+                  also carries MG is the old model showing through. */}
               <span className="w-40 truncate text-right text-caption text-gray-600">
                 {person.accounts.length > 0
                   ? person.accounts.map((a) => a.name).join(", ")

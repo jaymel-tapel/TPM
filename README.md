@@ -10,10 +10,17 @@ thirty people, five clients — so the product knows it rather than asking anyon
 to configure it. There are no spaces, folders, custom views or dashboards to
 build.
 
-The unit everything hangs off is the **account**: a client the department works
-for. People work on as many accounts as they work on — a designer covers Nike
-and Adidas, an Account Director carries three — which is the one thing a
-team-shaped product could not say.
+The department is an automotive marketing agency, and the unit everything hangs
+off is the **account**: a client it works for. People work on as many accounts
+as they work on — a designer covers Volvo and MG, an Account Director carries
+three — which is the one thing a team-shaped product could not say.
+
+The rail says the same thing. Global items (Overview, Today, My Tasks, People,
+Reports) work across every client you can reach; each account expands into the
+four pages that are only about that client. There is exactly one client
+hierarchy in the navigation, and **a board is not part of it** — a board is the
+set of columns an account's Tasks page is drawn with, and Board is a way of
+looking at Tasks rather than a place of its own.
 
 ---
 
@@ -73,10 +80,13 @@ levels from a single login. It is gated behind
 |---|---|---|
 | `/design` | **Design system** | Every component, in every state. No auth required. |
 | `/today` | **My Day** | What's left, what's done, one honest percentage. |
-| `/boards`, `/boards/[id]` | Boards | An account's work as a list or a board. "My Tasks" is a filter on it, not a screen of its own. |
+| `/my-tasks` | **My Tasks** | Everything on you, across every client you work on. |
 | `/accounts` | **Accounts** | Every client the reader works on, side by side. |
-| `/accounts/[id]` | **Account** | One client in one screen. Its director gets the management view; anyone working on it gets the same roster without the management screen around it. |
-| `/people/[id]` | Person | Anyone's day, for a director who can see them. |
+| `/accounts/[id]` | **Account → Overview** | How this client is doing today: the counts, what is running, what needs attention. |
+| `/accounts/[id]/tasks` | Account → Tasks | The client's work as a list or a board, filtered by campaign, person or type. |
+| `/accounts/[id]/campaigns` | Account → Campaigns | What is running, booked and behind them. |
+| `/accounts/[id]/team` | Account → Team | Who works on this client, and what they are carrying. |
+| `/people`, `/people/[id]` | People | Who is doing what across the agency, and anyone's day. |
 | `/leave` | Leave | File for time off, and settle what is waiting on you. |
 | `/overview` | **Department** | The Senior Director's hero, account comparison and exceptions. |
 | `/reports` | Report | Six metrics and exactly one chart, one account at a time for a director. |
@@ -128,8 +138,8 @@ Director" stopped naming exactly one person.
 Assignment is many-to-many through `task_assignees`; there is deliberately no
 `assignee_id` on `tasks`, because one task can belong to several people.
 Completing a shared task completes it for everyone assigned. **Membership and
-assignment are different questions** — belonging to Nike says you may see
-Nike's work; being on a task says the work is yours.
+assignment are different questions** — belonging to Volvo says you may see
+Volvo's work; being on a task says the work is yours.
 
 `leave_requests` is the one table here the brief does not name. Its dates are
 `date` columns rather than timestamps, which is the opposite choice to

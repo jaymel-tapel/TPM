@@ -139,6 +139,8 @@ export type TaskCard = {
   actualMinutes: number | null;
   completedAt: Date | null;
   accountId: string | null;
+  /** The client's name, for lists that span more than one. */
+  accountName: string | null;
   campaignId: string | null;
   boardId: string;
   boardName: string;
@@ -171,7 +173,9 @@ export const taskCardSelect = sql`
   k.id, k.title, k.description, k.type, k.priority,
   k.due_date as "dueDate", k.completed_at as "completedAt",
   k.estimate_minutes as "estimateMinutes", k.actual_minutes as "actualMinutes",
-  k.account_id as "accountId", k.campaign_id as "campaignId", k.created_by as "createdBy",
+  k.account_id as "accountId",
+  (select a.name from accounts a where a.id = k.account_id) as "accountName",
+  k.campaign_id as "campaignId", k.created_by as "createdBy",
   k.parent_id as "parentId",
   (select p.title from tasks p where p.id = k.parent_id) as "parentTitle",
   (select count(*) from tasks c where c.parent_id = k.id)::int as "childCount",

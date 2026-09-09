@@ -9,7 +9,7 @@ import {
   canViewAccount,
   canViewAccountWork,
 } from "./permissions";
-import { listBoardsForUser } from "@/queries/tasks";
+import { railAccountsFor } from "@/queries/accounts";
 import { IDS, addMembership, addTask, resetDb, seedOrg, viewerFor } from "../../test/fixture";
 
 /**
@@ -34,26 +34,26 @@ beforeAll(async () => {
 });
 
 /**
- * The rail lists an account's boards and the board page guards them. They are two
+ * The rail lists accounts and the account pages guard them. They are two
  * different functions, so nothing but a test stops them disagreeing — and when
- * they did, the rail advertised a board, marked it as where you were, and the
- * page answered 404.
+ * they last did, the rail advertised a place, marked it as where you were, and
+ * the page answered 404.
  */
-describe("the rail and the board page agree", () => {
+describe("the rail and the account pages agree", () => {
   for (const [who, id] of [
     ["a team member", IDS.anna],
     ["an account director", IDS.sarah],
     ["the senior director", IDS.elena],
   ] as const) {
-    it(`offers ${who} only boards the page will open`, async () => {
+    it(`offers ${who} only accounts the page will open`, async () => {
       const viewer = await load(id);
-      const offered = await listBoardsForUser(viewer);
+      const offered = await railAccountsFor(viewer);
       expect(offered.length).toBeGreaterThan(0);
 
-      for (const board of offered) {
+      for (const account of offered) {
         expect(
-          canViewAccountWork(viewer, board.accountId),
-          `${viewer.name} was offered "${board.name}" but the page refuses it`,
+          canViewAccountWork(viewer, account.id),
+          `${viewer.name} was offered "${account.name}" but the page refuses it`,
         ).toBe(true);
       }
     });
@@ -62,18 +62,18 @@ describe("the rail and the board page agree", () => {
 
 describe("reaching an account's work", () => {
   it("lets a member reach their own account's", async () => {
-    expect(canViewAccountWork(await load(IDS.anna), IDS.nike)).toBe(true);
+    expect(canViewAccountWork(await load(IDS.anna), IDS.volvo)).toBe(true);
   });
 
   it("still refuses them another account's", async () => {
-    expect(canViewAccountWork(await load(IDS.anna), IDS.adidas)).toBe(false);
+    expect(canViewAccountWork(await load(IDS.anna), IDS.mg)).toBe(false);
   });
 
   it("refuses someone on no account at all", async () => {
     // The senior director is accountless and gets in on rank, so the guard has
     // to be sure it is not simply matching an empty list against a null.
     const loose = { ...(await load(IDS.anna)), accountIds: [], directedIds: [] };
-    expect(canViewAccountWork(loose, IDS.nike)).toBe(false);
+    expect(canViewAccountWork(loose, IDS.volvo)).toBe(false);
   });
 
   it("gives department work to everybody, including the accountless", async () => {
@@ -86,11 +86,11 @@ describe("reaching an account's work", () => {
 
 describe("managing an account is a narrower question", () => {
   it("keeps the Account Today rollup to the people who manage", async () => {
-    // A member belongs to Nike without being able to manage it. If this ever
+    // A member belongs to Volvo without being able to manage it. If this ever
     // flips, it is a product decision, not a bug fix.
-    expect(canViewAccount(await load(IDS.anna), IDS.nike)).toBe(false);
-    expect(canViewAccount(await load(IDS.sarah), IDS.nike)).toBe(true);
-    expect(canViewAccount(await load(IDS.elena), IDS.nike)).toBe(true);
+    expect(canViewAccount(await load(IDS.anna), IDS.volvo)).toBe(false);
+    expect(canViewAccount(await load(IDS.sarah), IDS.volvo)).toBe(true);
+    expect(canViewAccount(await load(IDS.elena), IDS.volvo)).toBe(true);
   });
 });
 
@@ -133,11 +133,11 @@ describe("who signs off leave", () => {
 
 describe("reading a task and changing one are the same permission", () => {
   it("lets a teammate edit work they can see", async () => {
-    // Anna is on Nike, and neither wrote this nor is assigned to it. She
+    // Anna is on Volvo, and neither wrote this nor is assigned to it. She
     // used to get a read-only panel and no way to fix a date in front of her.
     const anna = await load(IDS.anna);
     const taskId = await addTask({
-      account: IDS.nike,
+      account: IDS.volvo,
       assignees: [IDS.james],
       dueDay: 0,
     });
@@ -149,7 +149,7 @@ describe("reading a task and changing one are the same permission", () => {
 
   it("still refuses another account's work", async () => {
     const anna = await load(IDS.anna);
-    const taskId = await addTask({ account: IDS.adidas, assignees: [IDS.mika], dueDay: 0 });
+    const taskId = await addTask({ account: IDS.mg, assignees: [IDS.mika], dueDay: 0 });
     const task = (await db.query.tasks.findFirst({ where: eq(tasks.id, taskId) }))!;
 
     expect(await canViewTask(anna, task)).toBe(false);
@@ -159,7 +159,7 @@ describe("reading a task and changing one are the same permission", () => {
   it("keeps an assignee on another account's board", async () => {
     // Assignment reaches across a board even when the account does not.
     const mika = await load(IDS.mika);
-    const taskId = await addTask({ account: IDS.nike, assignees: [IDS.mika], dueDay: 0 });
+    const taskId = await addTask({ account: IDS.volvo, assignees: [IDS.mika], dueDay: 0 });
     const task = (await db.query.tasks.findFirst({ where: eq(tasks.id, taskId) }))!;
 
     expect(await canEditTask(mika, task)).toBe(true);
@@ -180,46 +180,46 @@ describe("a person on more than one account", () => {
   });
 
   it("reaches both, and still not a third", async () => {
-    // Mika works on Adidas. Put her on Nike as well, the way a designer covering
+    // Mika works on MG. Put her on Volvo as well, the way a designer covering
     // two clients actually is.
-    await addMembership(IDS.nike, IDS.mika);
+    await addMembership(IDS.volvo, IDS.mika);
     const mika = await load(IDS.mika);
 
     expect(mika.accountIds).toHaveLength(2);
-    expect(canViewAccountWork(mika, IDS.nike)).toBe(true);
-    expect(canViewAccountWork(mika, IDS.adidas)).toBe(true);
+    expect(canViewAccountWork(mika, IDS.volvo)).toBe(true);
+    expect(canViewAccountWork(mika, IDS.mg)).toBe(true);
     // A made-up id stands in for the account she is not on. There are only two.
     expect(canViewAccountWork(mika, "00000000-0000-4000-a000-000000000000")).toBe(false);
   });
 
-  it("is offered both accounts' boards, and the page opens every one", async () => {
-    await addMembership(IDS.nike, IDS.mika);
+  it("is offered both accounts in the rail, and the page opens each", async () => {
+    await addMembership(IDS.volvo, IDS.mika);
     const mika = await load(IDS.mika);
-    const offered = await listBoardsForUser(mika);
+    const offered = await railAccountsFor(mika);
 
-    expect(offered.map((b) => b.name).sort()).toEqual(["Adidas", "Nike"]);
-    for (const board of offered) {
-      expect(canViewAccountWork(mika, board.accountId)).toBe(true);
+    expect(offered.map((a) => a.name).sort()).toEqual(["MG", "Volvo"]);
+    for (const account of offered) {
+      expect(canViewAccountWork(mika, account.id)).toBe(true);
     }
   });
 
   it("hands their leave to the director of either one", async () => {
-    // Sarah directs Nike and not Adidas. Once Mika works on Nike too, Mika's
+    // Sarah directs Volvo and not MG. Once Mika works on Volvo too, Mika's
     // leave becomes Sarah's to sign off — the request is the person's, not the
     // account's, and one shared account is enough.
     const sarah = await load(IDS.sarah);
     expect(canDecideLeave(sarah, await load(IDS.mika), await accountsOf(IDS.mika))).toBe(false);
 
-    await addMembership(IDS.nike, IDS.mika);
+    await addMembership(IDS.volvo, IDS.mika);
     expect(canDecideLeave(sarah, await load(IDS.mika), await accountsOf(IDS.mika))).toBe(true);
   });
 
   it("does not make them a director of either", async () => {
-    await addMembership(IDS.nike, IDS.mika);
+    await addMembership(IDS.volvo, IDS.mika);
     const mika = await load(IDS.mika);
     // Working on an account is not running it. `canViewAccount` gates the
     // management screen, and membership must never be mistaken for it.
-    expect(canViewAccount(mika, IDS.nike)).toBe(false);
+    expect(canViewAccount(mika, IDS.volvo)).toBe(false);
     expect(mika.directedIds).toEqual([]);
   });
 });

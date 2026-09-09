@@ -7,7 +7,23 @@ import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import { supportedZones } from "@/lib/zones";
-import { accountMembers, department, roleEnum, accounts, users } from "@/db/schema";
+import {
+  accountMembers,
+  boardStatuses,
+  boards,
+  department,
+  roleEnum,
+  accounts,
+  users,
+} from "@/db/schema";
+
+/** The columns an account's work starts out sorted into. */
+const DEFAULT_COLUMNS = [
+  { name: "To Do", kind: "open" as const, position: 0 },
+  { name: "In Progress", kind: "open" as const, position: 1 },
+  { name: "Done", kind: "done" as const, position: 2 },
+  { name: "Blocked", kind: "blocked" as const, position: 3 },
+];
 import { hashPassword, requireUser } from "@/lib/auth";
 import { assertCanAdminister } from "@/lib/permissions";
 import { emailTaken } from "@/queries/admin";
@@ -168,8 +184,8 @@ export async function updatePerson(_prev: FormState, formData: FormData): Promis
   /*
    * Taking somebody off an account they run leaves that account without a
    * director, rather than pointing at somebody who no longer works on it. With
-   * several accounts this is per-account: dropping Sarah from Adidas clears
-   * Adidas and leaves Nike and Coca-Cola alone.
+   * several accounts this is per-account: dropping Sarah from MG clears
+   * MG and leaves Volvo and Kia alone.
    */
   await db
     .update(accounts)
@@ -223,7 +239,24 @@ export async function createAccount(_prev: FormState, formData: FormData): Promi
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Check the form" };
 
   // No director on the way in: there is nobody on the account yet to be one.
-  await db.insert(accounts).values({ name: parsed.data.name });
+  const [account] = await db
+    .insert(accounts)
+    .values({ name: parsed.data.name })
+    .returning({ id: accounts.id });
+
+  /*
+   * Its board, with it. A board is not something anybody creates any more — it
+   * is the columns the account's Tasks page is drawn with, and an account
+   * without one has a Tasks page that cannot hold anything. Made here so that
+   * state never exists.
+   */
+  const [board] = await db
+    .insert(boards)
+    .values({ accountId: account!.id, name: "Work", position: 0, createdBy: viewer.id })
+    .returning({ id: boards.id });
+  await db.insert(boardStatuses).values(
+    DEFAULT_COLUMNS.map((column) => ({ ...column, boardId: board!.id })),
+  );
 
   refresh();
   redirect("/admin");

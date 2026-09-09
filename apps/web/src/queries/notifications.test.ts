@@ -23,7 +23,7 @@ describe("who may be told about a task", () => {
   beforeEach(async () => {
     await resetDb();
     await seedOrg();
-    task = await loadTask(await addTask({ account: IDS.nike, assignees: [IDS.anna], dueDay: 0 }));
+    task = await loadTask(await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 0 }));
   });
 
   it("agrees with canViewTask, person by person", async () => {
@@ -107,7 +107,7 @@ describe("an inbox", () => {
   beforeEach(async () => {
     await resetDb();
     await seedOrg();
-    task = await loadTask(await addTask({ account: IDS.nike, assignees: [IDS.anna], dueDay: 0 }));
+    task = await loadTask(await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 0 }));
   });
 
   const activityOn = async (body: string) => {
@@ -232,7 +232,7 @@ describe("work that belongs to no account", () => {
   beforeEach(async () => {
     await resetDb();
     await seedOrg();
-    const id = await addTask({ account: IDS.nike, assignees: [IDS.anna], dueDay: 0 });
+    const id = await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 0 });
     await db.execute(sql`update tasks set account_id = null where id = ${id}`);
     root = await loadTask(id);
   });

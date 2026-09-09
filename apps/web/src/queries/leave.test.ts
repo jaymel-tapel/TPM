@@ -22,23 +22,23 @@ describe("awayOn", () => {
     await addLeave({ user: IDS.james, startDay: 0, status: "declined" });
     await addLeave({ user: IDS.sarah, startDay: 0, status: "cancelled" });
 
-    expect(await awayOn([IDS.nike], day(0))).toEqual(new Map());
+    expect(await awayOn([IDS.volvo], day(0))).toEqual(new Map());
   });
 
   it("includes both ends of the range and stops after it", async () => {
     await addLeave({ user: IDS.anna, startDay: 1, endDay: 3 });
 
-    expect((await awayOn([IDS.nike], day(0))).has(IDS.anna)).toBe(false);
-    expect((await awayOn([IDS.nike], day(1))).has(IDS.anna)).toBe(true);
-    expect((await awayOn([IDS.nike], day(2))).has(IDS.anna)).toBe(true);
-    expect((await awayOn([IDS.nike], day(3))).has(IDS.anna)).toBe(true);
-    expect((await awayOn([IDS.nike], day(4))).has(IDS.anna)).toBe(false);
+    expect((await awayOn([IDS.volvo], day(0))).has(IDS.anna)).toBe(false);
+    expect((await awayOn([IDS.volvo], day(1))).has(IDS.anna)).toBe(true);
+    expect((await awayOn([IDS.volvo], day(2))).has(IDS.anna)).toBe(true);
+    expect((await awayOn([IDS.volvo], day(3))).has(IDS.anna)).toBe(true);
+    expect((await awayOn([IDS.volvo], day(4))).has(IDS.anna)).toBe(false);
   });
 
   it("carries which half of the day, and when they are back", async () => {
     await addLeave({ user: IDS.anna, startDay: 0, half: "pm", kind: "personal" });
 
-    expect((await awayOn([IDS.nike], day(0))).get(IDS.anna)).toEqual({
+    expect((await awayOn([IDS.volvo], day(0))).get(IDS.anna)).toEqual({
       away: "pm",
       kind: "personal",
       endDate: day(0),
@@ -48,15 +48,15 @@ describe("awayOn", () => {
   it("does not leak another account", async () => {
     await addLeave({ user: IDS.mika, startDay: 0 });
 
-    expect((await awayOn([IDS.nike], day(0))).has(IDS.mika)).toBe(false);
-    expect((await awayOn([IDS.adidas], day(0))).has(IDS.mika)).toBe(true);
+    expect((await awayOn([IDS.volvo], day(0))).has(IDS.mika)).toBe(false);
+    expect((await awayOn([IDS.mg], day(0))).has(IDS.mika)).toBe(true);
   });
 
   it("reads both accounts in one query", async () => {
     await addLeave({ user: IDS.anna, startDay: 0 });
     await addLeave({ user: IDS.mika, startDay: 0 });
 
-    const away = await awayOn([IDS.nike, IDS.adidas], day(0));
+    const away = await awayOn([IDS.volvo, IDS.mg], day(0));
     expect([...away.keys()].sort()).toEqual([IDS.anna, IDS.mika].sort());
   });
 });
@@ -92,7 +92,7 @@ describe("who may read a note", () => {
   });
 
   const noteOn = async (viewerId: string) => {
-    const rows = await listAccountLeave(await load(viewerId), IDS.nike, day(0), day(7));
+    const rows = await listAccountLeave(await load(viewerId), IDS.volvo, day(0), day(7));
     return rows[0].note;
   };
 

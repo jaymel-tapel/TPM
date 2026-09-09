@@ -30,8 +30,8 @@ export const NOW = new Date("2026-09-07T05:00:00Z");
 export const TODAY = startOfAppDay(NOW);
 
 export const IDS = {
-  nike: "11111111-1111-4111-a111-111111111111",
-  adidas: "22222222-2222-4222-a222-222222222222",
+  volvo: "11111111-1111-4111-a111-111111111111",
+  mg: "22222222-2222-4222-a222-222222222222",
   anna: "aaaaaaaa-1111-4111-a111-111111111111",
   james: "aaaaaaaa-2222-4222-a222-222222222222",
   sarah: "aaaaaaaa-3333-4333-a333-333333333333",
@@ -71,8 +71,8 @@ export async function resetDb() {
  *  says so out loud. */
 export async function seedOrg() {
   await db.insert(accounts).values([
-    { id: IDS.nike, name: "Nike" },
-    { id: IDS.adidas, name: "Adidas" },
+    { id: IDS.volvo, name: "Volvo" },
+    { id: IDS.mg, name: "MG" },
   ]);
 
   await db.insert(users).values([
@@ -84,17 +84,17 @@ export async function seedOrg() {
   ]);
 
   await db.insert(accountMembers).values([
-    { accountId: IDS.nike, userId: IDS.anna },
-    { accountId: IDS.nike, userId: IDS.james },
-    { accountId: IDS.nike, userId: IDS.sarah },
-    { accountId: IDS.adidas, userId: IDS.mika },
+    { accountId: IDS.volvo, userId: IDS.anna },
+    { accountId: IDS.volvo, userId: IDS.james },
+    { accountId: IDS.volvo, userId: IDS.sarah },
+    { accountId: IDS.mg, userId: IDS.mika },
   ]);
 
-  await db.update(accounts).set({ accountDirectorId: IDS.sarah }).where(sql`id = ${IDS.nike}`);
+  await db.update(accounts).set({ accountDirectorId: IDS.sarah }).where(sql`id = ${IDS.volvo}`);
 
   await db.insert(boards).values([
-    { id: IDS.boardA, accountId: IDS.nike, name: "Nike", createdBy: IDS.sarah },
-    { id: IDS.boardB, accountId: IDS.adidas, name: "Adidas", createdBy: IDS.elena },
+    { id: IDS.boardA, accountId: IDS.volvo, name: "Volvo", createdBy: IDS.sarah },
+    { id: IDS.boardB, accountId: IDS.mg, name: "MG", createdBy: IDS.elena },
   ]);
 
   await db.insert(boardStatuses).values(
@@ -134,7 +134,7 @@ export async function viewerFor(userId: string): Promise<Viewer> {
 
 /** The board an account's work lands on in the fixture. */
 export const boardFor = (accountId: string) =>
-  accountId === IDS.nike ? IDS.boardA : IDS.boardB;
+  accountId === IDS.volvo ? IDS.boardA : IDS.boardB;
 
 let n = 0;
 

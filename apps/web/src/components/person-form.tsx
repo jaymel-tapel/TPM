@@ -144,7 +144,7 @@ export function PersonForm({
             /*
              * Checkboxes, not a dropdown. A select answers "which one", and the
              * whole point of this screen now is that the answer is usually more
-             * than one — a designer covering Nike and Adidas is the ordinary
+             * than one — a designer covering Volvo and MG is the ordinary
              * case, not the exception.
              */
             <div className="flex flex-wrap gap-2">

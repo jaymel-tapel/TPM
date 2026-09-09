@@ -59,7 +59,8 @@ export default async function TodayPage({
   const { user, zone, hours } = await requireSession();
   const today = now(zone);
   const day = await getDayView(user.id, today, zone);
-  const row = (t: Parameters<typeof toTaskRow>[0]) => toTaskRow(t, today, zone);
+  // Today spans every client too, so each row says which.
+  const row = (t: Parameters<typeof toTaskRow>[0]) => toTaskRow(t, today, zone, true);
 
   const pending = day.today.length;
 

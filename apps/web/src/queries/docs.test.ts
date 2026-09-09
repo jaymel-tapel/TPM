@@ -37,27 +37,27 @@ describe("who can read a document", () => {
     await resetDb();
     await seedOrg();
     await addDoc({ title: "Handbook", account: null });
-    await addDoc({ title: "Nike runbook", account: IDS.nike });
-    await addDoc({ title: "Adidas runbook", account: IDS.adidas });
+    await addDoc({ title: "Volvo runbook", account: IDS.volvo });
+    await addDoc({ title: "MG runbook", account: IDS.mg });
   });
 
   it("shows a member the department's documents and their own account's, and nobody else's", async () => {
-    const anna = await load(IDS.anna); // on Nike
-    expect(names(await getDocTree(anna))).toEqual(["Handbook", "Nike runbook"]);
+    const anna = await load(IDS.anna); // on Volvo
+    expect(names(await getDocTree(anna))).toEqual(["Handbook", "Volvo runbook"]);
   });
 
   it("scopes an account director to their own account the same way", async () => {
-    const sarah = await load(IDS.sarah); // Nike's director
-    expect(names(await getDocTree(sarah))).toEqual(["Handbook", "Nike runbook"]);
+    const sarah = await load(IDS.sarah); // Volvo's director
+    expect(names(await getDocTree(sarah))).toEqual(["Handbook", "Volvo runbook"]);
   });
 
   it("shows the senior director everything", async () => {
     const elena = await load(IDS.elena);
     // `names` sorts, so the expectation is alphabetical rather than by scope.
     expect(names(await getDocTree(elena))).toEqual([
-      "Adidas runbook",
       "Handbook",
-      "Nike runbook",
+      "MG runbook",
+      "Volvo runbook",
     ]);
   });
 
@@ -77,15 +77,15 @@ describe("the tree", () => {
   });
 
   it("puts documents inside their folder, and hides a folder the viewer cannot see", async () => {
-    const folder = await addFolder({ name: "Adidas", account: IDS.adidas });
+    const folder = await addFolder({ name: "MG", account: IDS.mg });
     await addDoc({ title: "Escalation", folder });
 
     const elena = await load(IDS.elena);
     const tree = await getDocTree(elena);
-    expect(tree.folders.map((f) => f.name)).toEqual(["Adidas"]);
+    expect(tree.folders.map((f) => f.name)).toEqual(["MG"]);
     expect(tree.folders[0].documents.map((d) => d.title)).toEqual(["Escalation"]);
 
-    // Anna is on Nike. Neither the folder nor what is in it may appear — a
+    // Anna is on Volvo. Neither the folder nor what is in it may appear — a
     // document must not float up to the top level because its folder was
     // filtered out.
     const anna = await load(IDS.anna);
@@ -114,7 +114,7 @@ describe("the tree", () => {
 
   it("gives what is inside a folder the folder's placement", async () => {
     const folder = await addFolder({ name: "How we work", account: null });
-    const doc = await addDoc({ title: "Expenses", account: IDS.adidas, folder });
+    const doc = await addDoc({ title: "Expenses", account: IDS.mg, folder });
 
     const row = await db.query.documents.findFirst({ where: eq(documents.id, doc) });
     expect(row?.visibility).toBe("org");
@@ -133,15 +133,15 @@ describe("the tree", () => {
   });
 
   it("takes an account's folders when the account goes", async () => {
-    const folder = await addFolder({ name: "Nike", account: IDS.nike });
+    const folder = await addFolder({ name: "Volvo", account: IDS.volvo });
     await addDoc({ title: "Runbook", folder });
     // Only folders are under test; the account's other dependants are cleared
     // first so the delete can land.
-    await db.execute(`delete from tasks where account_id = '${IDS.nike}'`);
-    await db.execute(`delete from boards where account_id = '${IDS.nike}'`);
-    await db.execute(`delete from account_members where account_id = '${IDS.nike}'`);
-    await db.execute(`update accounts set account_director_id = null where id = '${IDS.nike}'`);
-    await db.execute(`delete from accounts where id = '${IDS.nike}'`);
+    await db.execute(`delete from tasks where account_id = '${IDS.volvo}'`);
+    await db.execute(`delete from boards where account_id = '${IDS.volvo}'`);
+    await db.execute(`delete from account_members where account_id = '${IDS.volvo}'`);
+    await db.execute(`update accounts set account_director_id = null where id = '${IDS.volvo}'`);
+    await db.execute(`delete from accounts where id = '${IDS.volvo}'`);
 
     expect(await db.select().from(folders)).toHaveLength(0);
     expect(await db.select().from(documents)).toHaveLength(0);
@@ -156,7 +156,7 @@ describe("the visibility check on ids from a form", () => {
 
   it("drops an id the person was never allowed to see", async () => {
     const mine = await addDoc({ title: "Handbook", account: null });
-    const theirs = await addDoc({ title: "Adidas runbook", account: IDS.adidas });
+    const theirs = await addDoc({ title: "MG runbook", account: IDS.mg });
 
     const anna = await load(IDS.anna);
     expect(await filterVisibleDocIds(anna, [mine, theirs])).toEqual([mine]);
@@ -181,8 +181,8 @@ describe("search", () => {
       ]),
     });
     await addDoc({
-      title: "Adidas escalation",
-      account: IDS.adidas,
+      title: "MG escalation",
+      account: IDS.mg,
       body: JSON.stringify([
         {
           type: "paragraph",
@@ -199,8 +199,8 @@ describe("search", () => {
 
     const elena = await load(IDS.elena);
     expect((await searchDocs(elena, "escalate")).map((h) => h.title).sort()).toEqual([
-      "Adidas escalation",
       "Handbook",
+      "MG escalation",
     ]);
   });
 
@@ -221,7 +221,7 @@ describe("mentions and attachments are separate links", () => {
     const anna = await load(IDS.anna);
     const brand = await addDoc({ title: "Brand", account: null });
     const tone = await addDoc({ title: "Tone", account: null });
-    const task = await addTask({ account: IDS.nike, assignees: [IDS.anna], dueDay: 0 });
+    const task = await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 0 });
 
     // Attached on purpose, and also named in the prose.
     await linkDoc(task, brand, "attached");
@@ -250,15 +250,15 @@ describe("mentions and attachments are separate links", () => {
   });
 
   it("refuses to link a document the author cannot see", async () => {
-    const anna = await load(IDS.anna); // on Nike
-    const theirs = await addDoc({ title: "Adidas runbook", account: IDS.adidas });
-    const task = await addTask({ account: IDS.nike, assignees: [IDS.anna], dueDay: 0 });
+    const anna = await load(IDS.anna); // on Volvo
+    const theirs = await addDoc({ title: "MG runbook", account: IDS.mg });
+    const task = await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 0 });
 
     // A hand-written payload naming another account's document.
     await syncMentionedDocs(
       anna,
       task,
-      bodyMentioning("See ", [{ id: theirs, title: "Adidas runbook" }]),
+      bodyMentioning("See ", [{ id: theirs, title: "MG runbook" }]),
     );
 
     expect(await db.select().from(taskDocuments)).toHaveLength(0);
@@ -267,8 +267,8 @@ describe("mentions and attachments are separate links", () => {
   it("lists the tasks pointing back at a document", async () => {
     const anna = await load(IDS.anna);
     const brand = await addDoc({ title: "Brand", account: null });
-    const attached = await addTask({ account: IDS.nike, assignees: [IDS.anna], dueDay: 0 });
-    const mentioned = await addTask({ account: IDS.nike, assignees: [IDS.anna], dueDay: 1 });
+    const attached = await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 0 });
+    const mentioned = await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 1 });
 
     await linkDoc(attached, brand, "attached");
     await linkDoc(mentioned, brand, "mentioned");
@@ -282,8 +282,8 @@ describe("mentions and attachments are separate links", () => {
 
 describe("who can write a document", () => {
   const org = { visibility: "org" as const, accountId: null };
-  const nike = { visibility: "account" as const, accountId: IDS.nike };
-  const adidas = { visibility: "account" as const, accountId: IDS.adidas };
+  const volvo = { visibility: "account" as const, accountId: IDS.volvo };
+  const mg = { visibility: "account" as const, accountId: IDS.mg };
 
   beforeEach(async () => {
     await resetDb();
@@ -306,21 +306,21 @@ describe("who can write a document", () => {
   });
 
   it("lets a team member write their own account's documents", async () => {
-    const anna = await load(IDS.anna); // on Nike, plain member
-    expect(canEditDoc(anna, nike)).toBe(true);
-    expect(canPlaceDoc(anna, nike)).toBe(true);
+    const anna = await load(IDS.anna); // on Volvo, plain member
+    expect(canEditDoc(anna, volvo)).toBe(true);
+    expect(canPlaceDoc(anna, volvo)).toBe(true);
   });
 
   it("still stops them writing another account's", async () => {
     const anna = await load(IDS.anna);
-    expect(canEditDoc(anna, adidas)).toBe(false);
-    expect(canPlaceDoc(anna, adidas)).toBe(false);
+    expect(canEditDoc(anna, mg)).toBe(false);
+    expect(canPlaceDoc(anna, mg)).toBe(false);
   });
 
   it("gives the senior director every account", async () => {
     const elena = await load(IDS.elena); // no account of their own
-    expect(canPlaceDoc(elena, nike)).toBe(true);
-    expect(canPlaceDoc(elena, adidas)).toBe(true);
+    expect(canPlaceDoc(elena, volvo)).toBe(true);
+    expect(canPlaceDoc(elena, mg)).toBe(true);
   });
 
   it("refuses a member a child of an org-wide document", async () => {

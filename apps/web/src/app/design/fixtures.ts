@@ -17,6 +17,7 @@ import type {
   AttachmentData,
   BoardData,
   TaskRowData,
+  CampaignRowData,
   CompareRowData,
   TrendPointData,
 } from "@meridian/ui";
@@ -41,8 +42,23 @@ export const TASKS: Record<string, TaskRowData> = {
     priority: "normal",
     dueText: "Today, 2:00 PM",
     assignees: [anna],
-    tags: ["Nike"],
+    tags: ["reporting"],
     docs: 2,
+  },
+  // The cross-account row: My Tasks and Today name the client, because on a
+  // list spanning five of them that is what orients you first.
+  crossAccount: {
+    ...base,
+    id: "t1a",
+    account: "Volvo",
+    title: "Update model page copy",
+    type: "client_work",
+    status: { id: "c-todo", name: "To Do", kind: "open" },
+    priority: "normal",
+    dueText: "Today, 4:00 PM",
+    assignees: [anna],
+    tags: [],
+    docs: 0,
   },
   inProgress: {
     ...base,
@@ -100,9 +116,11 @@ export const TASKS: Record<string, TaskRowData> = {
 };
 
 export const MEMBERS: MemberRowData[] = [
-  { id: "m1", href: "#", name: "Sarah Lim", role: "account_director", due: 4, done: 3, overdue: 0, remaining: 1, percent: 75 },
-  { id: "m2", href: "#", name: "Anna Santos", role: "team_member", due: 6, done: 6, overdue: 0, remaining: 0, percent: 100 },
-  { id: "m3", href: "#", name: "James Cruz", role: "team_member", due: 7, done: 3, overdue: 7, remaining: 4, percent: 43 },
+  { id: "m1", href: "#", name: "Sarah Lim", role: "account_director", title: "Account Director", due: 4, done: 3, overdue: 0, remaining: 1, percent: 75 },
+  // The cross-account row: a craft beside the name, and the clients they cover
+  // under it. An account's own Team page passes neither.
+  { id: "m2", href: "#", name: "Anna Santos", role: "team_member", title: "Designer", accounts: ["Volvo", "MG"], due: 6, done: 6, overdue: 0, remaining: 0, percent: 100 },
+  { id: "m3", href: "#", name: "James Cruz", role: "team_member", title: "Copywriter", accounts: ["Volvo", "MG"], due: 7, done: 3, overdue: 7, remaining: 4, percent: 43 },
   { id: "m4", href: "#", name: "Paolo Rivera", role: "team_member", due: 0, done: 0, overdue: 0, remaining: 0, percent: 0 },
   {
     id: "m5",
@@ -199,7 +217,7 @@ export const LEAVE_REQUESTS: LeaveRequestData[] = [
 export const ATTENTION: AttentionItemData[] = [
   { severity: "high", headline: "James Cruz", detail: "7 overdue tasks", href: "#" },
   { severity: "medium", headline: "4 tasks due within 2 hours", detail: "Not started yet" },
-  { severity: "high", headline: "Adidas", detail: "Completion down 12% vs last week", href: "#" },
+  { severity: "high", headline: "MG", detail: "Completion down 12% vs last week", href: "#" },
   { severity: "medium", headline: "3 collaborative tasks", detail: "Still incomplete" },
 ];
 
@@ -213,11 +231,78 @@ export const TREND: TrendPointData[] = [
   { label: "Sun", percent: 78, due: 157, done: 122 },
 ];
 
+export const CAMPAIGNS: CampaignRowData[] = [
+  {
+    id: "c1",
+    href: "#",
+    name: "Safety Always-On",
+    status: "live",
+    rangeText: "20 Aug – 5 Oct",
+    elapsedText: "3 weeks left",
+    total: 18,
+    done: 14,
+    overdue: 0,
+    blocked: 0,
+    dueSoon: 3,
+    percent: 78,
+    elapsed: 62,
+  },
+  {
+    id: "c2",
+    href: "#",
+    name: "EX30 Launch",
+    // Behind: two thirds elapsed, under half delivered. The pair of bars is
+    // what says so — neither number does on its own.
+    status: "live",
+    rangeText: "24 Aug – 29 Sep",
+    elapsedText: "1 week left",
+    total: 22,
+    done: 9,
+    overdue: 2,
+    blocked: 1,
+    dueSoon: 6,
+    percent: 41,
+    elapsed: 86,
+  },
+  {
+    id: "c3",
+    href: "#",
+    name: "3008 Relaunch",
+    status: "wrapped",
+    rangeText: "27 Jun – 15 Aug",
+    elapsedText: "Ended",
+    total: 31,
+    done: 31,
+    overdue: 0,
+    blocked: 0,
+    dueSoon: 0,
+    percent: 100,
+    elapsed: 100,
+  },
+  {
+    id: "c4",
+    href: "#",
+    name: "Year-End Sales Event",
+    // Nothing due yet, which is what "planned" means. 0% here is a fact, not
+    // a failure, and the row has to read that way.
+    status: "planned",
+    rangeText: "9 Oct – 21 Nov",
+    elapsedText: "Starts in 4 weeks",
+    total: 0,
+    done: 0,
+    overdue: 0,
+    blocked: 0,
+    dueSoon: 0,
+    percent: 0,
+    elapsed: 0,
+  },
+];
+
 export const ACCOUNTS: CompareRowData[] = [
   {
     id: "a",
     href: "#",
-    name: "Nike",
+    name: "Volvo",
     note: "Sarah Lim",
     avatarName: "Sarah Lim",
     percent: 81,
@@ -227,7 +312,7 @@ export const ACCOUNTS: CompareRowData[] = [
   {
     id: "b",
     href: "#",
-    name: "Adidas",
+    name: "MG",
     note: "Sarah Lim",
     avatarName: "Sarah Lim",
     percent: 74,
@@ -237,7 +322,7 @@ export const ACCOUNTS: CompareRowData[] = [
   {
     id: "c",
     href: "#",
-    name: "Coca-Cola",
+    name: "Kia",
     note: null,
     percent: 66,
     overdue: 3,
@@ -281,7 +366,7 @@ export const BOARD: BoardData = {
 export const ATTACHMENTS: AttachmentData[] = [
   {
     id: "a1",
-    filename: "nike-brief-v2.pdf",
+    filename: "volvo-brief-v2.pdf",
     contentType: "application/pdf",
     sizeBytes: 1_240_000,
     uploadedByName: "Anna Santos",
@@ -335,13 +420,13 @@ export const DOC_FOLDERS: DocFolderData[] = [
   {
     id: "f3",
     href: "#",
-    name: "Nike",
+    name: "Volvo",
     scope: "account",
-    accountName: "Nike",
+    accountName: "Volvo",
     folders: [],
     documents: [
-      { id: "d5", href: "#", title: "Runbook", scope: "account", accountName: "Nike" },
-      { id: "d6", href: "#", title: "Reporting checklist", scope: "account", accountName: "Nike" },
+      { id: "d5", href: "#", title: "Runbook", scope: "account", accountName: "Volvo" },
+      { id: "d6", href: "#", title: "Reporting checklist", scope: "account", accountName: "Volvo" },
     ],
   },
 ];
@@ -357,7 +442,7 @@ export const DOC_REFS: DocRefData[] = [
   // Named in the prose only: no detach button, because the description owns it.
   { id: "d2", href: "#", title: "Escalation", scope: "org", accountName: null, attached: false, mentioned: true },
   // Both — detaching leaves it listed, because the prose still says it.
-  { id: "d5", href: "#", title: "Nike runbook", scope: "account", accountName: "Nike", attached: true, mentioned: true },
+  { id: "d5", href: "#", title: "Volvo runbook", scope: "account", accountName: "Volvo", attached: true, mentioned: true },
 ];
 
 export const DOC_HITS: DocHitData[] = [
@@ -518,7 +603,7 @@ export const INBOX: InboxItemData[] = [
     kind: "mentioned",
     actorName: "Sarah Lim",
     taskId: "t-1",
-    taskTitle: "Nike Q4 campaign brief",
+    taskTitle: "Volvo Q4 campaign brief",
     excerpt: "can you take the deck section? @James Cruz",
     when: "2h ago",
     read: false,
@@ -549,7 +634,7 @@ export const DAY_PLAN: PlanBlockData[] = [
   {
     taskId: "p1",
     href: "/tasks/p1",
-    title: "Nike Q4 campaign brief",
+    title: "Volvo Q4 campaign brief",
     type: "client_work",
     priority: "high",
     done: false,

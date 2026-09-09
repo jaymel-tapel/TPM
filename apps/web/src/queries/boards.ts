@@ -130,7 +130,7 @@ export async function listBoardOptions(user: { role: string; accountIds: string[
   for (const b of rows) {
     peopleByBoard[b.id] = people
       .filter((p) => (b.accountId === null ? true : p.account_ids.includes(b.accountId)))
-      // Named by the board's own account where there is one: inside Nike, "Nike"
+      // Named by the board's own account where there is one: inside Volvo, "Volvo"
       // on every row is noise. A department board says who each person is from.
       .map((p) => ({
         id: p.id,

@@ -2,15 +2,18 @@ import "server-only";
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
 import { dayRange, now, pct, type Zone } from "@/lib/date";
-import { isLeaf, uuids } from "./sql";
+import { isBlocked, isLeaf, uuids } from "./sql";
 import { dayKey } from "@/lib/leave";
 import { awayOn, type AwayMark } from "./leave";
 import type { Role } from "@/db/schema";
+import type { Viewer } from "@/lib/auth";
 
 export type MemberRollup = {
   id: string;
   name: string;
   role: Role;
+  /** Their craft — "Designer", "Copywriter". Null until somebody fills it in. */
+  title: string | null;
   due: number;
   done: number;
   overdue: number;
@@ -36,6 +39,12 @@ export type AccountToday = {
   due: number;
   done: number;
   overdue: number;
+  /**
+   * Open work sitting in a column somebody typed as blocked. Counted off
+   * `board_statuses.kind` rather than a column name, because the names are
+   * whoever made the board's and only the kind is shared vocabulary.
+   */
+  blocked: number;
   percent: number;
   members: MemberRollup[];
 };
@@ -67,20 +76,32 @@ export async function getAccountToday(
            (select count(*) from account_members m where m.account_id = t.id) as headcount,
            (select count(*) from tasks k where k.account_id = t.id and ${isLeaf} and k.due_date >= ${from} and k.due_date < ${end}) as due,
            (select count(*) from tasks k where k.account_id = t.id and ${isLeaf} and k.due_date >= ${from} and k.due_date < ${end} and k.completed_at is not null) as done,
-           (select count(*) from tasks k where k.account_id = t.id and ${isLeaf} and k.due_date < ${start} and k.completed_at is null) as overdue
+           (select count(*) from tasks k where k.account_id = t.id and ${isLeaf} and k.due_date < ${start} and k.completed_at is null) as overdue,
+           (select count(*) from tasks k
+              join board_statuses s on s.id = k.status_id
+              where k.account_id = t.id and ${isLeaf} and ${isBlocked} and k.completed_at is null) as blocked
     from accounts t
     left join users d on d.id = t.account_director_id
     where t.id = ${accountId}
   `);
   const account = accountRows.rows[0] as
-    | { id: string; name: string; director_name: string | null; headcount: string; due: string; done: string; overdue: string }
+    | {
+        id: string;
+        name: string;
+        director_name: string | null;
+        headcount: string;
+        due: string;
+        done: string;
+        overdue: string;
+        blocked: string;
+      }
     | undefined;
   if (!account) return null;
 
   const away = await awayOn([accountId], dayKey(reference, zone));
 
   const memberRows = await db.execute(sql`
-    select u.id, u.name, u.role,
+    select u.id, u.name, u.role, u.title,
            count(k.id) filter (where k.due_date >= ${from} and k.due_date < ${end}) as due,
            count(k.id) filter (where k.due_date >= ${from} and k.due_date < ${end} and k.completed_at is not null) as done,
            count(k.id) filter (where k.due_date < ${start} and k.completed_at is null) as overdue
@@ -88,7 +109,7 @@ export async function getAccountToday(
     left join task_assignees a on a.user_id = u.id
     left join tasks k on k.id = a.task_id and ${isLeaf}
     join account_members m on m.user_id = u.id and m.account_id = ${accountId}
-    group by u.id, u.name, u.role
+    group by u.id, u.name, u.role, u.title
     order by (u.role = 'account_director') desc, u.name
   `);
 
@@ -99,6 +120,7 @@ export async function getAccountToday(
       id: r.id,
       name: r.name,
       role: r.role as Role,
+      title: r.title,
       due,
       done,
       overdue: Number(r.overdue),
@@ -118,6 +140,7 @@ export async function getAccountToday(
     due,
     done,
     overdue: Number(account.overdue),
+    blocked: Number(account.blocked),
     percent: pct(done, due),
     members,
   };
@@ -126,6 +149,60 @@ export async function getAccountToday(
 export async function listAccounts(): Promise<{ id: string; name: string }[]> {
   const rows = await db.execute(sql`select id, name from accounts order by name`);
   return rows.rows as unknown as { id: string; name: string }[];
+}
+
+/**
+ * The accounts the rail may show, busiest first.
+ *
+ * Ranked here, capped in the rail. The handoff asks for three to five, and the
+ * reason is the rail itself: an Account Director on six clients, each
+ * expandable, is a navigation column you scroll past to reach Docs. Which five
+ * depends on which page you are on, and only the sidebar knows that — so this
+ * returns the order and lets the rail take from the top.
+ *
+ * "Busiest" is the reader's own open work, not the account's. The rail is a
+ * personal object, and the client you have four things due on today is the one
+ * you want at the top whoever else is busy.
+ */
+export async function railAccountsFor(
+  viewer: Viewer,
+): Promise<{ id: string; name: string }[]> {
+  const senior = viewer.role === "senior_director";
+  if (!senior && viewer.accountIds.length === 0) return [];
+
+  const rows = await db.execute(sql`
+    select a.id, a.name,
+           count(k.id) filter (
+             where k.completed_at is null
+               and exists (
+                 select 1 from task_assignees ta
+                 where ta.task_id = k.id and ta.user_id = ${viewer.id}::uuid
+               )
+           ) as mine
+    from accounts a
+    left join tasks k on k.account_id = a.id and ${isLeaf}
+    ${senior ? sql`` : sql`where a.id in (${uuids(viewer.accountIds)})`}
+    group by a.id, a.name
+    order by mine desc, a.name
+  `);
+
+  return (rows.rows as unknown as { id: string; name: string }[]).map((a) => ({
+    id: a.id,
+    name: a.name,
+  }));
+}
+
+/** One account, for the header every page in its section carries. */
+export async function getAccount(
+  accountId: string,
+): Promise<{ id: string; name: string; directorName: string | null } | null> {
+  const rows = await db.execute(sql`
+    select a.id, a.name, d.name as "directorName"
+    from accounts a
+    left join users d on d.id = a.account_director_id
+    where a.id = ${accountId}::uuid
+  `);
+  return (rows.rows[0] as { id: string; name: string; directorName: string | null }) ?? null;
 }
 
 /** Names for a known set of account ids, in reading order. */
@@ -155,7 +232,7 @@ export async function listAccountMembers(accountId: string) {
  * account's board actually reaches. Assigning across accounts would put the
  * task in a stranger's My Tasks and count it in their completion rate.
  *
- * One row per person, not one per membership. Somebody on Nike and Adidas is
+ * One row per person, not one per membership. Somebody on Volvo and MG is
  * one name in the picker with both accounts named beneath it; listing them
  * twice would let you assign the same person to the same task twice over.
  *

@@ -17,25 +17,25 @@ describe("the account window", () => {
   });
 
   const anna = async (days?: number) => {
-    const account = await getAccountToday(IDS.nike, NOW, undefined, days);
+    const account = await getAccountToday(IDS.volvo, NOW, undefined, days);
     return account!.members.find((m) => m.id === IDS.anna)!;
   };
 
   it("counts only today by default", async () => {
-    await addTask({ account: IDS.nike, assignees: [IDS.anna], dueDay: 0, completedDay: 0 });
-    await addTask({ account: IDS.nike, assignees: [IDS.anna], dueDay: -3, completedDay: -3 });
+    await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 0, completedDay: 0 });
+    await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: -3, completedDay: -3 });
 
     const day = await anna();
     expect([day.due, day.done]).toEqual([1, 1]);
   });
 
   it("reaches back seven whole days on the week", async () => {
-    await addTask({ account: IDS.nike, assignees: [IDS.anna], dueDay: 0, completedDay: 0 });
-    await addTask({ account: IDS.nike, assignees: [IDS.anna], dueDay: -3, completedDay: -3 });
+    await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 0, completedDay: 0 });
+    await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: -3, completedDay: -3 });
     // The far edge: six days back is the oldest day the window includes.
-    await addTask({ account: IDS.nike, assignees: [IDS.anna], dueDay: -6, completedDay: -6 });
+    await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: -6, completedDay: -6 });
     // One day past it, and therefore out.
-    await addTask({ account: IDS.nike, assignees: [IDS.anna], dueDay: -7, completedDay: -7 });
+    await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: -7, completedDay: -7 });
 
     const week = await anna(7);
     expect([week.due, week.done]).toEqual([3, 3]);
@@ -44,7 +44,7 @@ describe("the account window", () => {
   it("keeps overdue anchored to today, whatever the window", async () => {
     // Due three days ago and never finished. It is overdue in both views —
     // widening the window must not absorb it into "remaining".
-    await addTask({ account: IDS.nike, assignees: [IDS.anna], dueDay: -3, completedDay: null });
+    await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: -3, completedDay: null });
 
     const day = await anna();
     const week = await anna(7);
@@ -58,10 +58,10 @@ describe("the account window", () => {
   });
 
   it("moves the account's own totals with the window too", async () => {
-    await addTask({ account: IDS.nike, assignees: [IDS.james], dueDay: -2, completedDay: -2 });
+    await addTask({ account: IDS.volvo, assignees: [IDS.james], dueDay: -2, completedDay: -2 });
 
-    const day = await getAccountToday(IDS.nike, NOW);
-    const week = await getAccountToday(IDS.nike, NOW, undefined, 7);
+    const day = await getAccountToday(IDS.volvo, NOW);
+    const week = await getAccountToday(IDS.volvo, NOW, undefined, 7);
 
     expect(day!.due).toBe(0);
     expect(week!.due).toBe(1);

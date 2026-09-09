@@ -31,6 +31,13 @@ export function MemberRow({ member }: { member: MemberRowData }) {
       ? "Nothing due today"
       : counts.join(" · ");
 
+  /*
+   * The clients somebody covers, on the one screen that reads people rather
+   * than accounts. Inside an account's own Team page this is left off: every
+   * row would say the account you are already looking at.
+   */
+  const accounts = member.accounts?.length ? member.accounts.join(", ") : null;
+
   const noteTone = away
     ? "text-gray-600"
     : member.overdue > 0
@@ -46,6 +53,14 @@ export function MemberRow({ member }: { member: MemberRowData }) {
       <div className="min-w-0">
         <div className="flex items-center gap-2 truncate text-body-strong text-gray-1000">
           {member.name}
+          {/* Their craft, quiet and inline. It belongs beside the name rather
+              than on a line of its own — a third line on a fifteen-person
+              roster costs more than the fact is worth. */}
+          {member.title ? (
+            <span className="truncate text-caption font-normal text-gray-600">
+              {member.title}
+            </span>
+          ) : null}
           {ROLE_BADGES[member.role] ? (
             <span className="rounded-md bg-blue-100 px-1.5 text-caption-strong text-blue-900">
               {ROLE_BADGES[member.role]}
@@ -53,7 +68,10 @@ export function MemberRow({ member }: { member: MemberRowData }) {
           ) : null}
           {away ? <AwayBadge away={away} /> : null}
         </div>
-        <div className={cn("text-caption", noteTone)}>{note}</div>
+        <div className="flex items-center gap-1 truncate text-caption">
+          <span className={noteTone}>{note}</span>
+          {accounts ? <span className="truncate text-gray-600">· {accounts}</span> : null}
+        </div>
       </div>
 
       {/*

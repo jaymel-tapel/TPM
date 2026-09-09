@@ -109,7 +109,7 @@ rather than trusting the exit code.
 
 The department stopped being two teams and became five clients, because the
 brief's own shape did not survive contact with how an agency staffs work. A
-designer covers Nike and Adidas; an Account Director carries three accounts. A
+designer covers Volvo and MG; an Account Director carries three accounts. A
 `users.team_id` column can only ever tell one of those stories, and the product
 was telling it — the roster, the board, the documents, the leave queue and
 every permission read that one column.
@@ -129,7 +129,7 @@ Four things are load-bearing:
   belong to the *target*, not the reader.
 - **Membership is not directorship.** `canViewAccountWork` reads `accountIds` —
   everyone servicing the client. `canViewAccount` reads `directedIds` — the one
-  person answerable for it. Working on Nike lets you move a card; it does not
+  person answerable for it. Working on Volvo lets you move a card; it does not
   let you invent the column it moves into, and it does not open the management
   rollup. Confusing the two is how the rail would start advertising doors the
   page shuts.
@@ -149,7 +149,7 @@ Four things are load-bearing:
 
 Two smaller consequences, recorded so they are not re-litigated:
 
-**Tags stopped pretending to be clients.** "Nike" was a tag, recovered from a
+**Tags stopped pretending to be clients.** "Volvo" was a tag, recovered from a
 task title with `CLIENTS.find(c => title.includes(c))`. It is a row now, with
 an owner, a board and a roster. A tag says what *kind* of work something is —
 `launch`, `monthly`, `reporting` — and nothing else.
@@ -161,9 +161,49 @@ four slots on `/overview` and buried both the weakest-work signal and every
 person-level one. Five rows all saying "down a bit" is the trend chart again in
 words, not a list of exceptions.
 
-**Not done here:** campaigns, the per-account rail group, and the cross-account
-My Tasks. The schema carries `campaigns` and `tasks.campaign_id` so the join is
-already proved by a composite key; nothing reads them yet.
+### One client hierarchy, and Board is not a place
+
+The first cut of the account rail kept the Boards section beside it, so every
+client's name appeared twice — once under Accounts and again under Boards, with
+its board nested beneath. Two hierarchies describing one thing, and the second
+one implied a board was somewhere you go.
+
+It is not. A board is the set of columns an account's Tasks page is drawn with.
+So: **Tasks is the section, Board is a view mode**, next to List, and the rail
+carries accounts alone. Each account expands into exactly four pages — Overview,
+Tasks, Campaigns, Team — and one account is open at a time, because five
+expanded clients is a column you scroll past to reach Docs.
+
+Consequences worth stating:
+
+- **Nobody creates a board.** An account gets one when the account is made, in
+  `createAccount`. `createBoard`, `renameBoard` and `deleteBoard` were the three
+  verbs that made a board look like a workspace object and they are gone; the
+  columns are still an Account Director's to shape, at `/accounts/[id]/columns`,
+  which is the part the brief always allowed. This finally makes true the thing
+  the *"No user-created boards"* paragraph claimed and the code had stopped
+  doing.
+- **Clicking a client both opens and navigates.** The name goes to its Overview
+  and reveals the four pages; the chevron only reveals. A row that did one but
+  not the other was the more surprising of the two options every time.
+- **The parent row is never tinted.** Overview is one of the four children, so
+  on an account's front page that child carries the active state. Marking the
+  client's name as well would highlight two rows for one page and make the
+  account read as a fifth destination alongside its own sections.
+- **The rail shows three to five accounts**, ranked by the reader's *own* open
+  work — the rail is a personal object — and always including the account being
+  looked at, which takes the last slot rather than making it six. The rest are
+  behind All Accounts.
+- **Cross-account lists name the client on the row; an account's own list does
+  not.** `TaskRowData.account` is set on My Tasks and Today and left off inside
+  an account, where every row would repeat the page's own title.
+
+Campaigns are real now: three per client in the seed, matched to tasks by the
+calendar rather than at random, so a campaign that ended in August cannot
+contain work due in October. A campaign row shows two bars — delivery, and how
+much of its own dates have gone — because "80% elapsed, 40% delivered" is the
+thing worth noticing and neither number says it alone. A campaign with no work
+filed against it shows a dash rather than `pct(0, 0)`'s 100%.
 
 ### Leave, and the line it does not cross
 
@@ -260,7 +300,7 @@ is on **at least one**; and an account's Account Director has to be an Account
 Director *working on that account*, which is the pairing `canViewAccount`
 reads. Taking somebody off an account they ran clears that account's director
 rather than leaving it pointing at somebody who left — per account, so dropping
-Sarah from Adidas leaves Nike and Coca-Cola alone.
+Sarah from MG leaves Volvo and Kia alone.
 
 **Nobody is deleted.** Nine tables reference `users.id` and most do not
 cascade — tasks they wrote, documents they authored, comments they left — so a
@@ -313,18 +353,18 @@ fixed set of six.
 Contribution-level completion on collaborative tasks (Anna—Data, James—Slides)
 is named in the brief as a *future extension* and is deliberately out of scope.
 
-**Boards are places, and an Account Director makes them.** This paragraph used
-to say the opposite — "no user-created boards", no new-board button, no column
-builder — and had been false for some time: `/boards/new`, board settings and a
-column builder all exist. Recording the reversal rather than quietly deleting
-the claim.
+**No user-created boards** — true again, having been false for a while. The
+claim originally stood, then `/boards/new`, board settings and a column builder
+shipped and nothing updated this paragraph; the account rail then made a board
+look like a second place a client lived. Both are undone: an account gets one
+board when it is made, nobody creates another, and there is no Boards section.
+See *"One client hierarchy, and Board is not a place"* above.
 
-What changed is what a board is *for*. A board belongs to an account, which is
-the thing the org chart already knows, so making one is naming a place a
-client's work lives rather than configuring a workspace. What stays refused is
-the part the brief was actually aiming at: there are no spaces, no folders over
-boards, no per-board custom fields, and no arbitrary views. The list stays the
-default — the brief says not to make Kanban the default interface.
+What survives is the part the brief always allowed: an Account Director names
+the columns their client's work moves through, at `/accounts/[id]/columns`. No
+spaces, no folders over boards, no per-board custom fields, no arbitrary views.
+The list stays the default — the brief says not to make Kanban the default
+interface.
 
 ### Invariants worth not breaking
 

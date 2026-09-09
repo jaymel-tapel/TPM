@@ -55,6 +55,8 @@ import {
   CommandDivider,
   TaskBoard,
   TaskListSkeleton,
+  CampaignList,
+  CampaignRow,
   CompareList,
   TASK_TYPES_ORDER,
   TASK_TYPE_LABELS,
@@ -82,6 +84,7 @@ import {
   MENTION_BODY,
   TASKS,
   ACCOUNTS,
+  CAMPAIGNS,
   DIRECTORS,
   TREND,
   INBOX,
@@ -244,14 +247,14 @@ export default function DesignSystemPage() {
           <div className="space-y-4">
             {[
               ["display", "text-display", "78%"],
-              ["large-title", "text-large-title", "Nike"],
+              ["large-title", "text-large-title", "Volvo"],
               ["title-1", "text-title-1", "Good morning, Anna"],
               ["title-3", "text-title-3", "Department Today"],
               ["subtitle-1", "text-subtitle-1", "Team Members"],
               ["subtitle-2", "text-subtitle-2", "Send client performance report"],
               ["body-strong", "text-body-strong", "Review campaign launch assets"],
               ["body-lg", "text-body-lg", "The system should answer questions directly."],
-              ["body", "text-body", "Client Work · Nike · Today, 2:00 PM"],
+              ["body", "text-body", "Client Work · Volvo · Today, 2:00 PM"],
               ["caption", "text-caption", "3 of 5 tasks completed today"],
               ["caption-strong", "text-caption-strong uppercase tracking-[0.08em]", "Today"],
             ].map(([name, cls, sample]) => (
@@ -337,7 +340,7 @@ export default function DesignSystemPage() {
             <Badge variant="secondary">Collaborative</Badge>
             <Badge variant="outline">Outline</Badge>
             <Badge variant="destructive">Overdue</Badge>
-            <TagBadge>Nike</TagBadge>
+            <TagBadge>Volvo</TagBadge>
           </Row>
           <Row label="Input">
             <Input placeholder="What needs to happen?" className="max-w-xs" />
@@ -466,6 +469,12 @@ export default function DesignSystemPage() {
               <TaskRow task={TASKS.overdue} viewer="u-anna" />
             </TaskList>
 
+            {/* Across accounts: My Tasks and Today name the client on the row.
+                Inside one account it is left off — see the list above. */}
+            <TaskList title="Across accounts">
+              <TaskRow task={TASKS.crossAccount} viewer="u-anna" />
+            </TaskList>
+
             <TaskList title="Completed" tone="quiet">
               <TaskRow task={TASKS.done} viewer="u-anna" quiet />
             </TaskList>
@@ -519,7 +528,7 @@ export default function DesignSystemPage() {
 
           <Row label="Scope">
             <ScopeBadge scope="org" accountName={null} />
-            <ScopeBadge scope="account" accountName="Nike" />
+            <ScopeBadge scope="account" accountName="Volvo" />
           </Row>
 
           <div className="mt-6 grid gap-6 lg:grid-cols-2">
@@ -837,6 +846,20 @@ export default function DesignSystemPage() {
           </div>
         </Block>
 
+        <Block
+          title="Campaigns"
+          note="Delivery against the calendar — two bars, two questions"
+        >
+          <CampaignList>
+            {CAMPAIGNS.map((campaign) => (
+              <CampaignRow key={campaign.id} campaign={campaign} />
+            ))}
+          </CampaignList>
+          <div className="mt-6">
+            <CampaignList empty="No campaigns yet." />
+          </div>
+        </Block>
+
         <Block title="Comparison" note="One shared axis, not one card each">
           <Row label="Accounts">
             <CompareList rows={ACCOUNTS} />
@@ -912,7 +935,7 @@ export default function DesignSystemPage() {
                       {m.name}
                     </span>
                   </TableCell>
-                  <TableCell className="text-gray-700">Nike</TableCell>
+                  <TableCell className="text-gray-700">Volvo</TableCell>
                   <TableCell className="tabular text-right text-gray-700">
                     {m.done} / {m.due}
                   </TableCell>

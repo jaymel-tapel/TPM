@@ -43,7 +43,7 @@ describe("who can be messaged", () => {
 
   it("says which account somebody is on, and tolerates having none", async () => {
     const people = await listChatPeople();
-    expect(people.find((p) => p.id === IDS.anna)!.accountName).toBe("Nike");
+    expect(people.find((p) => p.id === IDS.anna)!.accountName).toBe("Volvo");
     // The Senior Director is on none, and the picker has to survive that
     // rather than drop the one person everybody needs to message.
     expect(people.find((p) => p.id === IDS.elena)!.accountName).toBeNull();

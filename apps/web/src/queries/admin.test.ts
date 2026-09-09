@@ -37,14 +37,14 @@ describe("the people list", () => {
       "Sarah Lim",
     ]);
     const anna = people.find((p) => p.name === "Anna Santos")!;
-    expect(anna.accounts.map((a) => a.name)).toEqual(["Nike"]);
+    expect(anna.accounts.map((a) => a.name)).toEqual(["Volvo"]);
     expect(people.find((p) => p.name === "Elena Rivera")!.accounts).toEqual([]);
   });
 
   it("names both accounts for somebody who works on both", async () => {
-    await addMembership(IDS.adidas, IDS.anna);
+    await addMembership(IDS.mg, IDS.anna);
     const anna = (await listPeople()).find((p) => p.name === "Anna Santos")!;
-    expect(anna.accounts.map((a) => a.name)).toEqual(["Adidas", "Nike"]);
+    expect(anna.accounts.map((a) => a.name)).toEqual(["MG", "Volvo"]);
   });
 
   it("counts the work each person is on", async () => {
@@ -55,26 +55,26 @@ describe("the people list", () => {
 
 describe("the accounts list", () => {
   it("reports headcount, boards and who runs it", async () => {
-    // Alphabetical, so Adidas comes first.
-    const [adidas, nike] = await listAdminAccounts();
-    expect(nike.name).toBe("Nike");
-    expect(nike.headcount).toBe(3);
-    expect(nike.boardCount).toBe(1);
-    expect(nike.accountDirectorName).toBe("Sarah Lim");
-    // Adidas has nobody running it in the fixture.
-    expect(adidas.name).toBe("Adidas");
-    expect(adidas.accountDirectorName).toBeNull();
+    // Alphabetical, so MG comes first.
+    const [mg, volvo] = await listAdminAccounts();
+    expect(volvo.name).toBe("Volvo");
+    expect(volvo.headcount).toBe(3);
+    expect(volvo.boardCount).toBe(1);
+    expect(volvo.accountDirectorName).toBe("Sarah Lim");
+    // MG has nobody running it in the fixture.
+    expect(mg.name).toBe("MG");
+    expect(mg.accountDirectorName).toBeNull();
   });
 });
 
 describe("who may run an account", () => {
   it("offers only the account directors already on it", async () => {
-    const forA = await listDirectorOptions(IDS.nike);
+    const forA = await listDirectorOptions(IDS.volvo);
     expect(forA.map((d) => d.name)).toEqual(["Sarah Lim"]);
 
-    // Anna is on Nike but is not a director; Sarah is a director but not on
-    // Adidas. Neither is eligible for Adidas.
-    expect(await listDirectorOptions(IDS.adidas)).toEqual([]);
+    // Anna is on Volvo but is not a director; Sarah is a director but not on
+    // MG. Neither is eligible for MG.
+    expect(await listDirectorOptions(IDS.mg)).toEqual([]);
   });
 });
 
@@ -97,10 +97,10 @@ describe("moving somebody off an account they run", () => {
     // somebody manage an account they had left.
     await db
       .delete(accountMembers)
-      .where(and(eq(accountMembers.userId, IDS.sarah), eq(accountMembers.accountId, IDS.nike)));
-    await db.update(accounts).set({ accountDirectorId: null }).where(eq(accounts.id, IDS.nike));
+      .where(and(eq(accountMembers.userId, IDS.sarah), eq(accountMembers.accountId, IDS.volvo)));
+    await db.update(accounts).set({ accountDirectorId: null }).where(eq(accounts.id, IDS.volvo));
 
-    const [nike] = await listAdminAccounts();
-    expect(nike.accountDirectorId).toBeNull();
+    const [volvo] = await listAdminAccounts();
+    expect(volvo.accountDirectorId).toBeNull();
   });
 });

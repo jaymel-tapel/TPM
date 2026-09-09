@@ -30,7 +30,7 @@ describe("work with no account", () => {
   beforeEach(async () => {
     await resetDb();
     await seedOrg();
-    const id = await addTask({ account: IDS.nike, assignees: [IDS.anna], dueDay: 0 });
+    const id = await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 0 });
     await db.execute(sql`update tasks set account_id = null where id = ${id}`);
     root = (await db.query.tasks.findFirst({ where: eq(tasks.id, id) }))!;
   });
@@ -55,7 +55,7 @@ describe("work with no account", () => {
     // A department board draws its people from the whole department.
     expect(await assigneesOutsideAccount(null, [IDS.anna, IDS.mika, IDS.elena])).toEqual([]);
     // An account's board still refuses somebody from elsewhere.
-    expect(await assigneesOutsideAccount(IDS.nike, [IDS.mika])).toEqual(["Mika Villanueva"]);
+    expect(await assigneesOutsideAccount(IDS.volvo, [IDS.mika])).toEqual(["Mika Villanueva"]);
   });
 
   it("stays out of an account's numbers and inside the department's", async () => {
@@ -64,7 +64,7 @@ describe("work with no account", () => {
      * account id, and a null never matches one. The department has no such filter
      * and counts everything, which is what "the department's own work" means.
      */
-    const account = await getAccountToday(IDS.nike, NOW);
+    const account = await getAccountToday(IDS.volvo, NOW);
     const dept = await getDepartmentToday(NOW);
 
     expect(account!.due).toBe(0);

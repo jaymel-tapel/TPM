@@ -22,11 +22,11 @@ describe("who the picker offers", () => {
       accountIds: [],
     });
 
-    const nike = peopleByBoard[IDS.boardA]!.map((p) => p.name).sort();
-    const adidas = peopleByBoard[IDS.boardB]!.map((p) => p.name).sort();
+    const volvo = peopleByBoard[IDS.boardA]!.map((p) => p.name).sort();
+    const mg = peopleByBoard[IDS.boardB]!.map((p) => p.name).sort();
 
-    expect(nike).toEqual(["Anna Santos", "James Cruz", "Sarah Lim"]);
-    expect(adidas).toEqual(["Mika Villanueva"]);
+    expect(volvo).toEqual(["Anna Santos", "James Cruz", "Sarah Lim"]);
+    expect(mg).toEqual(["Mika Villanueva"]);
   });
 
   it("never offers the senior director, who is on no account", async () => {
@@ -43,7 +43,7 @@ describe("who the picker offers", () => {
     // They can file on one board, so there is only one set to offer.
     const { boards, peopleByBoard } = await listBoardOptions({
       role: "account_director",
-      accountIds: [IDS.nike],
+      accountIds: [IDS.volvo],
     });
     expect(boards.map((b) => b.id)).toEqual([IDS.boardA]);
     expect(peopleByBoard[IDS.boardA]!.map((p) => p.name)).not.toContain("Mika Villanueva");
@@ -54,7 +54,7 @@ describe("what the server refuses", () => {
   it("names everyone on the list who does not belong", async () => {
     // The old guard checked only `assignees[0]`, so a payload led by a
     // teammate carried the rest in behind it.
-    const outside = await assigneesOutsideAccount(IDS.nike, [
+    const outside = await assigneesOutsideAccount(IDS.volvo, [
       IDS.anna,
       IDS.mika,
       IDS.elena,
@@ -63,11 +63,11 @@ describe("what the server refuses", () => {
   });
 
   it("accepts a list wholly on the account", async () => {
-    expect(await assigneesOutsideAccount(IDS.nike, [IDS.anna, IDS.james, IDS.sarah])).toEqual([]);
+    expect(await assigneesOutsideAccount(IDS.volvo, [IDS.anna, IDS.james, IDS.sarah])).toEqual([]);
   });
 
   it("refuses the senior director, who is on no board", async () => {
-    expect(await assigneesOutsideAccount(IDS.nike, [IDS.elena])).toEqual(["Elena Rivera"]);
+    expect(await assigneesOutsideAccount(IDS.volvo, [IDS.elena])).toEqual(["Elena Rivera"]);
   });
 
   it("agrees with the picker for every board", async () => {
@@ -87,8 +87,8 @@ describe("what the server refuses", () => {
 
 describe("who may be named in a mention", () => {
   it("is scoped to the account, not the department", async () => {
-    const nike = await listAssignableUsers([IDS.nike]);
-    expect(nike.map((p) => p.name)).not.toContain("Mika Villanueva");
+    const volvo = await listAssignableUsers([IDS.volvo]);
+    expect(volvo.map((p) => p.name)).not.toContain("Mika Villanueva");
   });
 
   it("falls back to everyone with an account when no account is given", async () => {

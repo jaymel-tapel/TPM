@@ -33,7 +33,7 @@ describe("a day plan", () => {
     await seedOrg();
     // One task, two people — the case the table is shaped for.
     shared = await addTask({
-      account: IDS.nike,
+      account: IDS.volvo,
       assignees: [IDS.anna, IDS.james],
       dueDay: 0,
     });
@@ -87,7 +87,7 @@ describe("a day plan", () => {
   });
 
   it("reads oldest first", async () => {
-    const later = await addTask({ account: IDS.nike, assignees: [IDS.anna], dueDay: 0 });
+    const later = await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 0 });
     await place(later, IDS.anna, 16 * 60);
     await place(shared, IDS.anna, 9 * 60);
 
@@ -134,7 +134,7 @@ describe("a day plan", () => {
   });
 
   it("says which tasks are already placed, for the list to mark", async () => {
-    const other = await addTask({ account: IDS.nike, assignees: [IDS.anna], dueDay: 0 });
+    const other = await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 0 });
     await place(shared, IDS.anna, 10 * 60);
 
     const placed = await plannedTaskIds(IDS.anna, NOW);
@@ -156,14 +156,14 @@ describe("what may be planned", () => {
      * id was obtained. Pinning it here means a change to `canViewTask` cannot
      * quietly widen who can file blocks against whose work.
      */
-    const nikeTask = await loadTask(
-      await addTask({ account: IDS.nike, assignees: [IDS.anna], dueDay: 0 }),
+    const volvoTask = await loadTask(
+      await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 0 }),
     );
 
-    expect(await canViewTask(await load(IDS.mika), nikeTask)).toBe(false);
-    expect(await canViewTask(await load(IDS.james), nikeTask)).toBe(true);
+    expect(await canViewTask(await load(IDS.mika), volvoTask)).toBe(false);
+    expect(await canViewTask(await load(IDS.james), volvoTask)).toBe(true);
     // A director plans time to review work that is not theirs to edit.
-    expect(await canViewTask(await load(IDS.elena), nikeTask)).toBe(true);
+    expect(await canViewTask(await load(IDS.elena), volvoTask)).toBe(true);
   });
 });
 
@@ -174,8 +174,8 @@ describe("planning further out", () => {
   beforeEach(async () => {
     await resetDb();
     await seedOrg();
-    a = await addTask({ account: IDS.nike, assignees: [IDS.anna], dueDay: 0 });
-    b = await addTask({ account: IDS.nike, assignees: [IDS.anna], dueDay: 0 });
+    a = await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 0 });
+    b = await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 0 });
   });
 
   const on = (day: Date, taskId: string, minutesFromStart: number) =>
