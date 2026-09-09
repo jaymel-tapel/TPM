@@ -576,8 +576,14 @@ export const SUBTASKS: SubtaskData[] = [
     dueText: "Today, 11:00 AM",
     overdue: false,
     assignees: [{ id: "u-anna", name: "Anna Santos" }],
+    children: [],
   },
   {
+    /*
+     * A branch, and the reason the tree is worth showing whole: "Slides" is
+     * not work anybody does — the three pieces under it are — so it reports on
+     * them instead of offering a tick that would be refused.
+     */
     id: "s2",
     href: "/tasks/s2",
     title: "James — Slides",
@@ -585,6 +591,49 @@ export const SUBTASKS: SubtaskData[] = [
     dueText: "Today, 4:00 PM",
     overdue: false,
     assignees: [{ id: "u-james", name: "James Cruz" }],
+    children: [
+      {
+        id: "s2a",
+        href: "/tasks/s2a",
+        title: "Outline the story",
+        done: true,
+        dueText: "Today, 1:00 PM",
+        overdue: false,
+        assignees: [{ id: "u-james", name: "James Cruz" }],
+        children: [],
+      },
+      {
+        id: "s2b",
+        href: "/tasks/s2b",
+        title: "Charts from the data",
+        done: false,
+        dueText: "Today, 2:30 PM",
+        overdue: false,
+        assignees: [{ id: "u-anna", name: "Anna Santos" }],
+        children: [
+          {
+            id: "s2b1",
+            href: "/tasks/s2b1",
+            title: "Spend by channel",
+            done: false,
+            dueText: "Today, 2:00 PM",
+            overdue: false,
+            assignees: [{ id: "u-anna", name: "Anna Santos" }],
+            children: [],
+          },
+        ],
+      },
+      {
+        id: "s2c",
+        href: "/tasks/s2c",
+        title: "Sofia's pass on the wording",
+        done: false,
+        dueText: "Today, 3:30 PM",
+        overdue: false,
+        assignees: [{ id: "u-sofia", name: "Sofia Reyes" }],
+        children: [],
+      },
+    ],
   },
   {
     id: "s3",
@@ -594,6 +643,7 @@ export const SUBTASKS: SubtaskData[] = [
     dueText: "Yesterday, 5:00 PM",
     overdue: true,
     assignees: [{ id: "u-sofia", name: "Sofia Reyes" }],
+    children: [],
   },
 ];
 

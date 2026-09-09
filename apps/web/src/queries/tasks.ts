@@ -375,9 +375,82 @@ export async function listBoardsForUser(user: {
  * The pieces a task was broken into, in the order they will be worked.
  *
  * Deliberately not filtered by `isLeaf` — this asks for children, and a child
- * that has somehow acquired children of its own should still be visible rather
- * than silently missing.
+ * with children of its own is a branch rather than a mistake.
  */
 export async function listSubtasks(parentId: string): Promise<TaskCard[]> {
   return runTaskQuery(sql`k.parent_id = ${parentId}`, 100, byDueDate, { containers: true });
+}
+
+/**
+ * Everything beneath a task, however deep — the whole branch in one query.
+ *
+ * A page that fetched one level and let each row fetch its own would be a
+ * query per node and a waterfall per level; the tree is small enough that
+ * fetching it whole is both faster and easier to reason about. The caller
+ * assembles the shape from `parentId`, which `taskCardSelect` already carries.
+ *
+ * The recursion is bounded twice over: `createSubtask` refuses to nest past
+ * `MAX_SUBTASK_DEPTH`, and the depth column here stops the walk regardless, so
+ * a cycle that somehow reached the table could not hang a page.
+ */
+export async function listSubtaskTree(rootId: string, maxDepth = 8): Promise<TaskCard[]> {
+  return runTaskQuery(
+    sql`k.id in (
+      with recursive branch as (
+        select id, 1 as depth from tasks where parent_id = ${rootId}
+        union all
+        select t.id, b.depth + 1
+        from tasks t join branch b on t.parent_id = b.id
+        where b.depth < ${maxDepth}
+      )
+      select id from branch
+    )`,
+    500,
+    byDueDate,
+    { containers: true },
+  );
+}
+
+/**
+ * The chain from the root down to this task's parent, outermost first.
+ *
+ * One level used to be the whole story, so a task knew its parent's title and
+ * that was the way out. At depth you need the path, or "back" lands you
+ * somewhere you cannot place.
+ */
+export async function listAncestors(taskId: string): Promise<{ id: string; title: string }[]> {
+  const result = await db.execute(sql`
+    with recursive up as (
+      select t.id, t.title, t.parent_id, 0 as depth
+      from tasks t where t.id = ${taskId}
+      union all
+      select p.id, p.title, p.parent_id, up.depth + 1
+      from tasks p join up on p.id = up.parent_id
+      where up.depth < 16
+    )
+    select id, title from up where id <> ${taskId} order by depth desc
+  `);
+  return result.rows as { id: string; title: string }[];
+}
+
+/**
+ * How far below a root a task sits. Zero is a task nobody has filed under
+ * anything; one is a piece of it.
+ *
+ * Depth is a cross-row property, so Postgres cannot express it as a constraint
+ * without a trigger and this codebase has none. It is asked for at the one
+ * moment it matters — the instant before another level is created.
+ */
+export async function depthOf(taskId: string): Promise<number> {
+  const result = await db.execute(sql`
+    with recursive up as (
+      select t.id, t.parent_id, 0 as depth from tasks t where t.id = ${taskId}
+      union all
+      select p.id, p.parent_id, up.depth + 1
+      from tasks p join up on p.id = up.parent_id
+      where up.depth < 16
+    )
+    select max(depth) as depth from up
+  `);
+  return Number((result.rows[0] as { depth: number | null })?.depth ?? 0);
 }

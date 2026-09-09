@@ -30,6 +30,8 @@ import { syncMentionedDocs } from "@/lib/doc-links";
 import { deliver, notify } from "@/lib/notify";
 import { assertCanViewTeamWork, loadEditableTask } from "@/lib/permissions";
 import { assigneesOutsideTeam } from "@/queries/team";
+import { depthOf } from "@/queries/tasks";
+import { MAX_SUBTASK_DEPTH } from "@/lib/constants";
 
 const taskInput = z.object({
   title: z.string().trim().min(1, "Give the task a title").max(200),
@@ -616,7 +618,7 @@ const subtaskInput = z.object({
  * and they are real tasks: their own assignees, their own due date, their own
  * place on the board. What they are not is *extra* work: the moment a task has
  * children it stops counting itself, and its children count instead. See
- * `isLeaf`.
+ * `isLeaf`, which holds at any depth — only leaves are ever work.
  *
  * Not `createTask`, which redirects to the new task; adding a subtask should
  * leave you looking at the parent.
@@ -636,12 +638,19 @@ export async function createSubtask(_prev: FormState, formData: FormData): Promi
   const parent = await loadEditableTask(viewer, parsed.data.parentId);
 
   /*
-   * One level. A subtask of a subtask is a tree, and a tree is the nesting the
-   * brief is a reaction against — depth is a cross-row property that Postgres
-   * cannot check without a trigger, so it is checked here.
+   * Pieces can have pieces, down to a floor. Depth is a cross-row property
+   * Postgres cannot check without a trigger, so it is checked here, at the one
+   * moment it matters.
+   *
+   * There is a floor rather than no limit because the tree is rendered whole
+   * and indented: past a handful of levels the rows run out of width, and a
+   * task filed six deep is a task nobody will find again. The number is a
+   * readability limit, not a technical one.
    */
-  if (parent.parentId !== null) {
-    return { error: "A subtask cannot be broken down further." };
+  if ((await depthOf(parent.id)) >= MAX_SUBTASK_DEPTH) {
+    return {
+      error: `Pieces nest ${MAX_SUBTASK_DEPTH} deep. This one is already as deep as it goes.`,
+    };
   }
 
   const assignees = parsed.data.assignees ?? [];

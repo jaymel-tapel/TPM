@@ -340,8 +340,19 @@ export function toPlanBlock(entry: PlanEntry, zone?: Zone): PlanBlockData {
 }
 
 /** One piece of a broken-down task, ready to render. */
-export function toSubtask(task: TaskCard, reference: Date = now(), zone?: Zone): SubtaskData {
-  const done = task.completedAt !== null;
+export function toSubtask(
+  task: TaskCard,
+  reference: Date = now(),
+  zone?: Zone,
+  children: SubtaskData[] = [],
+): SubtaskData {
+  /*
+   * A branch cannot be ticked — `toggleTaskDone` refuses it, because its
+   * children are the work — so its own `completed_at` is never set and reading
+   * it would report every branch as outstanding forever. What a branch is
+   * really saying is whether the pieces under it are finished.
+   */
+  const done = children.length > 0 ? children.every((c) => c.done) : task.completedAt !== null;
   return {
     id: task.id,
     href: `/tasks/${task.id}`,
@@ -350,7 +361,34 @@ export function toSubtask(task: TaskCard, reference: Date = now(), zone?: Zone):
     dueText: dueLabel(task.dueDate, reference, zone),
     overdue: !done && task.dueDate < startOfAppDay(reference, zone),
     assignees: task.assignees,
+    children,
   };
+}
+
+/**
+ * A flat branch, as the database returns it, rebuilt into the tree the list
+ * renders. Rows arrive in the order they should be worked, and each level
+ * keeps that order.
+ *
+ * Depth-first from the leaves up, so a branch already knows its children when
+ * `toSubtask` asks whether they are all finished.
+ */
+export function toSubtaskTree(
+  rows: TaskCard[],
+  rootId: string,
+  reference: Date = now(),
+  zone?: Zone,
+): SubtaskData[] {
+  const byParent = new Map<string, TaskCard[]>();
+  for (const row of rows) {
+    const key = row.parentId ?? "";
+    byParent.set(key, [...(byParent.get(key) ?? []), row]);
+  }
+  const build = (parentId: string): SubtaskData[] =>
+    (byParent.get(parentId) ?? []).map((row) =>
+      toSubtask(row, reference, zone, build(row.id)),
+    );
+  return build(rootId);
 }
 
 /** One room in the list beside a conversation. */

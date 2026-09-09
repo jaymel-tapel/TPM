@@ -104,11 +104,18 @@ export type SubtaskData = {
   id: string;
   href: string;
   title: string;
+  /**
+   * A leaf is done when it is finished; a branch is done when everything under
+   * it is. A branch has no completion of its own to report — the pieces are
+   * the work — so this is the only honest answer for one.
+   */
   done: boolean;
   /** Already formatted; this package has no clock. */
   dueText: string;
   overdue: boolean;
   assignees: Person[];
+  /** The pieces below this one. Empty on a leaf. */
+  children: SubtaskData[];
 };
 
 /** One room in the list beside a conversation. */

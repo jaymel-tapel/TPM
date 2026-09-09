@@ -347,3 +347,17 @@ says not to make Kanban the default interface.
   from a query string, and an unrecognised enum would reach Postgres as an
   invalid literal. A stale bookmark shows the whole board rather than an error
   page, and it is the query layer that guarantees it rather than each page.
+- **Pieces have pieces, and only leaves are ever work.** Subtasks used to be
+  one level, on the grounds that a tree is the nesting the brief is a reaction
+  against. What actually makes nesting go wrong is a row that is both a thing
+  you open and a thing that holds other things — the reason `documents` lost
+  its `parent_id` in 0008. Tasks do not have that problem: the moment a task
+  has children it stops counting itself and its children count instead, at
+  every level, so a deeper tree says more about how work is arranged without
+  changing what a day counts. A branch therefore has no completion of its own
+  to report and derives one from what is under it; ticking it is refused.
+  Depth stops at `MAX_SUBTASK_DEPTH`, which is a readability limit — past a
+  handful of levels the indented rows run out of width — checked in
+  `createSubtask` because Postgres cannot express a cross-row property without
+  a trigger, and mirrored in the UI so no control is offered that the server
+  would refuse.

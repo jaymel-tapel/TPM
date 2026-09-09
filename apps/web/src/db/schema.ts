@@ -232,13 +232,16 @@ export const tasks = pgTable(
      * today" would move whenever somebody reorganised rather than when they
      * finished something — a number you improve by splitting things up.
      *
-     * One level only, enforced in `createSubtask`. Depth is a cross-row
-     * property and Postgres cannot express it without a trigger; this codebase
-     * has none and a subtask of a subtask is a tree, which is the nesting the
-     * brief is a reaction against. The same lesson is already recorded on
-     * `folders`: `documents` had a `parent_id` in migration 0003 and lost it
-     * again in 0008, because a row that is both a thing you open and a thing
-     * that holds other things makes "open" and "expand" fight.
+     * Pieces may have pieces. Depth is a cross-row property Postgres cannot
+     * express without a trigger, so `createSubtask` checks it and stops at
+     * `MAX_SUBTASK_DEPTH` — a readability limit, not a structural one.
+     *
+     * The container rule is what makes depth safe: only leaves are work, at
+     * any level, so a deeper tree never changes what a day counts. Contrast
+     * `folders`, where nesting was removed in 0008 — a document was both a
+     * thing you open and a thing that holds other things, and "open" and
+     * "expand" fought over the same row. A container here holds and is never
+     * itself the work, so the two never compete.
      */
     parentId: uuid("parent_id"),
     // Source of truth for reporting, and the task's own fact. Set by finishing
