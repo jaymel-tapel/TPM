@@ -150,33 +150,72 @@ function AccountGroup({
 /**
  * One of an account's four sections, and — for Tasks — the boards under it.
  *
- * Tasks opens whenever you are on one of its boards and stays open, because
- * moving between a client's boards is the thing people do all day and a list
- * you have to reopen is a click on every hop. The other three never open,
- * because they have nothing inside them.
+ * Tasks carries a chevron because it opens, and the three that do not carry a
+ * spacer the same width, so all four labels line up. A row that expands
+ * without saying so is a row people do not know they can expand.
+ *
+ * The chevron discloses and the label navigates, which is the rule the account
+ * row above already follows. Tasks opens itself whenever you are on one of its
+ * boards — moving between a client's pipelines is a thing people do all day,
+ * and a list you have to reopen is a click on every hop — until somebody works
+ * the chevron, after which the choice is theirs.
  */
-function SectionRow({ child, pathname }: { child: NavChild; pathname: string }) {
+function SectionRow({
+  child,
+  pathname,
+  addHref,
+}: {
+  child: NavChild;
+  pathname: string;
+  /** Renders a create affordance at the foot of an open Tasks group. */
+  addHref?: string;
+}) {
   const active = pathname === child.href;
   const boards = child.children ?? [];
   const inside = boards.some((board) => pathname === board.href);
 
+  const [open, setOpen] = useState<boolean | null>(null);
+  const expanded = boards.length > 0 && (open ?? (active || inside));
+
   return (
     <div>
-      <Link
-        href={child.href}
-        aria-current={active ? "page" : undefined}
+      <div
         className={cn(
-          "relative block truncate rounded-md py-1.5 pl-12 pr-3 text-body transition-colors",
+          "relative flex items-center gap-1 rounded-md py-1.5 pl-8 pr-3 text-body transition-colors",
           active
             ? "bg-blue-100 text-blue-900"
             : "text-gray-700 hover:bg-gray-100 hover:text-gray-1000",
         )}
       >
         {active ? <ActiveBar /> : null}
-        {child.label}
-      </Link>
+        {boards.length > 0 ? (
+          <button
+            type="button"
+            onClick={() => setOpen(!expanded)}
+            aria-expanded={expanded}
+            aria-label={`${expanded ? "Collapse" : "Expand"} ${child.label}`}
+            className="rounded-md p-0.5 text-gray-600 transition-colors hover:bg-gray-200 hover:text-gray-1000"
+          >
+            <ChevronRight
+              className={cn("size-3 transition-transform", expanded && "rotate-90")}
+              strokeWidth={2}
+            />
+          </button>
+        ) : (
+          // Holds the chevron's place so Overview, Campaigns and Team read as
+          // the same level as Tasks rather than half a step out from it.
+          <span aria-hidden className="size-4 shrink-0" />
+        )}
+        <Link
+          href={child.href}
+          aria-current={active ? "page" : undefined}
+          className="min-w-0 flex-1 truncate"
+        >
+          {child.label}
+        </Link>
+      </div>
 
-      {boards.length > 0 && (active || inside) ? (
+      {expanded ? (
         <div className="mt-0.5 space-y-0.5">
           {boards.map((board) => {
             const on = pathname === board.href;
@@ -201,6 +240,18 @@ function SectionRow({ child, pathname }: { child: NavChild; pathname: string }) 
               </Link>
             );
           })}
+
+          {/* Making a board sits with the boards, not in a settings screen
+              somewhere else — the same list, one row further down. */}
+          {addHref ? (
+            <Link
+              href={addHref}
+              className="flex items-center gap-2 rounded-md py-1 pl-16 pr-3 text-caption text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-1000"
+            >
+              <Plus className="size-3 shrink-0" strokeWidth={2} />
+              New board
+            </Link>
+          ) : null}
         </div>
       ) : null}
     </div>
