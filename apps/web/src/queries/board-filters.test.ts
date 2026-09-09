@@ -80,10 +80,22 @@ describe("filtering a board", () => {
     expect(titles(await board({ tag: "no-such-tag" }))).toEqual([]);
   });
 
-  it("ignores a type that is not a type rather than throwing", async () => {
+  it("shows nothing for a kind that does not exist, and does not throw", async () => {
     await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 0 });
-    // A bookmark kept past a rename must show the board, not an error page.
-    expect(titles(await board({ type: "not_a_type" }))).toHaveLength(1);
+    /*
+     * Types are rows now, so an unknown slug is a comparison that matches
+     * nothing — the same answer an unknown tag has always given, and one less
+     * guard than the enum needed. The board page drops a slug that is not on
+     * offer before it gets here, so a stale bookmark still shows the board
+     * rather than an empty one; this is the query's own answer.
+     */
+    expect(titles(await board({ type: "not_a_type" }))).toEqual([]);
+  });
+
+  it("ignores a priority that is not a priority rather than throwing", async () => {
+    await addTask({ account: IDS.volvo, assignees: [IDS.anna], dueDay: 0 });
+    // Still an enum, so still guarded: an unknown one would reach Postgres as
+    // an invalid literal and turn a typo in a URL into a 500.
     expect(titles(await board({ priority: "extremely" }))).toHaveLength(1);
   });
 

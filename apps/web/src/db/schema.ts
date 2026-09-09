@@ -266,7 +266,15 @@ export const tasks = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     title: text("title").notNull(),
     description: text("description"),
+    /**
+     * The enum this column was, kept alongside `typeId` while the other
+     * worktree still reads it. Writes set both; `type` holds the row's own slug
+     * when it is one of the original six and `internal` otherwise, because a
+     * type somebody made has no enum member and this column only has to stay
+     * *valid* until it is dropped.
+     */
     type: taskTypeEnum("type").notNull().default("internal"),
+    typeId: uuid("type_id").references(() => taskTypes.id, { onDelete: "restrict" }),
     priority: priorityEnum("priority").notNull().default("normal"),
     boardId: uuid("board_id")
       .notNull()
@@ -515,6 +523,39 @@ export const taskActivity = pgTable(
 export const tags = pgTable("tags", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull().unique(),
+  /**
+   * Retired: offered to nothing new, kept on everything that already wears it.
+   *
+   * Not a delete. `task_tags` cascades, so removing the row would strip the tag
+   * off every task carrying it — and the admin module has no delete anywhere
+   * else either, for the reason its own page gives: nothing is deleted here.
+   */
+  archivedAt: timestamp("archived_at", { withTimezone: true }),
+});
+
+/**
+ * The vocabulary a task's *kind* is drawn from — Client Work, Review, Meeting.
+ *
+ * A table rather than the enum this used to be, because the six that shipped
+ * were an agency's six and the next agency's are different. What stays fixed
+ * is the presentation: `icon` and `tone` are names from allowlists the design
+ * system owns, not free values, because a glyph out of a picker and a colour
+ * out of a hex field would put the palette in the hands of whoever last edited
+ * a dropdown. `DESIGN.md` records which six tones a type may draw from.
+ *
+ * `slug` is what URLs and seeds carry, so a filter link survives a rename;
+ * `name` is what people read and may change freely.
+ */
+export const taskTypes = pgTable("task_types", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  slug: text("slug").notNull().unique(),
+  name: text("name").notNull().unique(),
+  icon: text("icon").notNull().default("clipboard-list"),
+  tone: text("tone").notNull().default("gray"),
+  /** The order the menus offer them in. */
+  position: integer("position").notNull().default(0),
+  /** Retired, exactly as a tag is: no new work takes it, old work keeps it. */
+  archivedAt: timestamp("archived_at", { withTimezone: true }),
 });
 
 export const taskTags = pgTable(

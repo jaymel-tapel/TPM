@@ -4,8 +4,7 @@ import { format } from "date-fns";
 import { db } from "@/db";
 import { dayRange, now, pct, type Zone } from "@/lib/date";
 import { isLeaf, onTimeIn, overdueSql, scopeSql, TZ, type Scope } from "./sql";
-import { TASK_TYPE_LABELS } from "@/lib/constants";
-import type { TaskType } from "@/db/schema";
+import type { TaskTypeRef } from "@meridian/ui";
 
 export type ReportMetrics = {
   due: number;
@@ -110,7 +109,7 @@ export async function getCompletionTrend(
   });
 }
 
-export type TypeBreakdown = { type: TaskType; label: string; due: number; done: number; percent: number };
+export type TypeBreakdown = { type: TaskTypeRef; due: number; done: number; percent: number };
 
 export async function getCompletionByType(
   scope: Scope,
@@ -121,12 +120,19 @@ export async function getCompletionByType(
   const { start, end } = windowBounds(days, reference, zone);
   const where = scopeSql(scope);
 
+  /*
+   * Grouped by the type row, not by the enum column: a kind people can rename
+   * has to report under the name it has now, and two kinds that happen to
+   * share a fallback slug must not collapse into one bar.
+   */
   const rows = await db.execute(sql`
-    select k.type, count(*) as due, count(*) filter (where ${onTimeIn(zone)}) as done
+    select ty.slug, ty.name, ty.icon, ty.tone,
+           count(*) as due, count(*) filter (where ${onTimeIn(zone)}) as done
     from tasks k
+    join task_types ty on ty.id = k.type_id
     where ${where} and ${isLeaf} and k.due_date >= ${start} and k.due_date < ${end}
-    group by k.type
-    order by 1
+    group by ty.id, ty.slug, ty.name, ty.icon, ty.tone
+    order by ty.name
   `);
 
   return (rows.rows as Record<string, string>[])
@@ -134,8 +140,7 @@ export async function getCompletionByType(
       const due = Number(r.due);
       const done = Number(r.done);
       return {
-        type: r.type as TaskType,
-        label: TASK_TYPE_LABELS[r.type as TaskType],
+        type: { slug: r.slug, label: r.name, icon: r.icon, tone: r.tone },
         due,
         done,
         percent: pct(done, due),

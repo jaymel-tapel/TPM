@@ -1,55 +1,111 @@
 import {
   Briefcase,
+  Camera,
+  ChartColumn,
   ChevronUp,
   ChevronsUp,
   ClipboardList,
+  Code,
   Eye,
   FileText,
-  Palette,
+  Handshake,
+  Lightbulb,
+  Mail,
+  Megaphone,
+  Package,
+  PenTool,
+  Phone,
+  Search,
   Settings2,
+  Palette,
+  Target,
   Users,
+  Wrench,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import {
   PRIORITY_LABELS,
   STATUS_KIND_LABELS,
-  TASK_TYPE_LABELS,
   type Priority,
   type StatusKind,
   type StatusRef,
-  type TaskType,
+  type TaskTypeRef,
 } from "../types";
 
 /**
- * A work-item glyph per type, tinted from the scales. An icon is recognisable
- * before it is read, which is what makes a long list scannable; the colour is
- * the same one the dot used, so nothing about the palette changed — only the
- * shape carrying it. The label always stays: six glyphs are six things to
- * learn, and nobody should have to.
+ * The glyphs a task type may wear.
+ *
+ * A work-item glyph is recognisable before it is read, which is what makes a
+ * long list scannable. Kinds are rows people can add now, so this is an
+ * allowlist rather than a map keyed by the six that shipped: a name goes into
+ * the database, a component comes out here, and a lucide component never has to
+ * survive the trip. Small on purpose — every one of these has to still read at
+ * fourteen pixels beside a title.
  */
-const TYPE_ICON: Record<TaskType, { icon: typeof Briefcase; tone: string }> = {
-  client_work: { icon: Briefcase, tone: "text-blue-700" },
-  review: { icon: Eye, tone: "text-blue-500" },
-  creative: { icon: Palette, tone: "text-red-600" },
-  meeting: { icon: Users, tone: "text-green-700" },
-  internal: { icon: ClipboardList, tone: "text-gray-600" },
-  admin: { icon: Settings2, tone: "text-amber-600" },
+export const TYPE_ICONS: Record<string, typeof Briefcase> = {
+  briefcase: Briefcase,
+  eye: Eye,
+  palette: Palette,
+  users: Users,
+  "clipboard-list": ClipboardList,
+  settings: Settings2,
+  "file-text": FileText,
+  megaphone: Megaphone,
+  target: Target,
+  "pen-tool": PenTool,
+  camera: Camera,
+  code: Code,
+  "chart-column": ChartColumn,
+  mail: Mail,
+  phone: Phone,
+  search: Search,
+  wrench: Wrench,
+  lightbulb: Lightbulb,
+  package: Package,
+  handshake: Handshake,
 };
 
-export const TASK_TYPES_ORDER = Object.keys(TYPE_ICON) as TaskType[];
+/**
+ * And the colours.
+ *
+ * `DESIGN.md` rations colour hard, and these six are the exception it now
+ * records: a type's glyph draws from this set and nothing else. They are the
+ * literal classes the six built-in types already wore, so nothing that shipped
+ * changed appearance — and they are written out here because Tailwind emits
+ * only the classes it can see, which a value out of Postgres never is.
+ */
+export const TYPE_TONES: Record<string, string> = {
+  blue: "text-blue-700",
+  sky: "text-blue-500",
+  red: "text-red-600",
+  green: "text-green-700",
+  amber: "text-amber-600",
+  gray: "text-gray-600",
+};
 
-export function TypeIcon({ type, className }: { type: TaskType; className?: string }) {
-  const { icon: Icon, tone } = TYPE_ICON[type];
+export const TYPE_ICON_NAMES = Object.keys(TYPE_ICONS);
+export const TYPE_TONE_NAMES = Object.keys(TYPE_TONES);
+
+export function TypeIcon({ type, className }: { type: TaskTypeRef; className?: string }) {
+  /*
+   * Falls back rather than throwing. This used to be a total lookup over a
+   * closed union; now the name comes from a row somebody edited, and a build
+   * that has never heard of it must still draw the list.
+   */
+  const Icon = TYPE_ICONS[type.icon] ?? ClipboardList;
+  const tone = TYPE_TONES[type.tone] ?? TYPE_TONES.gray;
   return (
     <Icon aria-hidden className={cn("size-3.5 shrink-0", tone, className)} strokeWidth={1.75} />
   );
 }
 
-export function TypeLabel({ type, className }: { type: TaskType; className?: string }) {
+export function TypeLabel({ type, className }: { type: TaskTypeRef; className?: string }) {
   return (
     <span className={cn("inline-flex items-center gap-1.5", className)}>
       <TypeIcon type={type} />
-      {TASK_TYPE_LABELS[type]}
+      {/* The label always stays: six glyphs were six things to learn, and an
+          agency that adds four more has made it ten. */}
+      {type.label}
     </span>
   );
 }

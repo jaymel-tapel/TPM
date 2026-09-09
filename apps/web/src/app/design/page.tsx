@@ -61,8 +61,6 @@ import {
   CampaignList,
   CampaignRow,
   CompareList,
-  TASK_TYPES_ORDER,
-  TASK_TYPE_LABELS,
   TagBadge,
   TaskList,
   TaskRow,
@@ -70,7 +68,7 @@ import {
   UserAvatar,
   type FilterOption,
   type Priority,
-  type TaskType,
+  type TaskTypeRef,
   TrendStrip,
 } from "@meridian/ui";
 import { TrendChart } from "@meridian/ui/chart";
@@ -178,14 +176,33 @@ function Scale({ name, prefix }: { name: string; prefix: string }) {
 }
 
 /**
+ * The kinds of work, as rows rather than as a constant.
+ *
+ * They live in `task_types` and people can add to them, so the gallery writes
+ * out a representative set by hand — including one whose icon this build has
+ * never heard of, because the fallback is a state and every state belongs on
+ * this page.
+ */
+const TYPES: TaskTypeRef[] = [
+  { slug: "client_work", label: "Client Work", icon: "briefcase", tone: "blue" },
+  { slug: "review", label: "Review", icon: "eye", tone: "sky" },
+  { slug: "creative", label: "Creative", icon: "palette", tone: "red" },
+  { slug: "meeting", label: "Meeting", icon: "users", tone: "green" },
+  { slug: "internal", label: "Internal", icon: "clipboard-list", tone: "gray" },
+  { slug: "admin", label: "Admin", icon: "settings", tone: "amber" },
+  { slug: "pitch", label: "Pitch", icon: "megaphone", tone: "amber" },
+  { slug: "unknown", label: "Icon this build lacks", icon: "no-such-icon", tone: "gray" },
+];
+
+/**
  * Options for the filter menus below. Written out here rather than derived from
  * a board, because the gallery has no data — a component in `@meridian/ui`
  * renders what it is handed, and the page it lives on builds every href.
  */
-const FILTER_TYPES: FilterOption[] = TASK_TYPES_ORDER.map((type) => ({
-  value: type,
+const FILTER_TYPES: FilterOption[] = TYPES.slice(0, 6).map((type) => ({
+  value: type.slug,
   label: <TypeLabel type={type} />,
-  short: TASK_TYPE_LABELS[type],
+  short: type.label,
   href: "#",
 }));
 
@@ -384,8 +401,8 @@ export default function DesignSystemPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {(Object.keys(TASK_TYPE_LABELS) as TaskType[]).map((t) => (
-                  <SelectItem key={t} value={t}>
+                {TYPES.slice(0, 6).map((t) => (
+                  <SelectItem key={t.slug} value={t.slug}>
                     <TypeLabel type={t} />
                   </SelectItem>
                 ))}
@@ -475,9 +492,13 @@ export default function DesignSystemPage() {
             <StatusBadge status={{ id: "c3", name: "Shipped", kind: "done" }} />
             <StatusBadge status={{ id: "c4", name: "Blocked", kind: "blocked" }} />
           </Row>
+          {/* Seven from the table and one the build cannot resolve: an icon
+              name nothing maps to falls back to the neutral glyph rather than
+              throwing, which is what lets a row render against a kind somebody
+              added after this build shipped. */}
           <Row label="Task type">
-            {TASK_TYPES_ORDER.map((t) => (
-              <TypeLabel key={t} type={t} className="text-caption text-gray-700" />
+            {TYPES.map((t) => (
+              <TypeLabel key={t.slug} type={t} className="text-caption text-gray-700" />
             ))}
           </Row>
           <Row label="Priority">

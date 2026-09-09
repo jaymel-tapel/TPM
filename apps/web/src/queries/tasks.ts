@@ -6,10 +6,8 @@ import {
   boards,
   priorityEnum,
   statusKindEnum,
-  taskTypeEnum,
   type Priority,
   type StatusKind,
-  type TaskType,
 } from "@/db/schema";
 
 /*
@@ -18,11 +16,12 @@ import {
  * literal and turn a typo in a URL — or a bookmark kept past a rename — into a
  * 500. Checked here rather than at the page, so the guarantee belongs to the
  * query and holds for whatever calls it next.
+ *
+ * Task type needs no guard any more. It is a row rather than an enum member,
+ * so an unknown slug is a comparison that matches nothing.
  */
 const isStatusKind = (value: string): value is StatusKind =>
   (statusKindEnum.enumValues as readonly string[]).includes(value);
-const isTaskType = (value: string): value is TaskType =>
-  (taskTypeEnum.enumValues as readonly string[]).includes(value);
 const isPriority = (value: string): value is Priority =>
   (priorityEnum.enumValues as readonly string[]).includes(value);
 import { dayRange, now, pct, type Zone } from "@/lib/date";
@@ -183,7 +182,13 @@ export function workFilterSql(filters: WorkFilters): ReturnType<typeof sql>[] {
   if (filters.status && isStatusKind(filters.status)) {
     clauses.push(sql`s.kind = ${filters.status}`);
   }
-  if (filters.type && isTaskType(filters.type)) clauses.push(sql`k.type = ${filters.type}`);
+  /*
+   * `ty` is the joined `task_types` row, the way `s` is the joined column —
+   * see `taskCardFrom`. Matching the slug rather than checking it first is
+   * what retired the guard this used to need: a kind that does not exist
+   * simply matches nothing, exactly as an unknown tag already did.
+   */
+  if (filters.type) clauses.push(sql`ty.slug = ${filters.type}`);
   if (filters.priority && isPriority(filters.priority)) {
     clauses.push(sql`k.priority = ${filters.priority}`);
   }

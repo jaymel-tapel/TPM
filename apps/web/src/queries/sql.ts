@@ -1,6 +1,7 @@
 import "server-only";
 import { sql, type SQL } from "drizzle-orm";
 import { APP_TIMEZONE } from "@/lib/date";
+import type { TaskTypeRef } from "@meridian/ui";
 import type { StatusKind } from "@/db/schema";
 
 /**
@@ -148,7 +149,7 @@ export type TaskCard = {
   id: string;
   title: string;
   description: string | null;
-  type: string;
+  type: TaskTypeRef;
   priority: string;
   dueDate: Date;
   estimateMinutes: number | null;
@@ -186,7 +187,23 @@ export type TaskCard = {
  * `taskCardFrom`.
  */
 export const taskCardSelect = sql`
-  k.id, k.title, k.description, k.type, k.priority,
+  k.id, k.title, k.description, k.priority,
+  /*
+   * Resolved here rather than in the component, because the kinds are rows
+   * people can add now and a component cannot look one up.
+   *
+   * A CASE rather than a coalesce: the join is left, and an all-null row still
+   * builds a perfectly good jsonb object full of nulls, so there would be
+   * nothing for coalesce to reject. The fallback reads the enum column that is
+   * still there, which is what makes a task with no type_id render rather than
+   * vanish from a list.
+   */
+  case when ty.id is null
+    then jsonb_build_object('slug', k.type::text, 'label', k.type::text,
+                            'icon', 'clipboard-list', 'tone', 'gray')
+    else jsonb_build_object('slug', ty.slug, 'label', ty.name,
+                            'icon', ty.icon, 'tone', ty.tone)
+  end as "type",
   k.due_date as "dueDate", k.completed_at as "completedAt",
   k.estimate_minutes as "estimateMinutes", k.actual_minutes as "actualMinutes",
   k.account_id as "accountId",
@@ -252,6 +269,7 @@ export const taskCardFrom = sql`
   from tasks k
   join board_statuses s on s.id = k.status_id
   join boards b on b.id = k.board_id
+  left join task_types ty on ty.id = k.type_id
 `;
 
 /** Applied to a `tasks` row aliased as `k`. */

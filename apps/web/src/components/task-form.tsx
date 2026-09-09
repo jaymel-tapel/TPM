@@ -10,11 +10,10 @@ import {
   cn,
   PRIORITY_LABELS,
   StatusBadge,
-  TASK_TYPE_LABELS,
   TypeLabel,
   UserAvatar,
   type Priority,
-  type TaskType,
+  type TaskTypeRef,
 } from "@meridian/ui";
 import { RichTextEditor } from "@meridian/ui/editor";
 import { formatDuration, parseDuration } from "@/lib/duration";
@@ -64,6 +63,7 @@ export function TaskForm({
   values,
   peopleByBoard,
   allTags,
+  taskTypes,
   submitLabel,
   boards,
   statusesByBoard,
@@ -78,6 +78,12 @@ export function TaskForm({
    */
   peopleByBoard: Record<string, AssignableUser[]>;
   allTags: string[];
+  /**
+   * The kinds of work on offer. A prop, because this is a client component and
+   * the list is a table somebody administers — it cannot be looked up here and
+   * it is no longer a constant.
+   */
+  taskTypes: TaskTypeRef[];
   submitLabel: string;
   /** Boards the viewer may file work on. */
   boards: BoardOption[];
@@ -229,11 +235,16 @@ export function TaskForm({
             <Label className={label}>Task type</Label>
             <Select value={type} onValueChange={(v) => v && setType(v)}>
               <SelectTrigger className="w-full">
-                <SelectValue>{(v) => <TypeLabel type={v as TaskType} />}</SelectValue>
+                <SelectValue>
+                  {(v) => {
+                    const chosen = taskTypes.find((t) => t.slug === String(v ?? ""));
+                    return chosen ? <TypeLabel type={chosen} /> : "Task type";
+                  }}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {(Object.keys(TASK_TYPE_LABELS) as TaskType[]).map((t) => (
-                  <SelectItem key={t} value={t}>
+                {taskTypes.map((t) => (
+                  <SelectItem key={t.slug} value={t.slug}>
                     <TypeLabel type={t} />
                   </SelectItem>
                 ))}

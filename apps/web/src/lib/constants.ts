@@ -7,8 +7,6 @@ export {
   PRIORITIES,
   ROLE_BADGES,
   ROLE_LABELS,
-  TASK_TYPE_LABELS,
-  TASK_TYPES,
 } from "@meridian/ui";
 
 /** The one password every seeded demo account shares. */

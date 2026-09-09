@@ -3,6 +3,7 @@ import { PageHeader } from "@meridian/ui";
 import { requireSession } from "@/lib/auth";
 import { createTask } from "@/actions/tasks";
 import { listAllTags } from "@/queries/tasks";
+import { listTaskTypes, toTypeRef } from "@/queries/task-types";
 import { listBoardOptions } from "@/queries/boards";
 import { TaskForm } from "@/components/task-form";
 import { now, startOfAppDay } from "@/lib/date";
@@ -11,9 +12,10 @@ export const dynamic = "force-dynamic";
 
 export default async function NewTaskPage() {
   const { user } = await requireSession();
-  const [tags, options] = await Promise.all([
+  const [tags, options, types] = await Promise.all([
     listAllTags(),
     listBoardOptions(user),
+    listTaskTypes(),
   ]);
   const firstBoard = options.boards[0];
 
@@ -32,6 +34,7 @@ export default async function NewTaskPage() {
         submitLabel="Create task"
         peopleByBoard={options.peopleByBoard}
         allTags={tags}
+        taskTypes={types.map(toTypeRef)}
         boards={options.boards}
         statusesByBoard={options.statusesByBoard}
         values={{

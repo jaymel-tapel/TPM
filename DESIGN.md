@@ -85,6 +85,12 @@ green     100 #EDF7F2  200 #D8EFE3  300 #B9E2CE  400 #8FD0B2  500 #63BC93
 - **Navy** (`#2D3148`) is the leadership hero only. Nowhere else.
 - **Amber** is the single most important number on a screen, and nothing else. Usually one per page.
 - **Red / green** report state, never decoration.
+- **A task type's glyph** draws from a fixed set of six tones — blue, its
+  lighter step, red, green, amber, gray — and nothing else. Kinds of work are
+  rows an administrator can add, so this is the one place a colour is chosen by
+  *a person* rather than by meaning; bounding the set is what keeps that from
+  becoming a palette. The label always accompanies the glyph, so the colour
+  never has to carry the distinction alone.
 - **Avatars** are the one place a colour is chosen by algorithm rather than by
   meaning: a solid `900`-step disc with white initials, hashed from the name.
   Solid rather than tinted because at 24px a filled disc is legible as a colour

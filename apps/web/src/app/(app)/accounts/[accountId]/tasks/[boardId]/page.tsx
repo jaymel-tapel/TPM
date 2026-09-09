@@ -10,8 +10,6 @@ import {
   PRIORITY_LABELS,
   PriorityIcon,
   TagBadge,
-  TASK_TYPE_LABELS,
-  TASK_TYPES_ORDER,
   TaskBoard,
   TaskList,
   TaskRow,
@@ -25,6 +23,7 @@ import { canViewAccount } from "@/lib/permissions";
 import { getBoardView, listBoardTags, listBoardsForAccounts } from "@/queries/tasks";
 import { listCampaignOptions } from "@/queries/campaigns";
 import { listAccountMembers } from "@/queries/accounts";
+import { listTaskTypes, toTypeRef } from "@/queries/task-types";
 import { toBoard, toTaskRow } from "@/lib/present";
 import { moveTask, toggleTaskDone } from "@/actions/tasks";
 
@@ -89,9 +88,20 @@ export default async function AccountBoardPage({
    * board id from another client would otherwise render that client's work
    * under this one's name — past a guard that only checked the account.
    */
-  const boards = await listBoardsForAccounts([accountId]);
+  const [boards, types] = await Promise.all([
+    listBoardsForAccounts([accountId]),
+    listTaskTypes(),
+  ]);
   const board = boards.find((b) => b.id === boardId);
   if (!board) notFound();
+
+  /*
+   * A kind that is not on offer is not a filter, it is a stale link — a
+   * bookmark kept past a rename, or a retirement. Dropped here rather than
+   * passed on, because the query would match nothing and the menu would show
+   * nothing chosen: an empty board with no visible reason for being empty.
+   */
+  const type = current.type && types.some((t) => t.slug === current.type) ? current.type : undefined;
 
   const [view, campaigns, people, boardTags] = await Promise.all([
     getBoardView(
@@ -100,9 +110,7 @@ export default async function AccountBoardPage({
       {
         assigneeId: current.person ?? null,
         campaignId: current.campaign ?? null,
-        // Straight off the URL and into `workFilterSql`, which drops anything
-        // that is not a value rather than pasting it into SQL.
-        type: current.type,
+        type,
         priority: current.priority,
         tag: current.tag,
       },
@@ -153,11 +161,15 @@ export default async function AccountBoardPage({
     href: href({ campaign: c.id }),
   }));
 
-  const typeOptions: FilterOption[] = TASK_TYPES_ORDER.map((type) => ({
-    value: type,
+  /*
+   * From the table, in the order somebody arranged it — the same list the task
+   * form offers, so you cannot filter for a kind nothing can be given.
+   */
+  const typeOptions: FilterOption[] = types.map(toTypeRef).map((type) => ({
+    value: type.slug,
     label: <TypeLabel type={type} />,
-    short: TASK_TYPE_LABELS[type],
-    href: href({ type }),
+    short: type.label,
+    href: href({ type: type.slug }),
   }));
 
   const priorityOptions: FilterOption[] = (["urgent", "high"] as Priority[]).map((priority) => ({

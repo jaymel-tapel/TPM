@@ -140,7 +140,7 @@ export default async function ReportsPage({
             <Panel className="divide-y divide-gray-300 px-6">
               {byType.map((row) => (
                 <div
-                  key={row.type}
+                  key={row.type.slug}
                   className="grid grid-cols-[minmax(0,1fr)_96px_48px] items-center gap-4 py-3"
                 >
                   <TypeLabel type={row.type} className="truncate text-body-strong text-gray-1000" />

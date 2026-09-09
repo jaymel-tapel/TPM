@@ -19,7 +19,6 @@ import type {
   MemberRowData,
   Priority,
   TaskRowData,
-  TaskType,
 } from "@meridian/ui";
 import {
   agoLabel,
@@ -78,7 +77,7 @@ export function toTaskRow(
     href: `/tasks/${task.id}`,
     title: task.title,
     account: showAccount ? task.accountName : null,
-    type: task.type as TaskType,
+    type: task.type,
     status: { id: task.statusId, name: task.statusName, kind: task.statusKind },
     priority: task.priority as Priority,
     dueText: dueLabel(task.dueDate, reference, zone),
@@ -407,7 +406,7 @@ export function toPlanBlock(entry: PlanEntry, zone?: Zone): PlanBlockData {
     taskId: entry.taskId,
     href: `/tasks/${entry.taskId}`,
     title: entry.title,
-    type: entry.type as TaskType,
+    type: entry.type,
     priority: entry.priority as Priority,
     done: entry.done,
     startMinutes: minutesFromMidnight(entry.startsAt, zone),

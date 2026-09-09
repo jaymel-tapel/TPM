@@ -31,7 +31,31 @@ import { deliver, notify } from "@/lib/notify";
 import { assertCanViewAccountWork, loadEditableTask } from "@/lib/permissions";
 import { assigneesOutsideAccount } from "@/queries/accounts";
 import { depthOf } from "@/queries/tasks";
+import { getTaskTypeBySlug } from "@/queries/task-types";
 import { MAX_SUBTASK_DEPTH } from "@/lib/constants";
+
+/**
+ * The enum column `tasks.type` still exists and is still NOT NULL, because the
+ * other worktree reads it. It has to stay *valid*, not meaningful: a kind
+ * somebody invented has no enum member, so it writes `internal` and the real
+ * answer lives in `type_id`. Migration 0021 drops the column and this goes
+ * with it.
+ */
+const ENUM_SLUGS = new Set<string>(taskTypeEnum.enumValues);
+const legacyType = (slug: string) =>
+  (ENUM_SLUGS.has(slug) ? slug : "internal") as (typeof taskTypeEnum.enumValues)[number];
+
+/**
+ * The kind a task is being given, as a row. Refused rather than defaulted: a
+ * type that has been retired or never existed is a form that cannot be saved,
+ * not a task quietly filed as something else.
+ */
+async function resolveType(slug: string) {
+  const type = await getTaskTypeBySlug(slug);
+  if (!type) return null;
+  if (type.archivedAt !== null) return null;
+  return type;
+}
 
 const taskInput = z.object({
   title: z.string().trim().min(1, "Give the task a title").max(200),
@@ -39,7 +63,8 @@ const taskInput = z.object({
   // not a word count. Images live in object storage and appear here only as a
   // URL, so a long description is long because someone wrote a lot.
   description: z.string().trim().max(200_000).optional().nullable(),
-  type: z.enum(taskTypeEnum.enumValues),
+  /** A `task_types` slug. Checked against the table, not against an enum. */
+  type: z.string().trim().min(1, "Pick a task type"),
   priority: z.enum(priorityEnum.enumValues),
   /** A `board_statuses` row. Validated against the board below, not here. */
   statusId: z.string().uuid("Pick a status"),
@@ -156,6 +181,9 @@ export async function createTask(_prev: FormState, formData: FormData): Promise<
   const estimate = readDuration(input.estimate);
   if (!estimate.ok) return { error: "Estimate should read like 2d 4h." };
 
+  const type = await resolveType(input.type);
+  if (!type) return { error: "That task type is not available." };
+
   // The task belongs to the account that owns the board it is filed on, so the
   // denormalised copy can never disagree with it.
   const [board] = await db
@@ -183,7 +211,8 @@ export async function createTask(_prev: FormState, formData: FormData): Promise<
     .values({
       title: input.title,
       description: input.description ?? null,
-      type: input.type,
+      type: legacyType(type.slug),
+      typeId: type.id,
       priority: input.priority,
       boardId: input.boardId,
       statusId: status.id,
@@ -240,6 +269,9 @@ export async function updateTask(_prev: FormState, formData: FormData): Promise<
   const estimate = readDuration(input.estimate);
   if (!estimate.ok) return { error: "Estimate should read like 2d 4h." };
 
+  const type = await resolveType(input.type);
+  if (!type) return { error: "That task type is not available." };
+
   const [board] = await db
     .select({ accountId: boards.accountId })
     .from(boards)
@@ -284,7 +316,8 @@ export async function updateTask(_prev: FormState, formData: FormData): Promise<
     .set({
       title: input.title,
       description: input.description ?? null,
-      type: input.type,
+      type: legacyType(type.slug),
+      typeId: type.id,
       priority: input.priority,
       boardId: input.boardId,
       statusId: status.id,

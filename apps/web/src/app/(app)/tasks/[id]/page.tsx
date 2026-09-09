@@ -15,6 +15,7 @@ import { canViewTask } from "@/lib/permissions";
 import { db } from "@/db";
 import { tasks as tasksTable } from "@/db/schema";
 import { depthOf, getTaskCard, listAllTags, listAncestors, listSubtaskTree } from "@/queries/tasks";
+import { listTaskTypes, toTypeRef } from "@/queries/task-types";
 import { getAttachments } from "@/queries/attachments";
 import { getActivity } from "@/queries/activity";
 import { getLinkedDocs } from "@/queries/docs";
@@ -50,7 +51,7 @@ export default async function TaskDetailPage({
   const record = await db.query.tasks.findFirst({ where: eq(tasksTable.id, id) });
   if (!record || !(await canViewTask(user, record))) notFound();
 
-  const [task, tags, attachments, docs, columns, options, activity, branch, ancestors, depth] =
+  const [task, tags, attachments, docs, columns, options, activity, branch, ancestors, types, depth] =
     await Promise.all([
     getTaskCard(id),
     listAllTags(),
@@ -61,6 +62,7 @@ export default async function TaskDetailPage({
     getActivity(id, showAll ? null : undefined),
     listSubtaskTree(id),
     listAncestors(id),
+    listTaskTypes(),
     depthOf(id),
   ]);
   if (!task) notFound();
@@ -170,6 +172,7 @@ export default async function TaskDetailPage({
         submitLabel="Save changes"
         peopleByBoard={options.peopleByBoard}
         allTags={tags}
+        taskTypes={types.map(toTypeRef)}
         boards={options.boards}
         statusesByBoard={options.statusesByBoard}
         values={{
@@ -180,7 +183,7 @@ export default async function TaskDetailPage({
           statusId: task.statusId,
           estimate: formatDuration(task.estimateMinutes),
           actual: formatDuration(task.actualMinutes),
-          type: task.type,
+          type: task.type.slug,
           priority: task.priority,
           dueDate: format(task.dueDate, "yyyy-MM-dd'T'HH:mm"),
           assignees: task.assignees.map((a) => a.id),
