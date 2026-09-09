@@ -59,7 +59,13 @@ export async function getDepartmentToday(
     };
   }
 
-  const rows = await db.execute(sql`
+  /*
+   * Three independent aggregates, asked together. The per-account rollup, the
+   * headcount and the department's own totals share no data — running them in
+   * a row cost three round trips to compute one screen.
+   */
+  const [rows, headRow, totalRow] = await Promise.all([
+    db.execute(sql`
     with dued as (
       select k.account_id,
              count(*) filter (where k.due_date >= ${start} and k.due_date < ${end}) as due,
@@ -84,7 +90,36 @@ export async function getDepartmentToday(
     left join dued on dued.account_id = t.id
     ${onlyAccountIds ? sql`where t.id in (${uuids(onlyAccountIds)})` : sql``}
     order by t.name
-  `);
+  `),
+
+    db.execute(sql`select count(*) as n from users`),
+
+    /*
+     * Counted over the whole department rather than summed from the accounts.
+     *
+     * The accounts used to add up to it, and stopped once a board could belong
+     * to no account: that work joins to no account row and would fall out of
+     * the total entirely, so the department's own boards would be invisible in
+     * the department's own numbers.
+     *
+     * Averaging the accounts' percentages would be wrong for a second reason —
+     * it weights a 14-person account the same as a 15-person one and produces a
+     * number that is nobody's.
+     */
+    db.execute(sql`
+      select count(*) filter (where k.due_date >= ${start} and k.due_date < ${end}) as due,
+             count(*) filter (where k.due_date >= ${start} and k.due_date < ${end}
+                              and k.completed_at is not null) as done,
+             count(*) filter (where k.due_date < ${start} and k.completed_at is null) as overdue,
+             count(*) filter (where k.due_date >= ${weekStart} and k.due_date < ${end}) as week_due,
+             count(*) filter (where k.due_date >= ${weekStart} and k.due_date < ${end}
+                              and ${onTimeIn(zone)}) as week_done,
+             count(*) filter (where k.due_date >= ${priorStart} and k.due_date < ${weekStart}) as prior_due,
+             count(*) filter (where k.due_date >= ${priorStart} and k.due_date < ${weekStart}
+                              and ${onTimeIn(zone)}) as prior_done
+      from tasks k where ${isLeaf}
+    `),
+  ]);
 
   const raw = rows.rows as Record<string, string>[];
 
@@ -101,34 +136,7 @@ export async function getDepartmentToday(
     priorWeekPercent: pct(Number(r.prior_done), Number(r.prior_due)),
   }));
 
-  const headRow = await db.execute(sql`select count(*) as n from users`);
   const headcount = Number((headRow.rows[0] as { n: string }).n);
-
-  /*
-   * Counted over the whole department rather than summed from the accounts.
-   *
-   * The accounts used to add up to it, and stopped once a board could belong to
-   * no account: that work joins to no account row and would fall out of the total
-   * entirely, so the department's own boards would be invisible in the
-   * department's own numbers.
-   *
-   * Averaging the accounts' percentages would be wrong for a second reason — it
-   * weights a 14-person account the same as a 15-person one and produces a
-   * number that is nobody's.
-   */
-  const totalRow = await db.execute(sql`
-    select count(*) filter (where k.due_date >= ${start} and k.due_date < ${end}) as due,
-           count(*) filter (where k.due_date >= ${start} and k.due_date < ${end}
-                            and k.completed_at is not null) as done,
-           count(*) filter (where k.due_date < ${start} and k.completed_at is null) as overdue,
-           count(*) filter (where k.due_date >= ${weekStart} and k.due_date < ${end}) as week_due,
-           count(*) filter (where k.due_date >= ${weekStart} and k.due_date < ${end}
-                            and ${onTimeIn(zone)}) as week_done,
-           count(*) filter (where k.due_date >= ${priorStart} and k.due_date < ${weekStart}) as prior_due,
-           count(*) filter (where k.due_date >= ${priorStart} and k.due_date < ${weekStart}
-                            and ${onTimeIn(zone)}) as prior_done
-    from tasks k where ${isLeaf}
-  `);
   const total = totalRow.rows[0] as Record<string, string>;
   const sum = (key: string) => Number(total[key]);
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useOptimistic, useState, useTransition } from "react";
 import Link from "next/link";
 import { Plus, X } from "lucide-react";
 import { cn } from "../lib/utils";
@@ -34,6 +34,12 @@ function Row({
   setOpenFor: (id: string | null) => void;
 }) {
   const [, start] = useTransition();
+  /*
+   * Flipped before the server answers, the way the row above the tree and the
+   * board both do. `useOptimistic` reverts it if the write fails, which is the
+   * honest behaviour — a piece that did not save should not look finished.
+   */
+  const [optimisticDone, setOptimisticDone] = useOptimistic(subtask.done);
   const branch = subtask.children.length > 0;
   const counts = tally(subtask.children);
   const adding = openFor === subtask.id;
@@ -72,15 +78,16 @@ function Row({
                 if (!onToggle) return;
                 const data = new FormData();
                 data.set("taskId", subtask.id);
-                start(() => {
-                  void onToggle(data);
+                start(async () => {
+                  setOptimisticDone(!subtask.done);
+                  await onToggle(data);
                 });
               }}
               className="cursor-pointer rounded-full transition-transform active:scale-90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-default"
             >
               <StatusMark
-                kind={subtask.done ? "done" : "open"}
-                label={subtask.done ? "Done" : "To do"}
+                kind={optimisticDone ? "done" : "open"}
+                label={optimisticDone ? "Done" : "To do"}
               />
             </button>
           )}

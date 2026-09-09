@@ -119,24 +119,26 @@ export async function getDayView(
   const horizon = new Date(end.getTime() + aheadDays * 86_400_000);
   const scope = scopeSql(userScope(userId));
 
-  const dueToday = await runTaskQuery(
-    sql`${scope} and k.due_date >= ${start} and k.due_date < ${end}`,
-  );
-  const overdue = await runTaskQuery(
-    sql`${scope} and k.due_date < ${start} and k.completed_at is null`,
-    50,
-  );
   /*
-   * Not part of the day's arithmetic — `due`, `done` and the percentage stay
-   * about today, or the number stops meaning "how today went". This is here so
-   * the day plan has something to reach for: the strip opens Thursday, and
-   * Thursday's work should be on the page to drag.
+   * Three windows on the same person, asked at once rather than in a row. They
+   * share a scope and nothing else — none of them needs another's answer — so
+   * three sequential round trips were three times the wait for no reason.
    */
-  const upcoming = await runTaskQuery(
-    sql`${scope} and k.due_date >= ${end} and k.due_date < ${horizon} and k.completed_at is null`,
-    50,
-    byDueDate,
-  );
+  const [dueToday, overdue, upcoming] = await Promise.all([
+    runTaskQuery(sql`${scope} and k.due_date >= ${start} and k.due_date < ${end}`),
+    runTaskQuery(sql`${scope} and k.due_date < ${start} and k.completed_at is null`, 50),
+    /*
+     * Not part of the day's arithmetic — `due`, `done` and the percentage stay
+     * about today, or the number stops meaning "how today went". This is here
+     * so the day plan has something to reach for: the strip opens Thursday, and
+     * Thursday's work should be on the page to drag.
+     */
+    runTaskQuery(
+      sql`${scope} and k.due_date >= ${end} and k.due_date < ${horizon} and k.completed_at is null`,
+      50,
+      byDueDate,
+    ),
+  ]);
 
   const completed = dueToday.filter((t) => t.completedAt !== null);
   const today = dueToday.filter((t) => t.completedAt === null);
@@ -345,18 +347,6 @@ export async function getBoardView(
   const { start, end } = dayRange(reference, zone);
   const { assigneeId = null, campaignId = null, ...work } = filters;
 
-  const [board] = await db
-    .select({ id: boards.id, name: boards.name })
-    .from(boards)
-    .where(eq(boards.id, boardId));
-  if (!board) return null;
-
-  const columns = await db
-    .select({ id: boardStatuses.id, name: boardStatuses.name, kind: boardStatuses.kind })
-    .from(boardStatuses)
-    .where(eq(boardStatuses.boardId, boardId))
-    .orderBy(boardStatuses.position, boardStatuses.name);
-
   // Reuses the same `exists (…task_assignees…)` fragment every other
   // person-scoped query uses, so "mine" means the same thing everywhere.
   const mine = assigneeId ? sql` and ${scopeSql(userScope(assigneeId))}` : sql``;
@@ -369,11 +359,31 @@ export async function getBoardView(
   const narrowed = workFilterSql(work);
   const narrowing = narrowed.length ? sql` and ${sql.join(narrowed, sql` and `)}` : sql``;
 
-  const rows = await runTaskQuery(
-    sql`${boardScopeSql(boardId)}${mine}${inCampaign}${narrowing} and ${boardWindowSql(start, end)}`,
-    400,
-    boardOrder,
-  );
+  /*
+   * The board, its columns and its cards in one trip.
+   *
+   * The cards do not need the board row or the column list to be built — they
+   * are found by `board_id` — so asking for them in sequence was two round
+   * trips of pure waiting before the query that actually matters even started.
+   * A missing board is checked after, which costs nothing: the other two
+   * queries return empty for an id that does not exist.
+   */
+  const [boards_, columns, rows] = await Promise.all([
+    db.select({ id: boards.id, name: boards.name }).from(boards).where(eq(boards.id, boardId)),
+    db
+      .select({ id: boardStatuses.id, name: boardStatuses.name, kind: boardStatuses.kind })
+      .from(boardStatuses)
+      .where(eq(boardStatuses.boardId, boardId))
+      .orderBy(boardStatuses.position, boardStatuses.name),
+    runTaskQuery(
+      sql`${boardScopeSql(boardId)}${mine}${inCampaign}${narrowing} and ${boardWindowSql(start, end)}`,
+      400,
+      boardOrder,
+    ),
+  ]);
+
+  const board = boards_[0];
+  if (!board) return null;
 
   const byStatus = new Map<string, TaskCard[]>(columns.map((c) => [c.id, []]));
   for (const task of rows) byStatus.get(task.statusId)?.push(task);

@@ -18,6 +18,7 @@ export * from "./components/day-strip";
 export * from "./components/task-drag";
 export * from "./components/task-meta";
 export * from "./components/task-row";
+export * from "./components/task-toggle";
 export * from "./components/subtask-list";
 export * from "./components/member-row";
 export * from "./components/availability";

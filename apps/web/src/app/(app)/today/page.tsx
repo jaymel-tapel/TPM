@@ -58,11 +58,9 @@ export default async function TodayPage({
      Both come off the session, so no page can forget to ask. */
   const { user, zone, hours } = await requireSession();
   const today = now(zone);
-  const day = await getDayView(user.id, today, zone);
+  const dayView = getDayView(user.id, today, zone);
   // Today spans every client too, so each row says which.
   const row = (t: Parameters<typeof toTaskRow>[0]) => toTaskRow(t, today, zone, true);
-
-  const pending = day.today.length;
 
   /*
    * The lists always show today — that is what this screen is. Only the plan
@@ -74,9 +72,19 @@ export default async function TodayPage({
   const on = days.find((d) => fmt(d, "yyyy-MM-dd", zone) === asked) ?? days[0]!;
   const showingToday = isSameAppDay(on, today, zone);
 
-  const plan = (await getDayPlan(user.id, on, zone)).map((e) => toPlanBlock(e, zone));
-  const planned = await plannedTaskIds(user.id, on, zone);
-  const counts = await getPlanCounts(user.id, days, zone);
+  /*
+   * The day and the three plan reads at once. `getDayView` was started above,
+   * before the day being planned was known, because it never depended on it —
+   * awaiting it there made three independent queries wait for a fourth.
+   */
+  const [day, planEntries, planned, counts] = await Promise.all([
+    dayView,
+    getDayPlan(user.id, on, zone),
+    plannedTaskIds(user.id, on, zone),
+    getPlanCounts(user.id, days, zone),
+  ]);
+  const plan = planEntries.map((e) => toPlanBlock(e, zone));
+  const pending = day.today.length;
   const { startHour, endHour } = gridRange(plan, hours);
   /*
    * The hour labels are formatted here, not in the component: `@meridian/ui`

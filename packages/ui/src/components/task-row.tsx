@@ -3,7 +3,8 @@ import { CalendarPlus } from "lucide-react";
 import { Progress } from "../primitives/progress";
 import { cn } from "../lib/utils";
 import { AvatarStack } from "./user-avatar";
-import { DocCount, PriorityLabel, StatusMark, TagBadge, TypeLabel } from "./task-meta";
+import { DocCount, PriorityLabel, TagBadge, TypeLabel } from "./task-meta";
+import { TaskToggle } from "./task-toggle";
 import { Eyebrow } from "./section";
 import { DragSource } from "./task-drag";
 import { Percent } from "./stat";
@@ -52,17 +53,6 @@ export function TaskRow({
   const shared = task.assignees.length > 1;
   const flagged = !task.done && task.priority !== "normal";
 
-  const control = (
-    <button
-      type="submit"
-      disabled={!onToggle}
-      aria-label={task.done ? `Reopen ${task.title}` : `Complete ${task.title}`}
-      className="cursor-pointer rounded-full transition-transform active:scale-90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-default"
-    >
-      <StatusMark kind={task.status.kind} label={task.status.name} />
-    </button>
-  );
-
   const shell = cn(
     "group flex items-start gap-3 px-4 transition-colors hover:bg-gray-100",
     quiet ? "py-2" : "py-3",
@@ -72,14 +62,14 @@ export function TaskRow({
   const body = (
     <>
       <div className="group/check pt-0.5">
-        {onToggle ? (
-          <form action={onToggle}>
-            <input type="hidden" name="taskId" value={task.id} />
-            {control}
-          </form>
-        ) : (
-          control
-        )}
+        <TaskToggle
+          taskId={task.id}
+          title={task.title}
+          done={task.done}
+          kind={task.status.kind}
+          label={task.status.name}
+          onToggle={onToggle}
+        />
       </div>
 
       <Link href={task.href} className="min-w-0 flex-1">

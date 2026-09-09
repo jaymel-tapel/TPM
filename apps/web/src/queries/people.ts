@@ -46,7 +46,13 @@ export async function listPeople(
   const senior = viewer.role === "senior_director";
   if (!senior && viewer.accountIds.length === 0) return [];
 
-  const rows = await db.execute(sql`
+  /*
+   * The roster and who is off, together. Leave never touches `tasks` — that is
+   * the invariant the feature was built on — so the two have nothing to say to
+   * each other and no reason to queue.
+   */
+  const [rows, away] = await Promise.all([
+    db.execute(sql`
     select u.id, u.name, u.role, u.title,
            coalesce(
              (select json_agg(a.name order by a.name)
@@ -72,12 +78,14 @@ export async function listPeople(
     }
     group by u.id, u.name, u.role, u.title
     order by u.name
-  `);
+  `),
+
+    // Null rather than an empty list for the Senior Director: they read every
+    // roster, and an empty list means "nobody" everywhere else it is used.
+    awayOn(senior ? null : viewer.accountIds, dayKey(reference, zone)),
+  ]);
 
   const raw = rows.rows as Record<string, unknown>[];
-  // Null rather than an empty list for the Senior Director: they read every
-  // roster, and an empty list means "nobody" everywhere else it is used.
-  const away = await awayOn(senior ? null : viewer.accountIds, dayKey(reference, zone));
 
   return raw.map((r) => {
     const due = Number(r.due);

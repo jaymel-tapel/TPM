@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useOptimistic, useRef, useState, useTransition } from "react";
+import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { Check, GripVertical } from "lucide-react";
 import {
@@ -397,11 +398,16 @@ export function TaskBoard({
     return lastOver.current ? [{ id: lastOver.current }] : [];
   }, []);
 
+  const pathname = usePathname();
+
   function submit(taskId: string, to: string, order: string[]) {
     if (!onMove) return;
     const data = new FormData();
     data.set("taskId", taskId);
     data.set("statusId", to);
+    // The board's own route, so the move revalidates this page rather than
+    // every route in the application.
+    data.set("path", pathname);
     for (const id of order.slice(0, COLUMN_LIMIT)) data.append("order", id);
     startTransition(() => {
       place({ taskId, to, order });

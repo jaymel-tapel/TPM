@@ -156,6 +156,27 @@ function refresh() {
   revalidatePath("/", "layout");
 }
 
+/**
+ * Revalidate the page the click came from, not the entire application.
+ *
+ * `revalidatePath("/", "layout")` is the broadest invalidation Next has: it
+ * throws away every route *and* the root layout, so ticking one checkbox made
+ * the rail re-run its queries along with everything else. Most actions here
+ * genuinely do change the rail — an account renamed, a board added, an unread
+ * count moved — and they keep it.
+ *
+ * These three do not. Completing a task, moving it between columns and
+ * changing its status all change one row on one page. The caller passes the
+ * path it is showing; without one we fall back to the old behaviour rather
+ * than guess, because a missed revalidation shows stale numbers and that is
+ * worse than a slow one.
+ */
+function refreshPage(formData: FormData) {
+  const path = String(formData.get("path") ?? "");
+  if (path.startsWith("/")) revalidatePath(path);
+  else refresh();
+}
+
 /** "" and null both mean "not estimated"; anything else must actually parse. */
 function readDuration(value: string | null | undefined) {
   if (value === null || value === undefined || value.trim() === "") {
@@ -514,7 +535,7 @@ export async function toggleTaskDone(formData: FormData) {
     toLabel: status?.name ?? null,
   });
 
-  refresh();
+  refreshPage(formData);
 }
 
 /** Twice the twelve a column shows. Anything longer is not a board drag. */
@@ -621,7 +642,7 @@ export async function moveTask(formData: FormData) {
     });
   }
 
-  refresh();
+  refreshPage(formData);
 }
 
 export async function setTaskStatus(formData: FormData) {
@@ -662,7 +683,7 @@ export async function setTaskStatus(formData: FormData) {
     toLabel: status.name,
   });
 
-  refresh();
+  refreshPage(formData);
 }
 
 const subtaskInput = z.object({

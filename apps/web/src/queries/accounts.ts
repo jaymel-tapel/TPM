@@ -71,7 +71,14 @@ export async function getAccountToday(
   // Whole days ending today, today included.
   const from = new Date(start.getTime() - (days - 1) * 86_400_000);
 
-  const accountRows = await db.execute(sql`
+  /*
+   * The account's totals, who is away, and the roster — one trip, not three.
+   * All three are keyed on the same account id and none reads another's
+   * result; a missing account is checked after, because the other two return
+   * nothing for an id that is not there.
+   */
+  const [accountRows, away, memberRows] = await Promise.all([
+    db.execute(sql`
     select t.id, t.name, d.name as director_name,
            (select count(*) from account_members m where m.account_id = t.id) as headcount,
            (select count(*) from tasks k where k.account_id = t.id and ${isLeaf} and k.due_date >= ${from} and k.due_date < ${end}) as due,
@@ -83,7 +90,24 @@ export async function getAccountToday(
     from accounts t
     left join users d on d.id = t.account_director_id
     where t.id = ${accountId}
-  `);
+  `),
+
+    awayOn([accountId], dayKey(reference, zone)),
+
+    db.execute(sql`
+      select u.id, u.name, u.role, u.title,
+             count(k.id) filter (where k.due_date >= ${from} and k.due_date < ${end}) as due,
+             count(k.id) filter (where k.due_date >= ${from} and k.due_date < ${end} and k.completed_at is not null) as done,
+             count(k.id) filter (where k.due_date < ${start} and k.completed_at is null) as overdue
+      from users u
+      left join task_assignees a on a.user_id = u.id
+      left join tasks k on k.id = a.task_id and ${isLeaf}
+      join account_members m on m.user_id = u.id and m.account_id = ${accountId}
+      group by u.id, u.name, u.role, u.title
+      order by (u.role = 'account_director') desc, u.name
+    `),
+  ]);
+
   const account = accountRows.rows[0] as
     | {
         id: string;
@@ -97,21 +121,6 @@ export async function getAccountToday(
       }
     | undefined;
   if (!account) return null;
-
-  const away = await awayOn([accountId], dayKey(reference, zone));
-
-  const memberRows = await db.execute(sql`
-    select u.id, u.name, u.role, u.title,
-           count(k.id) filter (where k.due_date >= ${from} and k.due_date < ${end}) as due,
-           count(k.id) filter (where k.due_date >= ${from} and k.due_date < ${end} and k.completed_at is not null) as done,
-           count(k.id) filter (where k.due_date < ${start} and k.completed_at is null) as overdue
-    from users u
-    left join task_assignees a on a.user_id = u.id
-    left join tasks k on k.id = a.task_id and ${isLeaf}
-    join account_members m on m.user_id = u.id and m.account_id = ${accountId}
-    group by u.id, u.name, u.role, u.title
-    order by (u.role = 'account_director') desc, u.name
-  `);
 
   const members: MemberRollup[] = (memberRows.rows as Record<string, string>[]).map((r) => {
     const due = Number(r.due);

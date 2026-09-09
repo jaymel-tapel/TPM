@@ -10,6 +10,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx src/db/seed.ts",
+    "db:latency": "tsx src/db/latency.ts",
     "db:reset": "tsx src/db/reset.ts && drizzle-kit migrate && tsx src/db/seed.ts",
     "test": "vitest run",
     "test:watch": "vitest"

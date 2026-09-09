@@ -19,10 +19,27 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const { before, after } = navFor(session.user.role);
 
   /*
+   * The bell's three counts start now, not after the rail.
+   *
+   * They only need the viewer's id, which we already have, so waiting for the
+   * accounts first bought nothing and cost a round trip. Started here, they
+   * run alongside the rail's two and the whole shell resolves in the time the
+   * slower chain takes rather than the sum of both.
+   */
+  const bell = Promise.all([
+    getUnreadCount(session.user.id),
+    getInbox(session.user.id, 8),
+    getUnreadTotal(session.user.id),
+  ]);
+
+  /*
    * Filled in here, not declared in `navFor` — that module runs no queries.
    * Ranked, not capped: the rail keeps the client you are currently inside
    * whether or not it is one of the busiest, and only the sidebar knows which
    * page you are on.
+   *
+   * These two *are* genuinely sequential: the boards are looked up by the
+   * account ids the ranking returns.
    */
   const rail = await railAccountsFor(session.user);
   const boards = await listBoardsForAccounts(rail.map((account) => account.id));
@@ -41,11 +58,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // The bell's contents come down with the page, like the rail's accounts — no
   // client fetch, and nothing reaches the browser that this render did not
   // already authorize.
-  const [unread, inbox, chatUnread] = await Promise.all([
-    getUnreadCount(session.user.id),
-    getInbox(session.user.id, 8),
-    getUnreadTotal(session.user.id),
-  ]);
+  const [unread, inbox, chatUnread] = await bell;
 
   // The rail's one badge. Chat keeps its own count rather than joining the
   // bell's: "Sarah said hi" and "you were assigned a task" are different

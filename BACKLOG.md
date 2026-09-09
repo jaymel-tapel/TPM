@@ -411,6 +411,43 @@ spaces, no folders over boards, no per-board custom fields, no arbitrary views.
 The list stays the default — the brief says not to make Kanban the default
 interface.
 
+### Speed is round trips, not queries
+
+The app felt sluggish and the instinct was to look at the SQL. The measurement
+said otherwise: a real board query — 348 rows, every correlated subquery in
+`taskCardSelect` — **executes in 5.7ms and takes 452ms wall clock**. `select 1`
+and `count(*) over tasks` cost the same as each other. The cost is distance.
+
+So the rule for this codebase is: **a page's speed is the number of round trips
+it makes, times how far away the database is.** Both halves are worth
+defending.
+
+- **`pnpm db:latency`** exists so the second half is a measurement rather than
+  an opinion. London from Manila is ~194ms; Singapore is ~43ms; localhost is
+  0.11ms. Moving regions took a board render from 2.5s to under 400ms without
+  touching a line of application code.
+- **Independent queries go in a `Promise.all`.** Eight query functions were
+  running two to four independent statements in series — `getNeedsAttention`
+  alone was four. Each one is a whole round trip of pure waiting. This is the
+  single easiest performance bug to write and the easiest to miss in review,
+  because sequential `await`s read perfectly well.
+- **A page that shows nothing is a page that feels broken.** Every route has a
+  `loading.tsx`; nine were missing and all nine were recent. The skeletons in
+  `packages/ui/src/components/skeletons.tsx` are built from the components they
+  stand in for, so the page does not jump when the real thing lands.
+- **The most-pressed controls are optimistic.** The completion mark, the
+  subtask mark and the board's drag all flip before the server answers, and
+  React reverts them if the write fails. A control that waits on a round trip
+  before acknowledging a click is the difference between "instant" and
+  "sluggish" whatever the number underneath says.
+
+**`revalidatePath("/", "layout")` is the sledgehammer.** It throws away every
+route and the root layout, so the rail re-runs its queries too. Most actions
+here genuinely do change the rail and keep it. The three that do not — ticking
+a task, moving one between columns, changing its status — send the page they
+were on and revalidate only that, falling back to the sledgehammer when no path
+arrives rather than guessing.
+
 ### Invariants worth not breaking
 
 - **Completion is `completed_at`, never status alone.** Without it, "how did

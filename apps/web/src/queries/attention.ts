@@ -27,47 +27,76 @@ export async function getNeedsAttention(
   const where = scopeSql(scope);
   const items: AttentionItem[] = [];
 
-  // 1. Who is carrying the most work past its due date.
-  const overdue = await db.execute(sql`
-    select u.id, u.name, count(*) as n
-    from tasks k
-    join task_assignees a on a.task_id = k.id
-    join users u on u.id = a.user_id
-    where ${where} and ${isLeaf} and ${overdueSql(start)}
-    group by u.id, u.name
-    order by n desc, u.name
-    limit 2
-  `);
+  /*
+   * Four questions, asked at once.
+   *
+   * They were four `await`s in a row, and nothing in any of them depends on
+   * another — so the page paid four round trips to the database where one
+   * would do. At 43ms each that is the difference between this section costing
+   * 170ms and costing 43ms, and it is pure waiting either way.
+   */
+  const [overdue, soon, collab, blocked] = await Promise.all([
+    // 1. Who is carrying the most work past its due date.
+    db.execute(sql`
+      select u.id, u.name, count(*) as n
+      from tasks k
+      join task_assignees a on a.task_id = k.id
+      join users u on u.id = a.user_id
+      where ${where} and ${isLeaf} and ${overdueSql(start)}
+      group by u.id, u.name
+      order by n desc, u.name
+      limit 2
+    `),
+
+    /*
+     * 2. Work landing in the next two hours that has not been started.
+     *
+     * "Not started" is the board's first column by position, whatever it is
+     * called — a board that renames To Do to "Backlog" still counts here. It
+     * used to be the first column of kind `open`, which was the same thing only
+     * while boards were three columns deep; on a board that opens with a
+     * client-facing stage the first column is where work waits regardless of
+     * how it is classified.
+     */
+    db.execute(sql`
+      select count(*) as n from tasks k
+      join board_statuses s on s.id = k.status_id
+      where ${where} and ${isLeaf} and k.completed_at is null
+        and s.position = (
+          select min(s2.position) from board_statuses s2
+          where s2.board_id = k.board_id
+        )
+        and k.due_date between now() and now() + interval '2 hours'
+    `),
+
+    // 3. Shared work is the easiest to let slip, so it gets its own line.
+    db.execute(sql`
+      select count(*) as n from tasks k
+      where ${where} and ${isLeaf} and k.completed_at is null and k.due_date < ${end}
+        and (select count(*) from task_assignees a where a.task_id = k.id) > 1
+    `),
+
+    // 4. Blocked work needs a person, not a chart. A board may call the column
+    // anything; `kind` is what makes it blocked.
+    db.execute(sql`
+      select count(*) as n from tasks k
+      join board_statuses s on s.id = k.status_id
+      where ${where} and ${isLeaf} and ${isBlocked}
+    `),
+  ]);
+
   for (const r of overdue.rows as { id: string; name: string; n: string }[]) {
     if (Number(r.n) < 2) continue;
     items.push({
       severity: Number(r.n) >= 5 ? "high" : "medium",
       headline: r.name,
       detail: `${r.n} overdue ${Number(r.n) === 1 ? "task" : "tasks"}`,
-      href: `/account/${r.id}`,
+      // `/people/:id`, not `/account/:id` — that route went with the rename and
+      // this link had been pointing at a 404 ever since.
+      href: `/people/${r.id}`,
     });
   }
 
-  /*
-   * 2. Work landing in the next two hours that has not been started.
-   *
-   * "Not started" is the board's first column by position, whatever it is
-   * called — a board that renames To Do to "Backlog" still counts here. It
-   * used to be the first column of kind `open`, which was the same thing only
-   * while boards were three columns deep; on a board that opens with a
-   * client-facing stage the first column is where work waits regardless of
-   * how it is classified.
-   */
-  const soon = await db.execute(sql`
-    select count(*) as n from tasks k
-    join board_statuses s on s.id = k.status_id
-    where ${where} and ${isLeaf} and k.completed_at is null
-      and s.position = (
-        select min(s2.position) from board_statuses s2
-        where s2.board_id = k.board_id
-      )
-      and k.due_date between now() and now() + interval '2 hours'
-  `);
   const soonCount = Number((soon.rows[0] as { n: string }).n);
   if (soonCount > 0) {
     items.push({
@@ -77,12 +106,6 @@ export async function getNeedsAttention(
     });
   }
 
-  // 3. Shared work is the easiest to let slip, so it gets its own line.
-  const collab = await db.execute(sql`
-    select count(*) as n from tasks k
-    where ${where} and ${isLeaf} and k.completed_at is null and k.due_date < ${end}
-      and (select count(*) from task_assignees a where a.task_id = k.id) > 1
-  `);
   const collabCount = Number((collab.rows[0] as { n: string }).n);
   if (collabCount > 0) {
     items.push({
@@ -92,13 +115,6 @@ export async function getNeedsAttention(
     });
   }
 
-  // 4. Blocked work needs a person, not a chart. A board may call the column
-  // anything; `kind` is what makes it blocked.
-  const blocked = await db.execute(sql`
-    select count(*) as n from tasks k
-    join board_statuses s on s.id = k.status_id
-    where ${where} and ${isLeaf} and ${isBlocked}
-  `);
   const blockedCount = Number((blocked.rows[0] as { n: string }).n);
   if (blockedCount > 0) {
     items.push({

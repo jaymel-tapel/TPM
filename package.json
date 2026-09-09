@@ -10,6 +10,7 @@
     "db:generate": "pnpm --filter @meridian/web db:generate",
     "db:migrate": "pnpm --filter @meridian/web db:migrate",
     "db:seed": "pnpm --filter @meridian/web db:seed",
+    "db:latency": "pnpm --filter @meridian/web db:latency",
     "db:reset": "pnpm --filter @meridian/web db:reset",
     "test": "pnpm --filter @meridian/web test"
   },

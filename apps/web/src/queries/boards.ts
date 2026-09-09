@@ -74,7 +74,13 @@ export async function listBoardsForAccount(accountId: string): Promise<BoardSumm
  * meaningless without knowing which board it belongs to.
  */
 export async function listBoardOptions(user: { role: string; accountIds: string[] }) {
-  const rows = await db
+  /*
+   * The boards and every column in the department, together. The columns are
+   * fetched unfiltered and bucketed below, so they never needed the board list
+   * first — two round trips became one.
+   */
+  const [rows, columns] = await Promise.all([
+    db
     .select({
       id: boards.id,
       name: boards.name,
@@ -96,17 +102,18 @@ export async function listBoardOptions(user: { role: string; accountIds: string[
             isNull(boards.accountId),
           ),
     )
-    .orderBy(asc(accounts.name), asc(boards.position), asc(boards.name));
+    .orderBy(asc(accounts.name), asc(boards.position), asc(boards.name)),
 
-  const columns = await db
-    .select({
-      id: boardStatuses.id,
-      boardId: boardStatuses.boardId,
-      name: boardStatuses.name,
-      kind: boardStatuses.kind,
-    })
-    .from(boardStatuses)
-    .orderBy(asc(boardStatuses.position), asc(boardStatuses.name));
+    db
+      .select({
+        id: boardStatuses.id,
+        boardId: boardStatuses.boardId,
+        name: boardStatuses.name,
+        kind: boardStatuses.kind,
+      })
+      .from(boardStatuses)
+      .orderBy(asc(boardStatuses.position), asc(boardStatuses.name)),
+  ]);
 
   const statusesByBoard: Record<string, { id: string; name: string; kind: BoardStatus["kind"] }[]> = {};
   for (const b of rows) statusesByBoard[b.id] = [];
