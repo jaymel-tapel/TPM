@@ -1,10 +1,10 @@
 "use client";
 
 import { useActionState, useMemo, useState } from "react";
-import { Button } from "@meridian/ui/primitives/button";
-import { Input } from "@meridian/ui/primitives/input";
-import { Label } from "@meridian/ui/primitives/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@meridian/ui/primitives/select";
+import { Button } from "@tpm/ui/primitives/button";
+import { Input } from "@tpm/ui/primitives/input";
+import { Label } from "@tpm/ui/primitives/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@tpm/ui/primitives/select";
 import {
   ButtonLink,
   cn,
@@ -14,8 +14,8 @@ import {
   UserAvatar,
   type Priority,
   type TaskTypeRef,
-} from "@meridian/ui";
-import { RichTextEditor } from "@meridian/ui/editor";
+} from "@tpm/ui";
+import { RichTextEditor } from "@tpm/ui/editor";
 import { formatDuration, parseDuration } from "@/lib/duration";
 import type { FormState } from "@/actions/tasks";
 import { uploadAttachment } from "@/components/task-attachments";
@@ -25,7 +25,13 @@ import { useMentionSource } from "@/components/doc-mention";
 export type AssignableUser = { id: string; name: string; account_name: string | null };
 /** `accountId` is what decides who may be assigned or named on this board. */
 /** `accountId` is null on a department board — one that belongs to no account. */
-export type BoardOption = { id: string; name: string; accountId: string | null };
+export type BoardOption = {
+  id: string;
+  name: string;
+  accountId: string | null;
+  /** The client it belongs to. Null on a department board, which is everyone's. */
+  accountName: string | null;
+};
 export type StatusOption = { id: string; name: string; kind: "open" | "done" | "blocked" };
 
 export type TaskFormValues = {
@@ -116,6 +122,18 @@ export function TaskForm({
   // Named in a description, assigned in the sidebar — same board, so the
   // same set of people either way.
   const mentionSource = useMentionSource(boards.find((b) => b.id === boardId)?.accountId ?? null);
+
+  /*
+   * Whether a board needs its client named.
+   *
+   * Two clients run the same pipeline, so both have a "Brand & Creative" — and
+   * a list of four boards under two names is a list you cannot choose from.
+   * Only qualified when the list actually spans accounts: inside one client,
+   * their name on every row is the noise `peopleByBoard` already avoids.
+   */
+  const spansAccounts = new Set(boards.map((b) => b.accountId)).size > 1;
+  const boardLabel = (b: BoardOption | undefined) =>
+    !b ? null : spansAccounts ? `${b.accountName ?? "Department"} · ${b.name}` : b.name;
 
   const columns = statusesByBoard[boardId] ?? [];
   const people = peopleByBoard[boardId] ?? [];
@@ -285,13 +303,13 @@ export function TaskForm({
             <Select value={boardId} onValueChange={(v) => v && chooseBoard(v)}>
               <SelectTrigger className="w-full">
                 <SelectValue>
-                  {(v) => boards.find((b) => b.id === v)?.name ?? "Pick a board"}
+                  {(v) => boardLabel(boards.find((b) => b.id === v)) ?? "Pick a board"}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {boards.map((b) => (
                   <SelectItem key={b.id} value={b.id}>
-                    {b.name}
+                    {boardLabel(b)}
                   </SelectItem>
                 ))}
               </SelectContent>

@@ -16,7 +16,7 @@ import {
   TypeLabel,
   type FilterOption,
   type Priority,
-} from "@meridian/ui";
+} from "@tpm/ui";
 import { notFound } from "next/navigation";
 import { openAccount } from "@/lib/account-page";
 import { canViewAccount } from "@/lib/permissions";
@@ -246,7 +246,8 @@ export default async function AccountBoardPage({
               <CommandDivider />
             </>
           ) : null}
-          <Command icon={Plus} href="/tasks/new" tone="primary">
+          {/* Carrying the board, so a task started here is filed here. */}
+          <Command icon={Plus} href={`/tasks/new?board=${boardId}`} tone="primary">
             New Task
           </Command>
         </div>
