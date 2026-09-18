@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { Instrument_Sans } from "next/font/google";
 import { GeistMono } from "geist/font/mono";
 import "./globals.css";
-import { cn } from "@meridian/ui";
-import { TooltipProvider } from "@meridian/ui/primitives/tooltip";
+import { cn } from "@tpm/ui";
+import { TooltipProvider } from "@tpm/ui/primitives/tooltip";
 
 /**
  * Instrument Sans replaces Geist. Same discipline — a neutral grotesque built

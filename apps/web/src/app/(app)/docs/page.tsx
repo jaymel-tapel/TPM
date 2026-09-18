@@ -1,6 +1,6 @@
 import { Search } from "lucide-react";
-import { Input } from "@meridian/ui/primitives/input";
-import { ButtonLink, DocSearchResults, DocTree, PageHeader } from "@meridian/ui";
+import { Input } from "@tpm/ui/primitives/input";
+import { ButtonLink, DocSearchResults, DocTree, PageHeader } from "@tpm/ui";
 import { requireSession } from "@/lib/auth";
 import { canCreateDocs } from "@/lib/permissions";
 import { getDocTree, searchDocs } from "@/queries/docs";

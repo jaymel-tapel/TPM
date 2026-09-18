@@ -1,4 +1,4 @@
-import { Skeleton } from "@meridian/ui/primitives/skeleton";
+import { Skeleton } from "@tpm/ui/primitives/skeleton";
 
 /**
  * Tasks has no page of its own — it resolves the account's first board and

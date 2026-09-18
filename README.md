@@ -1,4 +1,4 @@
-# Meridian
+# TPM — Team Project Management
 
 A daily operating system for a 30-person department. Built from
 `task-management-system-handoff.md`.
@@ -28,15 +28,15 @@ and there is exactly one client hierarchy in the navigation.
 ## Workspace
 
 ```
-meridian/
+tpm/
 ├── DESIGN.md              the design system we follow, and why
 ├── apps/
-│   └── web/               @meridian/web — Next.js app, database, auth, queries
+│   └── web/               @tpm/web — Next.js app, database, auth, queries
 └── packages/
-    └── ui/                @meridian/ui — design system: tokens + components
+    └── ui/                @tpm/ui — design system: tokens + components
 ```
 
-**The boundary that matters:** `@meridian/ui` renders, it never queries. It has
+**The boundary that matters:** `@tpm/ui` renders, it never queries. It has
 no dependency on Drizzle, the app's routes, or what time it is — everything
 arrives as plain data through the contract in `packages/ui/src/types.ts`. The
 app maps its rows onto that contract in `apps/web/src/lib/present.ts`.
@@ -65,9 +65,9 @@ shares the password `demo1234`:
 
 | Role | Email |
 |---|---|
-| Team Member | `anna.santos@meridian.co` |
-| Account Director | `sarah.lim@meridian.co` |
-| Senior Director | `elena.rivera@meridian.co` |
+| Team Member | `anna.santos@demo.co` |
+| Account Director | `sarah.lim@demo.co` |
+| Senior Director | `elena.rivera@demo.co` |
 
 A dev-only **Viewing as** selector in the header switches between the three
 levels from a single login. It is gated behind

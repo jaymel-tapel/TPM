@@ -1,18 +1,18 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { Button } from "@meridian/ui/primitives/button";
-import { Input } from "@meridian/ui/primitives/input";
-import { Label } from "@meridian/ui/primitives/label";
+import { Button } from "@tpm/ui/primitives/button";
+import { Input } from "@tpm/ui/primitives/input";
+import { Label } from "@tpm/ui/primitives/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@meridian/ui/primitives/select";
-import { ButtonLink } from "@meridian/ui";
-import { RichTextEditor } from "@meridian/ui/editor";
+} from "@tpm/ui/primitives/select";
+import { ButtonLink } from "@tpm/ui";
+import { RichTextEditor } from "@tpm/ui/editor";
 import type { FormState } from "@/actions/docs";
 import { useMentionSource } from "@/components/doc-mention";
 

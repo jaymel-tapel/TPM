@@ -1,6 +1,6 @@
 import { TZDate } from "@date-fns/tz";
 import { addDays } from "date-fns";
-import type { Span } from "@meridian/ui";
+import type { Span } from "@tpm/ui";
 import { APP_TIMEZONE, startOfAppDay, type Zone } from "@/lib/date";
 
 /**
@@ -107,7 +107,7 @@ export function clampBlock(minutes: number): number {
   return Math.min(MAX_BLOCK, Math.max(MIN_BLOCK, snapped));
 }
 
-export type { Span } from "@meridian/ui";
+export type { Span } from "@tpm/ui";
 
 /**
  * The hours the grid draws.

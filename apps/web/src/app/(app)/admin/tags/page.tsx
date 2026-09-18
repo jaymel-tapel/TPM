@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { PageHeader, Panel, SectionHeader, TagBadge } from "@meridian/ui";
+import { PageHeader, Panel, SectionHeader, TagBadge } from "@tpm/ui";
 import { requireSession } from "@/lib/auth";
 import { assertCanAdminister } from "@/lib/permissions";
 import { listTagsWithUse } from "@/queries/tasks";

@@ -8,8 +8,8 @@ import {
   Percent,
   SectionHeader,
   Stat,
-} from "@meridian/ui";
-import { Progress } from "@meridian/ui/primitives/progress";
+} from "@tpm/ui";
+import { Progress } from "@tpm/ui/primitives/progress";
 import { openAccount } from "@/lib/account-page";
 import { canViewAccount } from "@/lib/permissions";
 import { getAccountToday } from "@/queries/accounts";

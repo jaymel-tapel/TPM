@@ -1,5 +1,5 @@
-import { InboxList } from "@meridian/ui";
-import { Button } from "@meridian/ui/primitives/button";
+import { InboxList } from "@tpm/ui";
+import { Button } from "@tpm/ui/primitives/button";
 import { requireUser } from "@/lib/auth";
 import { getInbox, getUnreadCount } from "@/queries/notifications";
 import { toInboxItem } from "@/lib/present";

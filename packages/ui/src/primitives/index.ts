@@ -4,7 +4,7 @@ export * from "./badge";
 export * from "./button";
 export * from "./card";
 // Not re-exported: the chart wrapper pulls in Recharts, and this barrel is
-// imported by nearly every screen. Reach it through "@meridian/ui/chart".
+// imported by nearly every screen. Reach it through "@tpm/ui/chart".
 export * from "./checkbox";
 export * from "./dialog";
 export * from "./dropdown-menu";

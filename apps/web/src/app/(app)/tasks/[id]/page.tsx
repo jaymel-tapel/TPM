@@ -3,13 +3,13 @@ import { notFound } from "next/navigation";
 import { format } from "date-fns";
 import { Check } from "lucide-react";
 import { eq } from "drizzle-orm";
-import { Button } from "@meridian/ui/primitives/button";
+import { Button } from "@tpm/ui/primitives/button";
 import {
   AvatarStack,
   PageHeader,
   StatusBadge,
   cn,
-} from "@meridian/ui";
+} from "@tpm/ui";
 import { requireSession } from "@/lib/auth";
 import { canViewTask } from "@/lib/permissions";
 import { db } from "@/db";

@@ -1,6 +1,6 @@
 "use client";
 
-import { ErrorState } from "@meridian/ui";
+import { ErrorState } from "@tpm/ui";
 
 /**
  * `ErrorState` takes an `onRetry` callback, and functions cannot cross the

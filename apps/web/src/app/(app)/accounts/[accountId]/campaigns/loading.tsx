@@ -1,4 +1,4 @@
-import { Skeleton } from "@meridian/ui/primitives/skeleton";
+import { Skeleton } from "@tpm/ui/primitives/skeleton";
 
 /** Three groups — running, booked, wrapped — the way the page arranges them. */
 export default function Loading() {

@@ -1,5 +1,5 @@
 import { Plus } from "lucide-react";
-import { ButtonLink } from "@meridian/ui";
+import { ButtonLink } from "@tpm/ui";
 import { requireSession } from "@/lib/auth";
 import { listRooms } from "@/queries/chat";
 import { toRoomListItem } from "@/lib/present";

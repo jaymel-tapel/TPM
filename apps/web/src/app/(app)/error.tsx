@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { ErrorState } from "@meridian/ui";
+import { ErrorState } from "@tpm/ui";
 
 /**
  * Covers every authenticated screen. Without it a failed query renders the raw
@@ -15,7 +15,7 @@ export default function AppError({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error("[meridian]", error);
+    console.error("[tpm]", error);
   }, [error]);
 
   return (

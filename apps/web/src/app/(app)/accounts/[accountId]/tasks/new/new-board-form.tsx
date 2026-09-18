@@ -1,10 +1,10 @@
 "use client";
 
 import { useActionState } from "react";
-import { Button } from "@meridian/ui/primitives/button";
-import { Input } from "@meridian/ui/primitives/input";
-import { Label } from "@meridian/ui/primitives/label";
-import { ButtonLink } from "@meridian/ui";
+import { Button } from "@tpm/ui/primitives/button";
+import { Input } from "@tpm/ui/primitives/input";
+import { Label } from "@tpm/ui/primitives/label";
+import { ButtonLink } from "@tpm/ui";
 import { createBoard } from "@/actions/boards";
 
 const label = "mb-2 block text-caption-strong uppercase tracking-[0.08em] text-gray-600";

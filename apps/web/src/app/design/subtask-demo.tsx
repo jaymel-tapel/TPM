@@ -1,9 +1,9 @@
 "use client";
 
 import { Plus } from "lucide-react";
-import { SubtaskList, type SubtaskData } from "@meridian/ui";
-import { Button } from "@meridian/ui/primitives/button";
-import { Input } from "@meridian/ui/primitives/input";
+import { SubtaskList, type SubtaskData } from "@tpm/ui";
+import { Button } from "@tpm/ui/primitives/button";
+import { Input } from "@tpm/ui/primitives/input";
 
 /**
  * The gallery's copy of the creator the task form supplies. A field and a

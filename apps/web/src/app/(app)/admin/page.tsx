@@ -9,8 +9,8 @@ import {
   Panel,
   SectionHeader,
   UserAvatar,
-} from "@meridian/ui";
-import { ROLE_LABELS } from "@meridian/ui";
+} from "@tpm/ui";
+import { ROLE_LABELS } from "@tpm/ui";
 import { requireSession } from "@/lib/auth";
 import { assertCanAdminister } from "@/lib/permissions";
 import { listAdminAccounts, listPeople } from "@/queries/admin";

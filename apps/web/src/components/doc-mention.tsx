@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useRef } from "react";
-import type { MentionItem } from "@meridian/ui/editor";
+import type { MentionItem } from "@tpm/ui/editor";
 import { listMentionableDocs, listMentionablePeople } from "@/actions/docs";
 
 /**

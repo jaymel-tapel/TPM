@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChatThread, type ChatMessageData } from "@meridian/ui";
+import { ChatThread, type ChatMessageData } from "@tpm/ui";
 import { deleteMessage, markRoomRead, sendMessage } from "@/actions/chat";
 
 /**

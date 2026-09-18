@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { eq, sql } from "drizzle-orm";
-import { collectPeople } from "@meridian/ui/editor";
+import { collectPeople } from "@tpm/ui/editor";
 import { db } from "@/db";
 import { notifications, tasks, users, type Task, type User } from "@/db/schema";
 import { canViewTask } from "@/lib/permissions";

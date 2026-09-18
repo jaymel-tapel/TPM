@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Progress } from "@meridian/ui/primitives/progress";
+import { Progress } from "@tpm/ui/primitives/progress";
 import {
   EmptyState,
   Panel,
@@ -9,7 +9,7 @@ import {
   TaskList,
   TaskRow,
   UserAvatar,
-} from "@meridian/ui";
+} from "@tpm/ui";
 import { requireSession } from "@/lib/auth";
 import { assertCanViewUser } from "@/lib/permissions";
 import { getDayView, listTasks } from "@/queries/tasks";

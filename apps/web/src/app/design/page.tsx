@@ -1,17 +1,17 @@
-import { Alert, AlertDescription, AlertTitle } from "@meridian/ui/primitives/alert";
-import { Badge } from "@meridian/ui/primitives/badge";
-import { Button } from "@meridian/ui/primitives/button";
-import { Checkbox } from "@meridian/ui/primitives/checkbox";
-import { Input } from "@meridian/ui/primitives/input";
-import { Label } from "@meridian/ui/primitives/label";
-import { Progress } from "@meridian/ui/primitives/progress";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@meridian/ui/primitives/select";
-import { Separator } from "@meridian/ui/primitives/separator";
-import { Skeleton } from "@meridian/ui/primitives/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@meridian/ui/primitives/table";
-import { Tabs, TabsList, TabsTrigger } from "@meridian/ui/primitives/tabs";
-import { Textarea } from "@meridian/ui/primitives/textarea";
-import { RichTextEditor, RichTextView } from "@meridian/ui/editor";
+import { Alert, AlertDescription, AlertTitle } from "@tpm/ui/primitives/alert";
+import { Badge } from "@tpm/ui/primitives/badge";
+import { Button } from "@tpm/ui/primitives/button";
+import { Checkbox } from "@tpm/ui/primitives/checkbox";
+import { Input } from "@tpm/ui/primitives/input";
+import { Label } from "@tpm/ui/primitives/label";
+import { Progress } from "@tpm/ui/primitives/progress";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@tpm/ui/primitives/select";
+import { Separator } from "@tpm/ui/primitives/separator";
+import { Skeleton } from "@tpm/ui/primitives/skeleton";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@tpm/ui/primitives/table";
+import { Tabs, TabsList, TabsTrigger } from "@tpm/ui/primitives/tabs";
+import { Textarea } from "@tpm/ui/primitives/textarea";
+import { RichTextEditor, RichTextView } from "@tpm/ui/editor";
 import { Columns3, Flag, List, Plus, Shapes, Tag, Trash2, User } from "lucide-react";
 import {
   AvatarStack,
@@ -70,8 +70,8 @@ import {
   type Priority,
   type TaskTypeRef,
   TrendStrip,
-} from "@meridian/ui";
-import { TrendChart } from "@meridian/ui/chart";
+} from "@tpm/ui";
+import { TrendChart } from "@tpm/ui/chart";
 import { ErrorStateDemo } from "./error-demo";
 import {
   ATTACHMENTS,
@@ -196,7 +196,7 @@ const TYPES: TaskTypeRef[] = [
 
 /**
  * Options for the filter menus below. Written out here rather than derived from
- * a board, because the gallery has no data — a component in `@meridian/ui`
+ * a board, because the gallery has no data — a component in `@tpm/ui`
  * renders what it is handed, and the page it lives on builds every href.
  */
 const FILTER_TYPES: FilterOption[] = TYPES.slice(0, 6).map((type) => ({

@@ -5,7 +5,7 @@
  * of the system, applied to somebody else's component.
  */
 
-.meridian-editor {
+.tpm-editor {
   --bn-font-family: var(--font-sans);
 
   --bn-colors-editor-text: var(--color-gray-1000);
@@ -37,7 +37,7 @@
  * possible because the side menu is off (see rich-text.tsx); with it on,
  * BlockNote needs a 54px gutter for the handles.
  */
-.meridian-editor:not(.meridian-editor--read-only) .bn-container {
+.tpm-editor:not(.tpm-editor--read-only) .bn-container {
   border: 1px solid var(--color-gray-400);
   border-radius: var(--radius-8);
   background: var(--color-background-100);
@@ -45,11 +45,11 @@
   transition: border-color 150ms ease;
 }
 
-.meridian-editor:not(.meridian-editor--read-only) .bn-container:focus-within {
+.tpm-editor:not(.tpm-editor--read-only) .bn-container:focus-within {
   border-color: var(--color-gray-700);
 }
 
-.meridian-editor:not(.meridian-editor--read-only) .bn-editor {
+.tpm-editor:not(.tpm-editor--read-only) .bn-editor {
   padding-inline: 10px;
   /* Roughly the four rows the textarea had. A description is somewhere to
      write, and a single-line field invites a single line. Clicking anywhere in
@@ -59,8 +59,8 @@
 
 /* Read-only output is prose on the page, not a control — and with no handles
    to make room for, the gutter would just be an indent. */
-.meridian-editor--read-only .bn-container,
-.meridian-editor--read-only .bn-editor {
+.tpm-editor--read-only .bn-container,
+.tpm-editor--read-only .bn-editor {
   border: 0;
   padding: 0;
   background: transparent;
@@ -68,11 +68,11 @@
 
 /* Drop target. BlockNote's own indicator is a thin blue line that is easy to
    miss when you are holding a file over a form. */
-.meridian-editor .bn-drop-cursor {
+.tpm-editor .bn-drop-cursor {
   background: var(--color-blue-700);
 }
 
-.meridian-editor .bn-block-content[data-content-type="heading"] {
+.tpm-editor .bn-block-content[data-content-type="heading"] {
   letter-spacing: -0.02em;
 }
 
@@ -81,13 +81,13 @@
  * `.bn-default-styles`, which is where BlockNote sets 16px and its own font
  * stack; setting it on the blocks alone loses to that.
  */
-.meridian-editor .bn-default-styles {
+.tpm-editor .bn-default-styles {
   font-family: var(--font-sans);
   font-size: var(--text-body);
   line-height: var(--text-body--line-height);
 }
 
-.meridian-editor .bn-block-content[data-content-type="codeBlock"] {
+.tpm-editor .bn-block-content[data-content-type="codeBlock"] {
   font-family: var(--font-mono);
   background: var(--color-gray-100);
   border: 1px solid var(--color-gray-400);

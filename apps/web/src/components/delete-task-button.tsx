@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@meridian/ui/primitives/button";
+import { Button } from "@tpm/ui/primitives/button";
 import {
   Dialog,
   DialogClose,
@@ -11,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@meridian/ui/primitives/dialog";
+} from "@tpm/ui/primitives/dialog";
 import { deleteTask } from "@/actions/tasks";
 
 /**

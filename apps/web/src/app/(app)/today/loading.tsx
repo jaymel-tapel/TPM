@@ -1,5 +1,5 @@
-import { Skeleton } from "@meridian/ui/primitives/skeleton";
-import { TaskListSkeleton } from "@meridian/ui";
+import { Skeleton } from "@tpm/ui/primitives/skeleton";
+import { TaskListSkeleton } from "@tpm/ui";
 
 export default function Loading() {
   return (

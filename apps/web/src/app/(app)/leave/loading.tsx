@@ -1,4 +1,4 @@
-import { MemberListSkeleton, PageHeaderSkeleton } from "@meridian/ui";
+import { MemberListSkeleton, PageHeaderSkeleton } from "@tpm/ui";
 
 export default function Loading() {
   return (

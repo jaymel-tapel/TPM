@@ -5,7 +5,7 @@ import {
   isEmptyDocument,
   toBlocks,
   toPlainText,
-} from "@meridian/ui/editor";
+} from "@tpm/ui/editor";
 
 describe("toBlocks", () => {
   it("reads a stored BlockNote document back", () => {

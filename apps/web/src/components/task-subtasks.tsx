@@ -2,9 +2,9 @@
 
 import { useActionState, useState, useTransition } from "react";
 import { Plus } from "lucide-react";
-import { SubtaskList, type SubtaskData } from "@meridian/ui";
-import { Button } from "@meridian/ui/primitives/button";
-import { Input } from "@meridian/ui/primitives/input";
+import { SubtaskList, type SubtaskData } from "@tpm/ui";
+import { Button } from "@tpm/ui/primitives/button";
+import { Input } from "@tpm/ui/primitives/input";
 import { createSubtask, toggleTaskDone, type FormState } from "@/actions/tasks";
 
 /**

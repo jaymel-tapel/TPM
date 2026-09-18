@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { AttachmentList, type AttachmentData } from "@meridian/ui";
+import { AttachmentList, type AttachmentData } from "@tpm/ui";
 import { deleteAttachment } from "@/actions/attachments";
 
 /**

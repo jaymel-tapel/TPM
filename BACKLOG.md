@@ -284,7 +284,7 @@ Three smaller decisions, so they are not re-derived:
   if small privacy expansion — before it a team member saw no roster at all,
   and after it they see their colleagues' names and dates. The dates are the
   point; the note is not. It is redacted in the query rather than in a
-  component, because `@meridian/ui` renders what it is handed and a prop can be
+  component, because `@tpm/ui` renders what it is handed and a prop can be
   passed again somewhere else.
 
 **Not built:** editing a filed request. Amending an approved range re-opens the
@@ -468,7 +468,7 @@ arrives rather than guessing.
   the action. Where a composite key lapses because a column is null, a check
   constraint closes it: department work has no client, so it cannot be part of
   a client's campaign.
-- **`@meridian/ui` renders but never queries.** No Drizzle, no app routes, no
+- **`@tpm/ui` renders but never queries.** No Drizzle, no app routes, no
   clock. That boundary is what makes `/design` renderable from fixtures.
 - **Every value cites a token.** See `DESIGN.md`. If a component is not on
   `/design`, it does not exist yet.

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { PageHeader } from "@meridian/ui";
+import { PageHeader } from "@tpm/ui";
 import { requireSession } from "@/lib/auth";
 import { assertCanAdminister } from "@/lib/permissions";
 import { listAccountOptions } from "@/queries/admin";

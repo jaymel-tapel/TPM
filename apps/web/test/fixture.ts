@@ -19,7 +19,7 @@ import {
   accounts,
   users,
 } from "@/db/schema";
-import { toPlainText } from "@meridian/ui/editor";
+import { toPlainText } from "@tpm/ui/editor";
 import { startOfAppDay } from "@/lib/date";
 import { dayKey } from "@/lib/leave";
 import type { Viewer } from "@/lib/auth";

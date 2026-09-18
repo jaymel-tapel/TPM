@@ -25,7 +25,7 @@ import { completionOnMove } from "@/lib/completion";
 import { dayRange } from "@/lib/date";
 import { ranksFor, weave } from "@/lib/rank";
 import { boardOrder, boardWindowSql, isLeaf } from "@/queries/sql";
-import { collectPeople } from "@meridian/ui/editor";
+import { collectPeople } from "@tpm/ui/editor";
 import { syncMentionedDocs } from "@/lib/doc-links";
 import { deliver, notify } from "@/lib/notify";
 import { assertCanViewAccountWork, loadEditableTask } from "@/lib/permissions";

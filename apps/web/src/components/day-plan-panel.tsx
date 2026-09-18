@@ -1,6 +1,6 @@
 "use client";
 
-import { DayPlan, type PlanBlockData } from "@meridian/ui";
+import { DayPlan, type PlanBlockData } from "@tpm/ui";
 import { planTask, unplanTask } from "@/actions/schedule";
 
 /**

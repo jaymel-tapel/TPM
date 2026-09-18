@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { Button } from "@meridian/ui/primitives/button";
+import { Button } from "@tpm/ui/primitives/button";
 import { setTaskTypeRetired, type FormState } from "@/actions/vocabulary";
 
 /** Retire a kind, or bring it back. Never a delete — see the action. */

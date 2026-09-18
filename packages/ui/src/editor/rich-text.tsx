@@ -107,7 +107,7 @@ export function RichTextEditor({
   );
 
   return (
-    <div className={cn("meridian-editor", className)}>
+    <div className={cn("tpm-editor", className)}>
       <input type="hidden" name={name} value={value} />
       {/*
         No side menu. Its + and drag handles live in a 54px gutter, which
@@ -166,7 +166,7 @@ export function RichTextView({
   const editor = useCreateBlockNote({ schema: editorSchema, initialContent: blocks as never });
 
   return (
-    <div className={cn("meridian-editor meridian-editor--read-only", className)}>
+    <div className={cn("tpm-editor tpm-editor--read-only", className)}>
       <BlockNoteView editor={editor} theme="light" editable={false} />
     </div>
   );

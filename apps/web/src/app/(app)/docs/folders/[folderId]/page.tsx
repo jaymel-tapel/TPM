@@ -8,7 +8,7 @@ import {
   DocTree,
   PageHeader,
   ScopeBadge,
-} from "@meridian/ui";
+} from "@tpm/ui";
 import { requireSession } from "@/lib/auth";
 import { canCreateOrgDocs, canEditDoc, canPlaceDoc, isSenior } from "@/lib/permissions";
 import { listAccounts } from "@/queries/accounts";

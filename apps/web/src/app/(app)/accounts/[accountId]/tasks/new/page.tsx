@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { PageHeader } from "@meridian/ui";
+import { PageHeader } from "@tpm/ui";
 import { openAccount } from "@/lib/account-page";
 import { canViewAccount } from "@/lib/permissions";
 import { NewBoardForm } from "./new-board-form";

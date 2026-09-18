@@ -1,7 +1,7 @@
 "use client";
 
-import { DocRefList } from "@meridian/ui";
-import type { DocRefData } from "@meridian/ui";
+import { DocRefList } from "@tpm/ui";
+import type { DocRefData } from "@tpm/ui";
 
 /**
  * `DocRefList` takes a detach action, and functions cannot cross the

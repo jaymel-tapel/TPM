@@ -10,8 +10,8 @@ import {
   DayStrip,
   TaskList,
   TaskRow,
-} from "@meridian/ui";
-import { Progress } from "@meridian/ui/primitives/progress";
+} from "@tpm/ui";
+import { Progress } from "@tpm/ui/primitives/progress";
 import { requireSession } from "@/lib/auth";
 import { getDayView } from "@/queries/tasks";
 import { getDayPlan, getPlanCounts, plannedTaskIds } from "@/queries/schedule";
@@ -87,7 +87,7 @@ export default async function TodayPage({
   const pending = day.today.length;
   const { startHour, endHour } = gridRange(plan, hours);
   /*
-   * The hour labels are formatted here, not in the component: `@meridian/ui`
+   * The hour labels are formatted here, not in the component: `@tpm/ui`
    * has no clock, and the app reasons in one fixed timezone whatever the
    * viewer's laptop is set to.
    */

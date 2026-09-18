@@ -5,7 +5,7 @@ import {
   MemberRow,
   PageHeader,
   SectionHeader,
-} from "@meridian/ui";
+} from "@tpm/ui";
 import { openAccount } from "@/lib/account-page";
 import { canViewAccount } from "@/lib/permissions";
 import { getAccountToday } from "@/queries/accounts";

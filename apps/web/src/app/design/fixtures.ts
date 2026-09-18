@@ -20,7 +20,7 @@ import type {
   CampaignRowData,
   CompareRowData,
   TrendPointData,
-} from "@meridian/ui";
+} from "@tpm/ui";
 
 /**
  * Static examples so the gallery renders every state, not just the happy one.

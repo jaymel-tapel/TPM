@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { Button } from "@meridian/ui/primitives/button";
+import { Button } from "@tpm/ui/primitives/button";
 import { cancelLeave, decideLeave, type LeaveState } from "@/actions/leave";
 
 /** Withdraw your own request. One button, one verb, nothing to confirm. */

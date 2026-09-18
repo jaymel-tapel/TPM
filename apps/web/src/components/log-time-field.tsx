@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Plus, X } from "lucide-react";
-import { Input } from "@meridian/ui/primitives/input";
+import { Input } from "@tpm/ui/primitives/input";
 import { logTime } from "@/actions/activity";
 
 /**

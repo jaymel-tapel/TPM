@@ -1,4 +1,4 @@
-import { MemberList, MemberRow, PageHeader, SectionHeader } from "@meridian/ui";
+import { MemberList, MemberRow, PageHeader, SectionHeader } from "@tpm/ui";
 import { requireSession } from "@/lib/auth";
 import { isDirector } from "@/lib/permissions";
 import { listPeople } from "@/queries/people";

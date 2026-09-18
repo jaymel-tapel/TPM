@@ -7,7 +7,7 @@ import {
   MemberRow,
   PageHeader,
   SectionHeader,
-} from "@meridian/ui";
+} from "@tpm/ui";
 import type { User } from "@/db/schema";
 import type { Viewer } from "@/lib/auth";
 import { now, type Zone } from "@/lib/date";

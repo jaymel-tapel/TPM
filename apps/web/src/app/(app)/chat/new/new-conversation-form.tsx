@@ -2,10 +2,10 @@
 
 import { useActionState, useState } from "react";
 import { Search, X } from "lucide-react";
-import { Button } from "@meridian/ui/primitives/button";
-import { Input } from "@meridian/ui/primitives/input";
-import { Label } from "@meridian/ui/primitives/label";
-import { ButtonLink, Panel, UserAvatar } from "@meridian/ui";
+import { Button } from "@tpm/ui/primitives/button";
+import { Input } from "@tpm/ui/primitives/input";
+import { Label } from "@tpm/ui/primitives/label";
+import { ButtonLink, Panel, UserAvatar } from "@tpm/ui";
 import { startConversation, type ChatState } from "@/actions/chat";
 
 type Person = { id: string; name: string; accountName: string | null };

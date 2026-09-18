@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { Bell } from "lucide-react";
-import { InboxList, cn, type InboxItemData } from "@meridian/ui";
+import { InboxList, cn, type InboxItemData } from "@tpm/ui";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger,
-} from "@meridian/ui/primitives/dropdown-menu";
+} from "@tpm/ui/primitives/dropdown-menu";
 import { openNotification } from "@/actions/notifications";
 
 /**

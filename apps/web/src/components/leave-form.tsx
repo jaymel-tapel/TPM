@@ -1,18 +1,18 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { Button } from "@meridian/ui/primitives/button";
-import { Input } from "@meridian/ui/primitives/input";
-import { Label } from "@meridian/ui/primitives/label";
-import { Textarea } from "@meridian/ui/primitives/textarea";
+import { Button } from "@tpm/ui/primitives/button";
+import { Input } from "@tpm/ui/primitives/input";
+import { Label } from "@tpm/ui/primitives/label";
+import { Textarea } from "@tpm/ui/primitives/textarea";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@meridian/ui/primitives/select";
-import { LEAVE_KIND_LABELS, LEAVE_KINDS, type LeaveKind } from "@meridian/ui";
+} from "@tpm/ui/primitives/select";
+import { LEAVE_KIND_LABELS, LEAVE_KINDS, type LeaveKind } from "@tpm/ui";
 import { fileLeave } from "@/actions/leave";
 
 const label = "mb-2 block text-caption-strong uppercase tracking-[0.08em] text-gray-600";

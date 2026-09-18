@@ -1,7 +1,7 @@
 import "server-only";
 import type { Viewer } from "@/lib/auth";
 import { and, eq } from "drizzle-orm";
-import { collectMentions } from "@meridian/ui/editor";
+import { collectMentions } from "@tpm/ui/editor";
 import { db } from "@/db";
 import { taskDocuments } from "@/db/schema";
 import { filterVisibleDocIds } from "@/queries/docs";

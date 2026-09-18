@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef } from "react";
-import { ROLE_LABELS, type Role } from "@meridian/ui";
+import { ROLE_LABELS, type Role } from "@tpm/ui";
 import { switchViewAs } from "@/actions/auth";
 
 /**

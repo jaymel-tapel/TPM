@@ -1,8 +1,8 @@
 "use client";
 
 import { useActionState } from "react";
-import { Button } from "@meridian/ui/primitives/button";
-import { Label } from "@meridian/ui/primitives/label";
+import { Button } from "@tpm/ui/primitives/button";
+import { Label } from "@tpm/ui/primitives/label";
 import { updateDaySettings, type SettingsState } from "@/actions/settings";
 
 /** "9 AM", "12 PM", "11 PM" — the labels the grid's gutter uses. */

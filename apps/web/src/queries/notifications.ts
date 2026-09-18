@@ -1,6 +1,6 @@
 import "server-only";
 import { and, count, eq, isNull, sql } from "drizzle-orm";
-import { toPlainText } from "@meridian/ui/editor";
+import { toPlainText } from "@tpm/ui/editor";
 import { db } from "@/db";
 import { worksOn } from "./sql";
 import { notifications, type NotificationKind, type Task } from "@/db/schema";

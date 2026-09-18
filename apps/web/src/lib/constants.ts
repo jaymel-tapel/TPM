@@ -1,5 +1,5 @@
 /**
- * Labels and enums that are presentation live in `@meridian/ui`. What is left
+ * Labels and enums that are presentation live in `@tpm/ui`. What is left
  * here is app-side only.
  */
 export {
@@ -7,7 +7,7 @@ export {
   PRIORITIES,
   ROLE_BADGES,
   ROLE_LABELS,
-} from "@meridian/ui";
+} from "@tpm/ui";
 
 /** The one password every seeded demo account shares. */
 export const DEMO_PASSWORD = "demo1234";

@@ -3,7 +3,7 @@ import {
   LeaveRequestRow,
   PageHeader,
   SectionHeader,
-} from "@meridian/ui";
+} from "@tpm/ui";
 import { requireSession } from "@/lib/auth";
 import { now } from "@/lib/date";
 import { listMyLeave, listPendingFor } from "@/queries/leave";

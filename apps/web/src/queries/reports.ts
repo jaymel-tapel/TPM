@@ -4,7 +4,7 @@ import { format } from "date-fns";
 import { db } from "@/db";
 import { dayRange, now, pct, type Zone } from "@/lib/date";
 import { isLeaf, onTimeIn, overdueSql, scopeSql, TZ, type Scope } from "./sql";
-import type { TaskTypeRef } from "@meridian/ui";
+import type { TaskTypeRef } from "@tpm/ui";
 
 export type ReportMetrics = {
   due: number;

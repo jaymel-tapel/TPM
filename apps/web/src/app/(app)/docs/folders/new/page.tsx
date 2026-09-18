@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { PageHeader } from "@meridian/ui";
+import { PageHeader } from "@tpm/ui";
 import { requireSession } from "@/lib/auth";
 import { canCreateDocs, canCreateOrgDocs, canPlaceDoc, isSenior } from "@/lib/permissions";
 import { listAccounts } from "@/queries/accounts";

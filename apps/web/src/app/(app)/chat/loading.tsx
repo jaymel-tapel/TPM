@@ -1,4 +1,4 @@
-import { Skeleton } from "@meridian/ui/primitives/skeleton";
+import { Skeleton } from "@tpm/ui/primitives/skeleton";
 
 /** The empty state's shape, so landing on /chat does not flash a blank pane. */
 export default function Loading() {

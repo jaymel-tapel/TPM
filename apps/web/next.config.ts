@@ -11,7 +11,7 @@ const nextConfig: NextConfig = {
    */
   devIndicators: false,
   // The design system ships as TypeScript source, so Next compiles it here.
-  transpilePackages: ["@meridian/ui"],
+  transpilePackages: ["@tpm/ui"],
   outputFileTracingRoot: path.join(import.meta.dirname, "../../"),
 };
 

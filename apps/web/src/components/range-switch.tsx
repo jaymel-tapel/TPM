@@ -1,5 +1,5 @@
 import { CalendarCheck, CalendarDays } from "lucide-react";
-import { Command, CommandBar } from "@meridian/ui";
+import { Command, CommandBar } from "@tpm/ui";
 import type { RangeKind } from "@/lib/range";
 
 /**

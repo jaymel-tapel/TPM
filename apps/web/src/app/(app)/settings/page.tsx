@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { PageHeader, Panel } from "@meridian/ui";
+import { PageHeader, Panel } from "@tpm/ui";
 import { requireSession } from "@/lib/auth";
 import { fmt, now } from "@/lib/date";
 import { getDepartmentSettings } from "@/queries/department-settings";

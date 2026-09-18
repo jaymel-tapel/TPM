@@ -33,7 +33,7 @@ export * from "./components/error-state";
 export * from "./components/hero-panel";
 export * from "./components/skeletons";
 export * from "./components/stat";
-// The chart lives at "@meridian/ui/chart" so its Recharts dependency is not
+// The chart lives at "@tpm/ui/chart" so its Recharts dependency is not
 // pulled into every page that imports anything from this package.
 export { DocTree, DocBreadcrumb, ScopeBadge } from "./components/doc-tree";
 export { DocRefList, DocBacklinkList, DocSearchResults } from "./components/doc-list";

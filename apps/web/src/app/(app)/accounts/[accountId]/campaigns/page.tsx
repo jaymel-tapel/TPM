@@ -1,4 +1,4 @@
-import { CampaignList, CampaignRow, PageHeader, SectionHeader } from "@meridian/ui";
+import { CampaignList, CampaignRow, PageHeader, SectionHeader } from "@tpm/ui";
 import { openAccount } from "@/lib/account-page";
 import { listCampaignsForAccount } from "@/queries/campaigns";
 import { toCampaignRow } from "@/lib/present";

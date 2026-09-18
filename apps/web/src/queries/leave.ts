@@ -63,7 +63,7 @@ type RawRow = Omit<LeaveRow, "decidedAt" | "createdAt"> & {
  * dates. The dates are the point. The note is not — "a hospital appointment"
  * is nobody's business but the filer's and the person deciding it.
  *
- * Withheld in the SQL rather than in a component, because `@meridian/ui`
+ * Withheld in the SQL rather than in a component, because `@tpm/ui`
  * renders what it is handed and a prop can be passed again somewhere else. The
  * column simply does not leave the database for a reader who has no claim on
  * it.

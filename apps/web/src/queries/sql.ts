@@ -1,7 +1,7 @@
 import "server-only";
 import { sql, type SQL } from "drizzle-orm";
 import { APP_TIMEZONE } from "@/lib/date";
-import type { TaskTypeRef } from "@meridian/ui";
+import type { TaskTypeRef } from "@tpm/ui";
 import type { StatusKind } from "@/db/schema";
 
 /**

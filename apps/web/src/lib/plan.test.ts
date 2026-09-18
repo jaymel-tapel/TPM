@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { TZDate } from "@date-fns/tz";
 import { APP_TIMEZONE, fmt } from "./date";
-import { layoutBlocks } from "@meridian/ui";
+import { layoutBlocks } from "@tpm/ui";
 import {
   PLAN_DAYS,
   planDays,

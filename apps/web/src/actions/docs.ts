@@ -4,12 +4,12 @@ import { notFound, redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
-import { toPlainText } from "@meridian/ui/editor";
+import { toPlainText } from "@tpm/ui/editor";
 import { db } from "@/db";
 import { docVisibilityEnum, documents, folders, taskDocuments } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
 import { listAssignableUsers } from "@/queries/accounts";
-import type { MentionItem } from "@meridian/ui/editor";
+import type { MentionItem } from "@tpm/ui/editor";
 import {
   assertMayPlaceDoc,
   canCreateDocs,

@@ -35,7 +35,7 @@ export default function setup() {
       DATABASE_URL: TEST_DATABASE_URL,
       // Stop drizzle.config.ts loading .env.local over the top of the URL we
       // just set — otherwise the schema lands in whatever the app points at.
-      MERIDIAN_SKIP_DOTENV: "1",
+      TPM_SKIP_DOTENV: "1",
     },
   });
 }

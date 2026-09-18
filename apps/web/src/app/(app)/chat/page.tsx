@@ -1,5 +1,5 @@
 import { MessagesSquare } from "lucide-react";
-import { ButtonLink } from "@meridian/ui";
+import { ButtonLink } from "@tpm/ui";
 
 export const dynamic = "force-dynamic";
 

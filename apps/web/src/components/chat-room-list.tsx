@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { Search } from "lucide-react";
-import { RoomList, type RoomListItemData } from "@meridian/ui";
+import { RoomList, type RoomListItemData } from "@tpm/ui";
 
 type Room = Omit<RoomListItemData, "active">;
 

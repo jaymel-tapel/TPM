@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { Command, CommandBar, PageHeader } from "@meridian/ui";
+import { Command, CommandBar, PageHeader } from "@tpm/ui";
 import { openAccount } from "@/lib/account-page";
 import { canViewAccount } from "@/lib/permissions";
 import { listBoardsForAccounts } from "@/queries/tasks";

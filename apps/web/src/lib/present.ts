@@ -19,7 +19,7 @@ import type {
   MemberRowData,
   Priority,
   TaskRowData,
-} from "@meridian/ui";
+} from "@tpm/ui";
 import {
   agoLabel,
   dueLabel,
@@ -57,7 +57,7 @@ import type {
 /**
  * The seam between the database and the design system.
  *
- * `@meridian/ui` renders plain data and knows nothing about Drizzle, the app's
+ * `@tpm/ui` renders plain data and knows nothing about Drizzle, the app's
  * routes, or what time it is. Everything that depends on those is resolved
  * here, once, on the server.
  */
@@ -98,7 +98,7 @@ const HALF_LABEL = { am: "Away this morning", pm: "Away this afternoon" } as con
 /**
  * The away marker, with its sentence already written.
  *
- * `@meridian/ui` has no calendar, so "Away until Fri 18 Sep" is composed here
+ * `@tpm/ui` has no calendar, so "Away until Fri 18 Sep" is composed here
  * — the same seam `dueLabel` draws for a task. The run's end is only mentioned
  * when it is still ahead: on the last day of somebody's leave, "away until
  * today" is a worse sentence than "away today".
@@ -397,7 +397,7 @@ export function toInboxItem(entry: InboxEntry, reference: Date = now()): InboxIt
 /**
  * One block on the day plan.
  *
- * The raw `Date` stops here: `@meridian/ui` has no clock and no timezone, so it
+ * The raw `Date` stops here: `@tpm/ui` has no clock and no timezone, so it
  * gets minutes from the app day's own midnight plus a formatted label. Same
  * seam `toTaskRow` draws with `dueText`.
  */

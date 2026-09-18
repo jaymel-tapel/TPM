@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { Building2 } from "lucide-react";
-import { Progress } from "@meridian/ui/primitives/progress";
-import { TrendChart } from "@meridian/ui/chart";
+import { Progress } from "@tpm/ui/primitives/progress";
+import { TrendChart } from "@tpm/ui/chart";
 import {
   Command,
   CommandBar,
@@ -11,7 +11,7 @@ import {
   Stat,
   TypeLabel,
   UserAvatar,
-} from "@meridian/ui";
+} from "@tpm/ui";
 import { requireSession } from "@/lib/auth";
 
 import { assertCanViewReports, isSenior } from "@/lib/permissions";

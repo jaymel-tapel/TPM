@@ -2,7 +2,7 @@ import "server-only";
 import { and, asc, eq, gte, lt, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { taskSchedule, taskTypes, tasks, type Priority } from "@/db/schema";
-import type { TaskTypeRef } from "@meridian/ui";
+import type { TaskTypeRef } from "@tpm/ui";
 import { TZ } from "./sql";
 import { dayRange, fmt, now, type Zone } from "@/lib/date";
 

@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import { useActionState } from "react";
-import { ButtonLink, TypeIcon, TYPE_ICON_NAMES, TYPE_TONE_NAMES, cn } from "@meridian/ui";
-import { Button } from "@meridian/ui/primitives/button";
-import { Input } from "@meridian/ui/primitives/input";
-import { Label } from "@meridian/ui/primitives/label";
+import { ButtonLink, TypeIcon, TYPE_ICON_NAMES, TYPE_TONE_NAMES, cn } from "@tpm/ui";
+import { Button } from "@tpm/ui/primitives/button";
+import { Input } from "@tpm/ui/primitives/input";
+import { Label } from "@tpm/ui/primitives/label";
 import type { FormState } from "@/actions/vocabulary";
 
 const label = "mb-2 block text-caption-strong uppercase tracking-[0.08em] text-gray-600";

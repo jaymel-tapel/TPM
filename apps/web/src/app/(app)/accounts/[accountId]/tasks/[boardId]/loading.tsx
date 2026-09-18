@@ -1,4 +1,4 @@
-import { Skeleton } from "@meridian/ui/primitives/skeleton";
+import { Skeleton } from "@tpm/ui/primitives/skeleton";
 
 /**
  * A board, before it arrives. Four columns because every board has at least

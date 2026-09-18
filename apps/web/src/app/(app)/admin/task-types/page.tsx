@@ -7,7 +7,7 @@ import {
   Panel,
   SectionHeader,
   TypeLabel,
-} from "@meridian/ui";
+} from "@tpm/ui";
 import { requireSession } from "@/lib/auth";
 import { assertCanAdminister } from "@/lib/permissions";
 import { listTaskTypesWithUse, toTypeRef } from "@/queries/task-types";

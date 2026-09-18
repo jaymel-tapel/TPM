@@ -2,9 +2,9 @@
 
 import { useActionState } from "react";
 import Image from "next/image";
-import { Button } from "@meridian/ui/primitives/button";
-import { Input } from "@meridian/ui/primitives/input";
-import { Label } from "@meridian/ui/primitives/label";
+import { Button } from "@tpm/ui/primitives/button";
+import { Input } from "@tpm/ui/primitives/input";
+import { Label } from "@tpm/ui/primitives/label";
 import { login } from "@/actions/auth";
 
 const DEMO = [

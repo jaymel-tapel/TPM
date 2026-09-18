@@ -25,7 +25,7 @@ import { DEMO_PASSWORD } from "../lib/constants";
 import { lastNDays, now, startOfAppDay } from "../lib/date";
 import { dayKey } from "../lib/leave";
 import { truncateAllData } from "./reset-data";
-import { toPlainText } from "@meridian/ui/editor";
+import { toPlainText } from "@tpm/ui/editor";
 
 /**
  * The seed still thinks in the four original statuses, because that is what

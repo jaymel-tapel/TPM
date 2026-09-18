@@ -1,4 +1,4 @@
-import { Skeleton } from "@meridian/ui/primitives/skeleton";
+import { Skeleton } from "@tpm/ui/primitives/skeleton";
 
 /**
  * The conversation pane, waiting. Alternating alignment because a thread is

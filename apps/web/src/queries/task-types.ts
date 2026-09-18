@@ -2,7 +2,7 @@ import "server-only";
 import { asc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { taskTypes } from "@/db/schema";
-import type { TaskTypeRef } from "@meridian/ui";
+import type { TaskTypeRef } from "@tpm/ui";
 
 export type TaskTypeRow = typeof taskTypes.$inferSelect;
 

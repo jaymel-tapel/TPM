@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { notFound } from "next/navigation";
 import { and, eq, inArray, sum } from "drizzle-orm";
 import { z } from "zod";
-import { collectPeople, isEmptyDocument } from "@meridian/ui/editor";
+import { collectPeople, isEmptyDocument } from "@tpm/ui/editor";
 import { db } from "@/db";
 import { taskActivity, taskAssignees, tasks } from "@/db/schema";
 import { requireUser } from "@/lib/auth";

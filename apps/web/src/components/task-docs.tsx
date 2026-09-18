@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { DocRefList } from "@meridian/ui";
-import type { DocRefData } from "@meridian/ui";
+import { DocRefList } from "@tpm/ui";
+import type { DocRefData } from "@tpm/ui";
 import { attachDocToTask, detachDocFromTask } from "@/actions/docs";
 import { useMentionSource } from "@/components/doc-mention";
 

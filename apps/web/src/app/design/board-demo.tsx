@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { TaskBoard, type BoardData } from "@meridian/ui";
+import { TaskBoard, type BoardData } from "@tpm/ui";
 
 /**
  * The board with something to drag.

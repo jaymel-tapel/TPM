@@ -1,5 +1,5 @@
-import { Skeleton } from "@meridian/ui/primitives/skeleton";
-import { PageHeaderSkeleton, Panel } from "@meridian/ui";
+import { Skeleton } from "@tpm/ui/primitives/skeleton";
+import { PageHeaderSkeleton, Panel } from "@tpm/ui";
 
 export default function Loading() {
   return (

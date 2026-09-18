@@ -11,7 +11,7 @@ import {
   SectionHeader,
   Stat,
   TrendStrip,
-} from "@meridian/ui";
+} from "@tpm/ui";
 import { notFound } from "next/navigation";
 import { requireSession } from "@/lib/auth";
 import { isSenior } from "@/lib/permissions";

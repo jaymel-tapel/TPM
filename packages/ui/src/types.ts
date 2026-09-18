@@ -1,5 +1,5 @@
 /** What a task drag carries, so a drop target can ignore files and links. */
-export const TASK_DRAG_TYPE = "application/x-meridian-task";
+export const TASK_DRAG_TYPE = "application/x-tpm-task";
 
 /**
  * The presentational contract.

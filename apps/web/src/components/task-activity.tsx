@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ActivityFeed, type ActivityItemData } from "@meridian/ui";
+import { ActivityFeed, type ActivityItemData } from "@tpm/ui";
 import { addComment, deleteActivity } from "@/actions/activity";
 import { useMentionSource } from "@/components/doc-mention";
 

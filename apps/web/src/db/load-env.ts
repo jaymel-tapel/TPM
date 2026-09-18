@@ -21,9 +21,9 @@ import { config } from "dotenv";
  * Because the override above is unconditional, a caller that deliberately sets
  * DATABASE_URL for one run — the test harness pointing drizzle-kit at the
  * throwaway test database — would have it silently replaced. Such callers set
- * MERIDIAN_SKIP_DOTENV=1 to say "the environment I was given is the truth".
+ * TPM_SKIP_DOTENV=1 to say "the environment I was given is the truth".
  */
-if (process.env.MERIDIAN_SKIP_DOTENV !== "1") {
+if (process.env.TPM_SKIP_DOTENV !== "1") {
   config({ path: ".env.local", override: true });
   config({ path: ".env" });
 }

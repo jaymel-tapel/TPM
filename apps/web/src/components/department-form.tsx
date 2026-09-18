@@ -1,8 +1,8 @@
 "use client";
 
 import { useActionState } from "react";
-import { Button } from "@meridian/ui/primitives/button";
-import { Label } from "@meridian/ui/primitives/label";
+import { Button } from "@tpm/ui/primitives/button";
+import { Label } from "@tpm/ui/primitives/label";
 import { updateDepartment, type FormState } from "@/actions/admin";
 
 function hourLabel(hour: number): string {

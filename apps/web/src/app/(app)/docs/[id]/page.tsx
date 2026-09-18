@@ -10,8 +10,8 @@ import {
   PageHeader,
   Panel,
   ScopeBadge,
-} from "@meridian/ui";
-import { RichTextView } from "@meridian/ui/editor";
+} from "@tpm/ui";
+import { RichTextView } from "@tpm/ui/editor";
 import { requireSession } from "@/lib/auth";
 import { canCreateOrgDocs, canEditDoc, canPlaceDoc, isSenior } from "@/lib/permissions";
 import { listAccounts } from "@/queries/accounts";

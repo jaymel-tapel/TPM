@@ -2,10 +2,10 @@
 
 import { useActionState } from "react";
 import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
-import { Button } from "@meridian/ui/primitives/button";
-import { Input } from "@meridian/ui/primitives/input";
-import { Label } from "@meridian/ui/primitives/label";
-import { Panel, SectionHeader, StatusBadge, STATUS_KIND_LABELS, STATUS_KINDS } from "@meridian/ui";
+import { Button } from "@tpm/ui/primitives/button";
+import { Input } from "@tpm/ui/primitives/input";
+import { Label } from "@tpm/ui/primitives/label";
+import { Panel, SectionHeader, StatusBadge, STATUS_KIND_LABELS, STATUS_KINDS } from "@tpm/ui";
 import {
   addColumn,
   deleteColumn,

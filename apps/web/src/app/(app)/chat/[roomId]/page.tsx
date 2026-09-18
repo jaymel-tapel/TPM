@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { Hash } from "lucide-react";
-import { UserAvatar } from "@meridian/ui";
+import { UserAvatar } from "@tpm/ui";
 import { requireSession } from "@/lib/auth";
 import { getRoom, listMessages } from "@/queries/chat";
 import { toChatMessages } from "@/lib/present";

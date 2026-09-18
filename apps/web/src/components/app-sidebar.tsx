@@ -16,7 +16,7 @@ import {
   MessageSquare,
   Plus,
 } from "lucide-react";
-import { ROLE_LABELS, UserAvatar, cn, type InboxItemData, type Role } from "@meridian/ui";
+import { ROLE_LABELS, UserAvatar, cn, type InboxItemData, type Role } from "@tpm/ui";
 import type { NavAccount, NavChild, NavItem } from "@/lib/permissions";
 import { logout } from "@/actions/auth";
 import { NotificationBell } from "./notification-bell";
